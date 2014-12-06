@@ -25,6 +25,7 @@ private:
    uint32_t GetMaxIc(Map<uint32_t, uint32_t>& mapIcToScore);
    uint32_t GetMinIc(Map<uint32_t, uint32_t>& mapIcToScore);
 
+   void Rotate_it(uint32_t clsUid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet); // iterative version
    void Rotate(uint32_t clsUid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet);
 
     SimpSolver& m_Solver;

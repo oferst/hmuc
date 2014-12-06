@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-
+#include<vector>
 
 namespace Minisat
 {
@@ -54,6 +54,120 @@ void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, bool last)
             mucSize);
     }
 }
+
+class rec_record { 
+  public: 
+	uint32_t uid;
+	Var v; 
+	std::vector<lbool> model;		
+    
+    rec_record(uint32_t _uid, Var _v, std::vector<lbool>& _model):uid(_uid), v(_v)  {model = _model;} 
+};
+
+
+inline static lbool  Modelvalue(Lit p, std::vector<lbool>& model) {return model[var(p)] ^ sign(p);}
+
+void CMinimalCore::Rotate_it(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
+{
+	++m_nRotationCalled;
+	std::vector<rec_record> S; 	// stack of active calls 
+	std::vector<lbool> mymodel;
+	for (int i = 0; i < m_Solver.model.size(); ++i) mymodel.push_back(m_Solver.model[i]);
+	rec_record rec = rec_record(uid, v, mymodel);
+	S.push_back(rec); 	// call f(x)
+	while(S.size() > 0) { 
+		rec_record curr = S.back();
+		S.pop_back();
+
+		CRef ref = m_Solver.GetClauseIndFromUid(curr.uid);
+		assert(ref != CRef_Undef);
+		Clause& cls = m_Solver.GetClause(ref);
+		for (int i = 0; i < cls.size(); ++i)
+		{
+			// we will pass one by one literal and check if the clause is satisfiable with change 
+			Var checkVar = var(cls[i]);
+			if (checkVar == curr.v) 
+			{
+				continue;
+			}
+
+			// first we swap v in the model and count the number of clauses that became unsat as a result of it
+			//assert(m_Solver.modelValue(cls[i]) == l_False);
+			curr.model[checkVar] = curr.model[checkVar] ^ 1;
+
+			// now we need to check how many variables are 
+			vec<uint32_t>& _cs = m_Occurs[toInt(~cls[i])];
+			uint32_t* cs = (uint32_t*)_cs;
+			int unsatClss = 0;
+			uint32_t unsatClsUid = CRef_Undef;
+			uint32_t unsatCls1 = CRef_Undef;
+			uint32_t unsatCls2 = CRef_Undef;
+			for (int j = 0; j < _cs.size() && unsatClss < 2; ++j)
+			{
+				CRef ref = m_Solver.GetClauseIndFromUid(cs[j]);
+				// check if this clause was previously removed
+				if  (ref == CRef_Undef)
+					continue;
+				Clause& cls = m_Solver.GetClause(ref);
+				int litInd = 0;
+				for (; litInd < cls.size(); ++litInd)
+				{
+					assert(Modelvalue(cls[litInd], curr.model) != l_Undef);
+					if (Modelvalue(cls[litInd], curr.model) == l_True)
+					{
+						break;
+					}
+				}
+				
+				if (litInd == cls.size()) // check if the clause is unsat
+				{
+					++unsatClss;
+					unsatClsUid = cs[j];
+					if (unsatClss == 1)
+					{
+						unsatCls1 = unsatClsUid;
+					}
+					else
+					{
+						unsatCls2 = unsatClsUid;
+					}
+				}
+			}		
+			assert(unsatClss > 0);
+
+
+			if (unsatClss == 2 && opt_remove_order == 4)
+			{
+				if (!setMuc.has(unsatCls1))
+					m_ClausesForRemoval.push(unsatCls1);
+				if (!setMuc.has(unsatCls2))
+					m_ClausesForRemoval.push(unsatCls2);
+			}
+			else if (unsatClss == 1) 
+			{
+				if (bUseSet)
+				{
+					if (!setMuc.has(unsatClsUid) && moreMucClauses.insert(unsatClsUid))
+					{		
+						S.push_back(rec_record(unsatClsUid, checkVar,curr.model)); 
+					}
+				}
+				else
+				{
+					if (moreMucClauses.insert(unsatClsUid))
+					{						
+						S.push_back(rec_record(unsatClsUid, checkVar, curr.model));
+					}
+				}
+			}
+			// swap the value back to what it was before			
+			curr.model[checkVar] = curr.model[checkVar] ^ 1;
+		}		
+	}
+}
+
+
+
 
 void CMinimalCore::Rotate(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
 {
@@ -350,7 +464,8 @@ lbool CMinimalCore::Solve(bool pre)
                 vecUidsToRemove.clear();
                 moreMucClauses.clear();
                 ++m_nRotationFirstCalls;
-                Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+                //Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+				Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
 
                 if (opt_second_sat_call)
                 {
@@ -376,7 +491,8 @@ lbool CMinimalCore::Solve(bool pre)
                     int nSizeBefore = setMuc.elems();
                     m_Solver.ReversePolarity();
                     ((Solver*)&m_Solver)->solveLimited(assumptions);
-                    Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+                    //Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+					Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
                     m_nSecondRotationClausesAdded += (setMuc.elems() - nSizeBefore);
                 }
 
