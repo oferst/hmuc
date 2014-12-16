@@ -984,7 +984,7 @@ lbool Solver::search(int nof_conflicts)
                     return l_True; // Model found:
                 }
             }
-
+			
             // Increase decision level and enqueue 'next'
             newDecisionLevel(conflictC);
             uncheckedEnqueue(next);
@@ -1650,9 +1650,9 @@ int Solver::PF_get_assumptions(uint32_t uid) // Returns the number of literals i
 	if (lpf && m_bConeRelevant)
 	{			
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification); 
-		printf("(%d) literals returned by get_assumption = (", ++count); 
+		//printf("(%d) literals returned by get_assumption = (", ++count); 
 		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
-		printf(")\n");			
+		//printf(")\n");			
 		//printf("counter of lits: %d\n",LiteralsFromPathFalsification.size());
 		return LiteralsFromPathFalsification.size();
 	}
@@ -1686,9 +1686,11 @@ int Solver::PF_get_assumptions(uint32_t uid) // Returns the number of literals i
         }
     }
 	LiteralsFromPathFalsification.removeDuplicated_();
-	printf("falsified clause = ");
+	
+	/*printf("falsified clause = ");
 	for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
-	printf("\n");
+	printf("\n");*/
+
 
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
@@ -1713,17 +1715,30 @@ static void printfLitVec(vec<Lit>& v, char *msg) {
 	printf(")\n");
 }
 
+
+//// for best performance send the smaller vector via 'a'. a should be sorted (b not).
+//static inline void Intersection_nonSorted(vec<Lit>& a, vec<Lit>& b, vec<Lit>& intersection)
+//{
+//	int b_itr = 0;
+//	int lb = 0;
+//	while (b_itr != b.size()) {
+//		if (a.binary_search_inc(b[b_itr], lb)) intersection.push(b[b_itr]);
+//		++b_itr;
+//	}
+//	return;
+//}
+
 /************************************************************************/
 /* Literal-based Path-falsification. 
- * With clause "uid": unsat
+ * With clause "uid_root": unsat
  * Before removing it, we find literals that can be added as assumptions. 
- * A literal l can be added if -l appears on all paths from uid to (). 
+ * A literal l can be added if -l appears on all paths from uid_root to (). 
  * we find such literals based on the equivalence: S(c) = \cap_{p \in parents(c)} S(p) \cup c, where S(c) is a set of literals that we attach to a clause c. 
- * For the root clause c (defined by the parameter "uid"), S(c) = c;
+ * For the root clause c (defined by the parameter "uid_root"), S(c) = c;
 */
 /************************************************************************/
 void Solver::LPF_get_assumptions(
-	uint32_t uid, /**< uid of a clause that we are about to remove */ // Doxygen-friendly comments. 
+	uint32_t uid_root, /**< uid of a clause that we are about to remove */ // Doxygen-friendly comments. 
 	vec<Lit>& assump_literals /**< to be filled with literals */
 	)
 {
@@ -1732,29 +1747,61 @@ void Solver::LPF_get_assumptions(
 	static vec<uint32_t> parents_of_empty_clause;  // parents of empty clause. Defined as static because when the result is SAT, we use the list from the last unsat.
 	Map<uint32_t,uint32_t> map_cls_parentsCount;  // maps from uid of clause, to the number of parents on the relevant cone of c, i.e., parents on paths from c to the empty clause.
 	bool prefix = true; 
-	CRef c = resol.GetInd(uid); // the clause reference of c
+	
 
-	if (icParents.size() > 0) {  
+	if (icParents.size() > 0) {  // if the result was unsat, this condition is true and we need to clear the previous list; otherwise this condition is false, and we use the parents_of_empty_clause form the last run that it was unsat.
 		parents_of_empty_clause.clear();
 		parents_of_empty_clause.growTo(icParents.size());
 		for (int i=0 ; i < icParents.size() ; i++) { // icParents holds the parents of the empty clause 
 			parents_of_empty_clause[i] = icParents[i];
 		}	
-		sort(parents_of_empty_clause); 
+		sort(parents_of_empty_clause); // sorted because we run binary-search on it later
 	}
 	
 	//printfIntVec(parents_of_empty_clause,"parents of empty clause");
 	
 	assert(parents_of_empty_clause.size()>0); // empty clause always has parents.
-    vec<Lit>* parent = new vec<Lit>(); 
-
-    ca[c].copyTo(*parent);
-    sort(*parent);
-    map_cls_to_Tclause[uid] = parent;
-
-    CountParents(map_cls_parentsCount , uid); // add counter of parents in the cone.
+    vec<Lit>* Top_TClause = new vec<Lit>(); 
+    CRef c = resol.GetInd(uid_root);  // the clause reference of c
+    Clause& cc = ca[c];
 	
-	queue.push(uid);
+	// adding root to Top_TClause. 
+	for (int i = 0; i < cc.size(); ++i)	
+		(*Top_TClause).push(cc[i]);
+
+    // adding clauses in the unit-chain to Top_Tclause. 
+	vec<uint32_t> uidvec_prefix; 	
+	resol.GetTillMultiChild(uid_root, uidvec_prefix);
+    uint32_t last_in_chain;
+	for (int i = 0; i < uidvec_prefix.size(); ++i)  // for each clause in the prefix
+	{
+		CRef cr = resol.GetInd(uidvec_prefix[i]);
+		if (cr != CRef_Undef)
+		{    
+			Clause& cl = ca[cr];
+			for (int i = 0; i < cl.size(); ++i)
+			{
+				(*Top_TClause).push(cl[i]);
+			}	
+		}
+	}	
+    
+    
+	if (uidvec_prefix.size() > 0) {
+        assert(Top_TClause->size() > 0);
+		uid_root = uidvec_prefix.last(); 
+	}
+	else {        
+        ca[resol.GetInd(uid_root)].copyTo(*Top_TClause);        
+	}
+    sort(*Top_TClause);
+	// from hereon uid_root is the bottom clause in the unit-chain, and its Tclause is the union of 
+    map_cls_to_Tclause[uid_root] = new vec<Lit>();//Top_TClause;
+
+    
+    CountParents(map_cls_parentsCount , uid_root); // add counter of parents in the cone.
+	
+	queue.push(uid_root);
 	while (!queue.empty())
 	{
 		uint32_t curr_id = queue.front();
@@ -1767,34 +1814,24 @@ void Solver::LPF_get_assumptions(
 		for(int i = 0; i < children_num; ++i)
 		{				
 			if (!resol.ValidUid(res.m_Children[i])) continue;
-			if (prefix) {  // optimization: when we have an initial 'chain', instead of propagating the contents of the joint Tclause down, we save it separately (in 'parent') and add it in the end.
-                if (has_valid_sibling || parents_of_empty_clause.binary_search(curr_id)) {  // first time we have more than one (legitimate) child, or it is a parent of empty, we record the current Tclause, and reset it to the empty clause.
-					parent = map_cls_to_Tclause[curr_id]; // recording for later. Will be added in the end.
-					// printfLitVec(*parent, "parent");
-			
-					map_cls_to_Tclause[curr_id];
-					prefix = false;
-				}
-				else has_valid_sibling = true;
-			}
 
 			// reducing parents count	
             CRef childUid = res.m_Children[i];
 			--map_cls_parentsCount[childUid];  
 
 			// intersection with parents
-			if (map_cls_to_Tclause.count(childUid) == 0) // first time we visit the clause
+			if (map_cls_to_Tclause.find(childUid) == map_cls_to_Tclause.end()) // first time we visit the clause			
             {   
 				assert(map_cls_to_Tclause.count(curr_id)>0);  
                 map_cls_to_Tclause[childUid] = new vec<Lit>();
 				map_cls_to_Tclause[curr_id]->copyTo(*map_cls_to_Tclause[childUid]); 
 			}
-			else {  // otherwise we intersect the current Tclause with the one owned by the parent. 				
+			else {  // otherwise we intersect the current Tclause with the one owned by the Top_TClause. 				
 //				printfLitVec(*map_cls_to_Tclause[curr_id], "curr_id");
 //				printfLitVec(*map_cls_to_Tclause[res.m_Children[i]], "child[i]");
                 vec<Lit> intersection;
-				Intersection(*map_cls_to_Tclause[curr_id], *map_cls_to_Tclause[childUid], intersection);  // intersection between Tclause-s of child and parent. 
-                map_cls_to_Tclause[childUid]->swap(intersection);
+				Intersection(*map_cls_to_Tclause[curr_id], *map_cls_to_Tclause[childUid], intersection);  // intersection between Tclause-s of child and Top_TClause.                   
+				map_cls_to_Tclause[childUid]->swap(intersection);
 			}			
 
 			// done with parents. Now we should add the clause's literals to its Tclause. 
@@ -1816,14 +1853,14 @@ void Solver::LPF_get_assumptions(
 			}
 		}
 	}    
-	//if (prefix) printf("parent: (all one chain)\n");
+	//if (prefix) printf("Top_TClause: (all one chain)\n");
 	
 	// we now intersect the Tclause-s of the parents of the empty clause
 	// printf("parents_of_empty_clause: ");		
 	vec<Lit> tmp, res;
 	bool first = true;
 	for (int i = 0; i < parents_of_empty_clause.size(); ++i) {
-		if (map_cls_to_Tclause.count(parents_of_empty_clause[i])==0) continue; // only those that have T-clause are actual parents of the empty clause in cone(c). 		
+		if (map_cls_to_Tclause.find(parents_of_empty_clause[i])== map_cls_to_Tclause.end()) continue; // only those that have T-clause are actual parents of the empty clause in cone(c). 		
 		
 		if (first) {
 			(*map_cls_to_Tclause[parents_of_empty_clause[i]]).swap(res);			
@@ -1832,17 +1869,17 @@ void Solver::LPF_get_assumptions(
 		else {				
 			tmp.swap(res);				
 			res.clear();
-			Intersection(*map_cls_to_Tclause[parents_of_empty_clause[i]], tmp, res);			
+			Intersection(*map_cls_to_Tclause[parents_of_empty_clause[i]], tmp, res);						
 			//printfLitVec(*res, "res - intersection");			
 		}		
 	}
 	//printf("\n");	
-	union_vec(res, *parent, assump_literals); // adding the literals from the top chain 
+	union_vec(res, *Top_TClause, assump_literals); // adding the literals from the top chain 
 
 	//ResGraph2dotty(uid, parents_of_empty_clause, assump_literals);
 	//printResGraph(uid, parents_of_empty_clause, assump_literals);
 
-	//	printfLitVec(*parent, "parent (from chain)");
+	//	printfLitVec(*Top_TClause, "Top_TClause (from chain)");
     // delete allocated vectors
     for (auto iter = map_cls_to_Tclause.begin(); iter != map_cls_to_Tclause.end(); ++iter)
     {
@@ -1854,35 +1891,12 @@ void Solver::LPF_get_assumptions(
 
 
 
-/// enters 0 to all elements in mapRealParents  (redundant ? ), and then updates it. But it uses class Map which is multimap, which complicates it. Should be replaced with ordinary map.
+///  But it uses class Map which is multimap, which complicates it. Should be replaced with ordinary map.
 void Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) // uid is either c itself, or the clause at the bottom of a chain
 {
 int current_id,m;
 	std::queue<uint32_t> q; // compute number of parents in the cone of c
-	q.push(uid);	
-    mapRealParents.insert(uid,0);
-	while (!q.empty()) // insert 0-s to the map. Todo: Check if necessary.
-	{
-		current_id = q.front();
-		q.pop();
-		
-		CRef curr_ref = resol.GetResolId(current_id);
-		const Resol& r = resol.GetResol(curr_ref);
-		if(r.m_Children.size()==0){  // no more children
-			continue;
-		}
-		for (m=0 ; m < r.m_Children.size() ; m++)
-		{
-			if (!resol.ValidUid(r.m_Children[m])) continue;
-			if(!mapRealParents.has(r.m_Children[m]))
-			{
-				mapRealParents.insert(r.m_Children[m],0);
-				q.push(r.m_Children[m]);
-			}
-		}
-	}
-	
-	q.push(uid);
+	q.push(uid);	 
 	
 	while (!q.empty())
 	{
@@ -1894,11 +1908,13 @@ int current_id,m;
 		for (m = 0 ; m < r.m_Children.size() ; m++)
 		{
 			if (!resol.ValidUid(r.m_Children[m])) continue;
-			if(mapRealParents[r.m_Children[m]]==0)  // we enter child to the queue only in the first time. 
+			if (mapRealParents.has(r.m_Children[m])) ++mapRealParents[r.m_Children[m]];
+			//if(mapRealParents[r.m_Children[m]]==0)  // we enter child to the queue only in the first time. 
+			else
 			{
 				q.push(r.m_Children[m]);  
-			}
-		    ++mapRealParents[r.m_Children[m]];
+				mapRealParents.insert(r.m_Children[m], 1);
+			}			
 		}
 	}
 }

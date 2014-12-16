@@ -53,6 +53,7 @@ void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, bool last)
             unknownSize, 
             mucSize);
     }
+	if (last) printf("### time %g\n", cpuTime());
 }
 
 class rec_record { 
@@ -165,9 +166,6 @@ void CMinimalCore::Rotate_it(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses,
 		}		
 	}
 }
-
-
-
 
 void CMinimalCore::Rotate(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
 {
@@ -464,8 +462,8 @@ lbool CMinimalCore::Solve(bool pre)
                 vecUidsToRemove.clear();
                 moreMucClauses.clear();
                 ++m_nRotationFirstCalls;
-                //Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
-				Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+                Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+				//Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));  // a little slower. Supposed to prevent stack-overflow problems with the recursive version. 
 
                 if (opt_second_sat_call)
                 {
@@ -491,8 +489,8 @@ lbool CMinimalCore::Solve(bool pre)
                     int nSizeBefore = setMuc.elems();
                     m_Solver.ReversePolarity();
                     ((Solver*)&m_Solver)->solveLimited(assumptions);
-                    //Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
-					Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+                    Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
+					//Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
                     m_nSecondRotationClausesAdded += (setMuc.elems() - nSizeBefore);
                 }
 
@@ -599,7 +597,7 @@ lbool CMinimalCore::Solve(bool pre)
 
 			
 			retVal = m_Solver.PF_get_assumptions(nIcForRemove);
-			printf("# added literals = %d\n", retVal);
+			//printf("# added literals = %d\n", retVal);
 			
             // the clause was removed from the unknown list because it led to SAT (perhaps via rotation)
             if (retVal == -1) 
@@ -631,6 +629,7 @@ lbool CMinimalCore::Solve(bool pre)
     sort(vecMuc);
 
     printf("Summary: %d %d %d %d %d %d %d\n", nIteration, vecMuc.size(), m_nRotationFirstCalls, m_nRotationCalled, m_nRotationClausesAdded, m_nSecondRotationClausesAdded, falsifiedAdditionalLiterals);
+	printf("### lpf_literals %d\n", falsifiedAdditionalLiterals);
 
 #ifdef TestResult
 	{

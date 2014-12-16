@@ -118,6 +118,10 @@ static inline void union_vec(A& a, B& b, C& union_)
     return;
 }
 
+
+
+
+
 template <class A, class B, class C>
 static inline void Intersection(A& a, B& b, C& intersection)
 {

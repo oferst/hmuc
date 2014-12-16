@@ -178,6 +178,36 @@ public:
 		return (data[first] == val);
 	}
 
+	bool search (const T& val) // ofer. does not assume object is sorted. 
+	{				
+		for (int i = 0; i < size(); ++i) if (data[i] == val) return true;
+		return false;
+	}
+
+
+	int lower_bound_inc (const T& val, int first) // ofer
+	{
+		int it, step, 			
+			count = sz;	 // to end
+		while (count>0)
+		{
+			it = first; step=count/2; it += step;
+			if (data[it]<val) {                 
+				first=++it;
+				count-=step+1;
+			}
+			else count=step;
+		}
+		return first;
+	}
+
+	bool binary_search_inc (const T& val, int& lb) // ofer. Assumes object is sorted. 
+	{		
+		if (val < data[0]) return false;
+		lb = lower_bound(val);
+		return (data[lb] == val);
+	}
+
 };
 
 

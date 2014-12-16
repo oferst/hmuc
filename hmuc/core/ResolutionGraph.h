@@ -130,7 +130,6 @@ class CResolutionGraph
 {
 public:
 	//________________________________________________________________________________________________
-// meiran & evgeny
 
     Resol& GetResol(CRef ref)
 	{

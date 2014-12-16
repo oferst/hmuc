@@ -37,6 +37,7 @@ namespace Minisat {
 class Solver {
 public:
     //FILE* flog;
+	
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
     void RemoveClauses(vec<uint32_t>& cone);

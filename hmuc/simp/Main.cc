@@ -35,7 +35,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/Dimacs.h"
 #include "simp/SimpSolver.h"
 
-using namespace Minisat;
+using namespace Minisat; 
 
 //=================================================================================================
 
@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 #endif
 
         lbool ret = coreManager.Solve(pre);
-
+		printf("### decisions %d\n", solver->decisions);
         if (S.verbosity > 0){
             printStats(S);
             printf("\n"); }
