@@ -73,6 +73,8 @@ public:
         }
     }
 
+	double time_for_pf;	
+
     int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
     vec<uint32_t> icParents;
@@ -80,7 +82,7 @@ public:
 
     // Constructor/Destructor:
     //
-    Solver();
+	Solver();
     virtual ~Solver();
 
     // Problem specification:
@@ -176,7 +178,7 @@ public:
     int       learntsize_adjust_start_confl;
     double    learntsize_adjust_inc;
 
-	bool lpf; // literal path-falsification
+	
 
     // Statistics: (read-only member variable)
     //
@@ -186,11 +188,13 @@ public:
     void AddConflictingIc(uint32_t uid);
     void CreateResolVertex(uint32_t uid);
     void ResetOk();
-    int PF_get_assumptions(uint32_t uid);
+    int PF_get_assumptions(uint32_t uid, CRef cref);
 			
 	// LPF
+	bool path_falsification;
+	bool lpf; // literal path-falsification is on
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
-	void CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
+	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	void ResGraph2dotty(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	//________________________________________________________________________________________________
@@ -205,10 +209,11 @@ public:
             fprintf(f, "%s%d ", sign(c[i]) ? "-" : "", var(c[i])+1);
     }
 
-protected:
+	CResolutionGraph resol; 
 
+protected:
     void CreateUnsatCore(CRef ref);
-    CResolutionGraph resol; 
+    
     vec<CRef> icUnitClauses;
     vec<Map<Lit, CRef>::Pair> icImpl;
     Set<uint32_t> setGood;

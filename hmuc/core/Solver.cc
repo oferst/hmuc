@@ -22,10 +22,12 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <algorithm> 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include "utils/System.h"
 #include <queue>
 #include <unordered_map>
 #include <vector>
 #include <sstream>
+#include <algorithm> 
 using namespace Minisat;
 
 //=================================================================================================
@@ -59,6 +61,7 @@ static BoolOption    opt_use_clauses       (_cat, "use-clauses", "count from usi
 static BoolOption    opt_path_falsification (_cat, "path_falsification", "use path falsification", true);
 static IntOption     opt_max_fcls_in_arow  (_cat, "max-false-in-a-row", "Max number of times to run path falsification in a row", 20, IntRange(0,INT32_MAX));
 static BoolOption    opt_false_resol       (_cat, "false-resol", "use falsifying clause with resolution", true);
+static BoolOption    opt_lpf_cutoff        (_cat, "lpf-cutoff", "stop literal-based path-falsification if seems to be too costly", true);
 
 
  
@@ -72,7 +75,7 @@ Solver::Solver() :
     // Parameters (user settable):
     //
   m_nSatCall(0), m_nUnsatPathFalsificationCalls(0),
-  verbosity        (0)
+  verbosity        (1)
   , var_decay        (opt_var_decay)
   , clause_decay     (opt_clause_decay)
   , random_var_freq  (opt_random_var_freq)
@@ -85,7 +88,7 @@ Solver::Solver() :
   , garbage_frac     (opt_garbage_frac)
   , restart_first    (opt_restart_first)
   , restart_inc      (opt_restart_inc)
-
+  , path_falsification(opt_path_falsification)
     // Parameters (the rest):
     //
   , learntsize_factor((double)1/(double)3), learntsize_inc(1.1)
@@ -973,16 +976,9 @@ lbool Solver::search(int nof_conflicts)
             }
 
 
-            if (next == lit_Undef) {
-                // New variable decision:
+            if (next == lit_Undef) { // New variable decision:                
                 decisions++;
-                next = pickBranchLit();
-				// fprintf(flog, "d - %d\n", var(next)+1);
-
-                if (next == lit_Undef)
-                {                    
-                    return l_True; // Model found:
-                }
+                if ((next = pickBranchLit()) == lit_Undef) return l_True; // Model found:				
             }
 			
             // Increase decision level and enqueue 'next'
@@ -1633,27 +1629,21 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
 }
 
 
-int Solver::PF_get_assumptions(uint32_t uid) // Returns the number of literals in the falsified clause. 
-{
-	static int count = 0;
-    if (!opt_path_falsification)
+int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of literals in the falsified clause. 
+{	
+    if (uid == CRef_Undef)  // ?? comparing uid and CRef_Undef
         return 0;
+   
+	LiteralsFromPathFalsification.clear();
 
-    LiteralsFromPathFalsification.clear();
-    if (uid == CRef_Undef)
-        return 0;
-
-    CRef cr = resol.GetInd(uid);
-	if (cr == CRef_Undef) // it will be undefined when the last call was SAT 
-        return -1;
-    
 	if (lpf && m_bConeRelevant)
 	{			
+		//printClause(stdout, ca[cr]);
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification); 
 		//printf("(%d) literals returned by get_assumption = (", ++count); 
 		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
 		//printf(")\n");			
-		//printf("counter of lits: %d\n",LiteralsFromPathFalsification.size());
+		//printf("lpf found %d lits\n",LiteralsFromPathFalsification.size());
 		return LiteralsFromPathFalsification.size();
 	}
 	else
@@ -1747,6 +1737,7 @@ void Solver::LPF_get_assumptions(
 	static vec<uint32_t> parents_of_empty_clause;  // parents of empty clause. Defined as static because when the result is SAT, we use the list from the last unsat.
 	Map<uint32_t,uint32_t> map_cls_parentsCount;  // maps from uid of clause, to the number of parents on the relevant cone of c, i.e., parents on paths from c to the empty clause.
 	bool prefix = true; 
+	int peakQueueSize = 0;
 	
 
 	if (icParents.size() > 0) {  // if the result was unsat, this condition is true and we need to clear the previous list; otherwise this condition is false, and we use the parents_of_empty_clause form the last run that it was unsat.
@@ -1758,7 +1749,7 @@ void Solver::LPF_get_assumptions(
 		sort(parents_of_empty_clause); // sorted because we run binary-search on it later
 	}
 	
-	//printfIntVec(parents_of_empty_clause,"parents of empty clause");
+//	printfIntVec(parents_of_empty_clause,"parents of empty clause");
 	
 	assert(parents_of_empty_clause.size()>0); // empty clause always has parents.
     vec<Lit>* Top_TClause = new vec<Lit>(); 
@@ -1793,13 +1784,17 @@ void Solver::LPF_get_assumptions(
 	}
 	else {        
         ca[resol.GetInd(uid_root)].copyTo(*Top_TClause);        
-	}
-    sort(*Top_TClause);
-	// from hereon uid_root is the bottom clause in the unit-chain, and its Tclause is the union of 
-    map_cls_to_Tclause[uid_root] = new vec<Lit>();//Top_TClause;
+	}    
 
-    
-    CountParents(map_cls_parentsCount , uid_root); // add counter of parents in the cone.
+    bool proceed = CountParents(map_cls_parentsCount , uid_root);
+    if (opt_lpf_cutoff && !proceed) { // add counter of parents in the cone. Returns false if we predict there is no point to spend too much time on it. 
+		Top_TClause->copyTo(assump_literals);
+		return;
+	}
+
+	sort(*Top_TClause);
+	// from hereon uid_root is the bottom clause in the unit-chain, and its Tclause is the union of 
+	map_cls_to_Tclause[uid_root] = new vec<Lit>();
 	
 	queue.push(uid_root);
 	while (!queue.empty())
@@ -1809,6 +1804,7 @@ void Solver::LPF_get_assumptions(
 		Resol& res = resol.GetResol(resol.GetResolId(curr_id));
 		int children_num = res.m_Children.size();
 		if (children_num == 0)  continue;
+		peakQueueSize = std::max((int)queue.size(),  peakQueueSize);
 		
 		bool has_valid_sibling = false;
 		for(int i = 0; i < children_num; ++i)
@@ -1827,8 +1823,8 @@ void Solver::LPF_get_assumptions(
 				map_cls_to_Tclause[curr_id]->copyTo(*map_cls_to_Tclause[childUid]); 
 			}
 			else {  // otherwise we intersect the current Tclause with the one owned by the Top_TClause. 				
-//				printfLitVec(*map_cls_to_Tclause[curr_id], "curr_id");
-//				printfLitVec(*map_cls_to_Tclause[res.m_Children[i]], "child[i]");
+				//printfLitVec(*map_cls_to_Tclause[curr_id], "curr_id");
+				//printfLitVec(*map_cls_to_Tclause[res.m_Children[i]], "child[i]");
                 vec<Lit> intersection;
 				Intersection(*map_cls_to_Tclause[curr_id], *map_cls_to_Tclause[childUid], intersection);  // intersection between Tclause-s of child and Top_TClause.                   
 				map_cls_to_Tclause[childUid]->swap(intersection);
@@ -1853,6 +1849,7 @@ void Solver::LPF_get_assumptions(
 			}
 		}
 	}    
+	//printf(" %d", peakQueueSize);
 	//if (prefix) printf("Top_TClause: (all one chain)\n");
 	
 	// we now intersect the Tclause-s of the parents of the empty clause
@@ -1875,11 +1872,11 @@ void Solver::LPF_get_assumptions(
 	}
 	//printf("\n");	
 	union_vec(res, *Top_TClause, assump_literals); // adding the literals from the top chain 
-
-	//ResGraph2dotty(uid, parents_of_empty_clause, assump_literals);
+	//printf(" %d\n", assump_literals.size());
+	//ResGraph2dotty(uid_root, parents_of_empty_clause, assump_literals);
 	//printResGraph(uid, parents_of_empty_clause, assump_literals);
 
-	//	printfLitVec(*Top_TClause, "Top_TClause (from chain)");
+		//printfLitVec(*Top_TClause, "Top_TClause (from chain)");
     // delete allocated vectors
     for (auto iter = map_cls_to_Tclause.begin(); iter != map_cls_to_Tclause.end(); ++iter)
     {
@@ -1892,14 +1889,21 @@ void Solver::LPF_get_assumptions(
 
 
 ///  But it uses class Map which is multimap, which complicates it. Should be replaced with ordinary map.
-void Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) // uid is either c itself, or the clause at the bottom of a chain
+bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) // uid is either c itself, or the clause at the bottom of a chain
 {
 int current_id,m;
 	std::queue<uint32_t> q; // compute number of parents in the cone of c
+	int maxQ = 0;
+	int initialSpan = 0;
 	q.push(uid);	 
-	
+	bool first = true;
+
 	while (!q.empty())
-	{
+	{	
+		if (opt_lpf_cutoff) {	
+			maxQ = std::max((int)q.size(), maxQ);
+			if (maxQ > 500) return false;  // magic cutoff number
+		}
 		current_id = q.front();
 		q.pop();
 		CRef curr_ref = resol.GetResolId(current_id);
@@ -1908,15 +1912,21 @@ int current_id,m;
 		for (m = 0 ; m < r.m_Children.size() ; m++)
 		{
 			if (!resol.ValidUid(r.m_Children[m])) continue;
-			if (mapRealParents.has(r.m_Children[m])) ++mapRealParents[r.m_Children[m]];
-			//if(mapRealParents[r.m_Children[m]]==0)  // we enter child to the queue only in the first time. 
+			if (first && opt_lpf_cutoff) {
+				++initialSpan;
+				if (initialSpan > 400) return false;  // magic cutoff number			
+			}
+			if (mapRealParents.has(r.m_Children[m])) ++mapRealParents[r.m_Children[m]];	
 			else
 			{
 				q.push(r.m_Children[m]);  
 				mapRealParents.insert(r.m_Children[m], 1);
 			}			
 		}
-	}
+		first = false;
+	}	
+	//printf("%d %d", initialSpan, maxQ);
+	return true;
 }
 
 

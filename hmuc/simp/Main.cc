@@ -155,13 +155,14 @@ int main(int argc, char** argv)
 
         // Change to signal-handlers that will only notify the solver and allow it to terminate
         // voluntarily:
-        signal(SIGINT, SIGINT_interrupt);
+        signal(SIGINT, SIGINT_interrupt); 
 #ifndef _MSC_VER
         signal(SIGXCPU,SIGINT_interrupt);
 #endif
 
         lbool ret = coreManager.Solve(pre);
 		printf("### decisions %d\n", solver->decisions);
+		printf("### pf_time %g\n", solver->time_for_pf);
         if (S.verbosity > 0){
             printStats(S);
             printf("\n"); }
