@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>C:\temp\muc_test\SAT11\mus\marques-silva\equivalence-checking\c2670.cnf  -no-muc-print-sol -no-pre  -no-lpf</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>C:\temp\muc_test\SAT11\mus\marques-silva\hardware-verification\f6n.cnf -no-muc-print-sol -no-pre  -pf-mode=3  </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>C:\temp\muc_test\sat11_comp\f6n.cnf   -no-muc-print-sol -no-pre    </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>C:\temp\muc_test\SAT11\mus\marques-silva\equivalence-checking\c3540-s.cnf -no-muc-print-sol -no-pre  -pf-mode=3  </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|Win32'">

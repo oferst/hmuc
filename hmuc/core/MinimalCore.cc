@@ -8,9 +8,11 @@
 
 #include<vector>
 
+
+
 namespace Minisat
 {
-
+#define TestResult
 
 	static const char* _cat = "MUC";
 	static BoolOption    opt_muc_print			(_cat, "muc-progress", "print progress lines", true);
@@ -21,8 +23,7 @@ namespace Minisat
 	static BoolOption    opt_sec_rot_use_prev	(_cat, "sec-call-use-prev", "include in second rotation-call previously discovered clauses", true);
 	static IntOption     opt_remove_order		(_cat, "remove-order", "removal order: 0 - biggest, 1 - smallest, 2 - highest, 3 - lowest, 4 - rotation\n", 2, IntRange(0, 4));
 	static BoolOption    opt_only_cone			(_cat, "only-cone", "remove all the clauses outside the empty clause cone\n", true);
-	static BoolOption    opt_LPF				(_cat, "lpf", "use literal-based path-falsification", true); // ofer
-
+	
 
 	CMinimalCore::CMinimalCore(SimpSolver& solver): 
 		m_bIcInConfl(false)
@@ -65,6 +66,52 @@ namespace Minisat
 
 		rec_record(uint32_t _uid, Var _v, std::vector<lbool>& _model):uid(_uid), v(_v)  {model = _model;} 
 	};
+
+
+	uint32_t CMinimalCore::GetMaxIc(Map<uint32_t, uint32_t>& mapIcToScore)
+	{
+		uint32_t maxVal = 0;
+		uint32_t maxInd = 0;
+		for (int bucketId = 0; bucketId < mapIcToScore.bucket_count(); ++bucketId)
+		{
+			const vec<Map<uint32_t, uint32_t>::Pair>& bucket = mapIcToScore.bucket(bucketId);
+			for (int elId = 0; elId < bucket.size(); ++elId)
+			{
+				const Map<uint32_t, uint32_t>::Pair& pair = bucket[elId];
+				if (pair.data > maxVal)
+				{
+					maxVal = pair.data;
+					maxInd = pair.key;
+				}
+			}
+		}
+
+		return maxInd;
+	}
+
+	uint32_t CMinimalCore::GetMinIc(Map<uint32_t, uint32_t>& mapIcToScore)
+	{
+		uint32_t minVal = UINT32_MAX;
+		uint32_t minInd = UINT32_MAX;
+		for (int bucketId = 0; bucketId < mapIcToScore.bucket_count(); ++bucketId)
+		{
+			const vec<Map<uint32_t, uint32_t>::Pair>& bucket = mapIcToScore.bucket(bucketId);
+			for (int elId = 0; elId < bucket.size(); ++elId)
+			{
+				const Map<uint32_t, uint32_t>::Pair& pair = bucket[elId];
+				if (pair.data < minVal)
+				{
+					minVal = pair.data;
+					minInd = pair.key;
+					if (minVal == 1)
+						return minInd;
+				}
+			}
+		}
+
+		return minInd;
+	}
+
 
 
 	inline static lbool  Modelvalue(Lit p, std::vector<lbool>& model) {return model[var(p)] ^ sign(p);}
@@ -259,23 +306,43 @@ namespace Minisat
 		}
 	}
 
-	void PrintVec(vec<uint32_t>& v)
-	{
-		for (int i = 0; i < v.size(); ++i)
+
+	void CMinimalCore::test(vec<uint32_t>& vecUnknown, Set<uint32_t>& setMuc, char* msg) {
 		{
-			printf("%d ", v[i]);
+			printf("Testing...%s\n", msg);
+			Solver testsolver;
+			testsolver.test_mode = true;
+			vec<Lit> lits;
+			for (int i = 0; i < m_Solver.nVars(); ++i)
+				testsolver.newVar();
+			for (int i = 0; i < vecUnknown.size(); ++i) {
+				CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
+				if (ref == CRef_Undef) continue;
+				Clause& cls = m_Solver.GetClause(ref);
+				lits.clear();
+				cls.copyTo(lits);					
+				testsolver.addClause(lits);
+			}
+
+			vec<unsigned int> tmpvec;
+			setMuc.copyTo(tmpvec);
+
+			for (int i = 0; i < tmpvec.size(); ++i) {
+				CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
+				if (ref == CRef_Undef) continue;
+				Clause& cls = m_Solver.GetClause(ref);
+				lits.clear();
+				cls.copyTo(lits);
+				testsolver.addClause(lits);
+			}
+			if (testsolver.solve()) {
+				printf("did not pass test."); 
+				exit(1);
+			}
+			printf("passed test...");
 		}
-		printf("\n");
 	}
 
-	static void printfLitVec(vec<Lit>& v, char *msg) {
-		if (v == NULL) printf("NULL\n");
-		printf("%s (", msg);	
-		for (int i = 0; i < v.size(); ++i) {
-			printf("%d ", v[i]);
-		}
-		printf(")\n");
-	}
 
 	lbool CMinimalCore::Solve(bool pre)
 	{
@@ -290,11 +357,16 @@ namespace Minisat
 		Set<uint32_t> moreMucClauses;
 		Set<uint32_t> emptyClauseCone;
 		vec<uint32_t> moreMucVec;
-		int falsifiedAdditionalLiterals = 0;
+		
+		
+		int lpf_boost_found_trivial_UNSAT = 0;
 				
-		m_Solver.lpf = opt_LPF;
-		m_Solver.time_for_pf = 0.0;
-
+		m_Solver.time_for_pf = 0.0;		
+		m_Solver.nICtoRemove = 0; 
+		m_Solver.pf_Literals = 0;
+		m_Solver.nUnsatByPF = 0;
+		//m_Solver.lpf_inprocess_added = 0;
+		m_Solver.test_mode = false;
 		// run preprocessing
 		double before_time = cpuTime();
 		if (!m_bIcInConfl)
@@ -307,12 +379,11 @@ namespace Minisat
 		}
 
 		m_Occurs.growTo(m_Solver.nVars() << 1);
-		int nIteration = 0;
+		int nIteration = 0;		
 		for (; true; ++nIteration)
-		{
-		//	printf("======================\n");
-			if (!m_bIcInConfl) {
-				result = ((Solver*)&m_Solver)->solveLimited(assumptions);			
+		{		
+			if (!m_bIcInConfl) {				
+				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
 			}
 
 			else
@@ -321,16 +392,17 @@ namespace Minisat
 				m_bIcInConfl = false;
 				m_Solver.ResetOk();
 			}
+			
 #pragma region UNSAT_case
 
 			if (result == l_False) {
 				if(!m_Solver.m_bUnsatByPathFalsification)
 				{
 					// First get all the clauses in unsat core
-			//		printf("UNSAT (normal)\n");
+					printf("UNSAT (normal)\n");
 					emptyClauseCone.clear();
 					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
-					//vecUids.removeDuplicated_();
+					// vecUids.removeDuplicated_();
 					// for each clause in vecUids check if its ic
 					// and mark it as unknown. 
 					for (int nInd = 0; nInd < vecUids.size(); ++nInd)
@@ -363,36 +435,7 @@ namespace Minisat
 					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 
 #ifdef TestResult
-					{
-						printf("Testing...");
-						Solver testsolver;
-						vec<Lit> lits;
-						for (int i = 0; i < m_Solver.nVars(); ++i)
-							testsolver.newVar();
-						for (int i = 0; i < vecUnknown.size(); ++i) {
-							CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
-							if (ref == CRef_Undef) continue;
-							Clause& cls = m_Solver.GetClause(ref);
-							lits.clear();
-							cls.copyTo(lits);					
-							testsolver.addClause(lits);
-						}
-
-						vec<unsigned int> tmpvec;
-						setMuc.copyTo(tmpvec);
-
-						for (int i = 0; i < tmpvec.size(); ++i) {
-							CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
-							if (ref == CRef_Undef) continue;
-							Clause& cls = m_Solver.GetClause(ref);
-							lits.clear();
-							cls.copyTo(lits);
-							testsolver.addClause(lits);
-						}
-						if (testsolver.solve()) {printf("did not pass test (middle)"); exit(1);}
-						printf("past test...");
-					}
-
+				//	test(vecUnknown, setMuc, "normal unsat");
 #endif
 
 					if (vecUnknown.size() == 0)
@@ -440,14 +483,18 @@ namespace Minisat
 
 				}
 				else {  // unsat, but contradiction was discovered when the assumptions were added.
-				//	printf("UNSAT (by assumptions)\n");
+					printf("UNSAT (by assumptions)\n");
 					remove(vecPrevUnknown, nIcForRemove);
 					if (vecPrevUnknown.size() == 0) break;
 					vecPrevUnknown.swap(vecUnknown);
 					vecUidsToRemove.clear();
 					vecUidsToRemove.push(nIcForRemove);
-					m_Solver.RemoveClauses(vecUidsToRemove);    
-					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
+					m_Solver.RemoveClauses(vecUidsToRemove);    		
+
+#ifdef TestResult
+				//test(vecUnknown, setMuc, "unsat by assumptions");
+#endif
+				PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 				}
 			}
 #pragma endregion
@@ -455,7 +502,7 @@ namespace Minisat
 #pragma region SAT_case
 			else if (result == l_True)
 			{
-				//printf("SAT\n");
+				printf("SAT\n");
 				if (nIteration == 0)
 					return result; // the problem is sat			
 
@@ -534,7 +581,7 @@ namespace Minisat
 				}
 #pragma endregion
 				vecPrevUnknown.swap(vecUnknown);
-				PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
+				PrintData(vecUnknown.size(), setMuc.elems(), nIteration);			
 			}			
 #pragma endregion
 
@@ -595,7 +642,6 @@ namespace Minisat
 						if (setMuc.has(nIcForRemove) || !find(vecUnknown, nIcForRemove))
 							nIcForRemove = CRef_Undef;
 					}
-
 					break;
 				}
 
@@ -612,17 +658,27 @@ namespace Minisat
 			}
 #pragma endregion
 
-			double before_time = cpuTime();
-			if (m_Solver.path_falsification) // this option overrides opt_lpf
-				falsifiedAdditionalLiterals += m_Solver.PF_get_assumptions(nIcForRemove, cr);
-			m_Solver.time_for_pf += (cpuTime() - before_time);						
+			if (m_Solver.pf_mode != none) { 
+				m_Solver.icParents.copyTo(m_Solver.prev_icParents);
+				if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);				
+				if (m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)
+				{				
+					double before_time = cpuTime();
+					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
+					printf("lpf literals = %d\n", addLiterals);					
+					m_Solver.pf_Literals += addLiterals;
+					m_Solver.time_for_pf += (cpuTime() - before_time);						
+				}
+				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration
+			}
 			
 			m_Solver.RemoveClauses(vecUidsToRemove);
 			vecUidsToRemove.clear();
 			vecUidsToRemove.push(nIcForRemove);
-			m_Solver.UnbindClauses(vecUidsToRemove);
+			m_Solver.UnbindClauses(vecUidsToRemove); // removes cone(nIcForRemove);
 			vecPrevUnknown.swap(vecUnknown);
 			vecUnknown.clear();
+			m_Solver.nICtoRemove = nIcForRemove;
 //			printf("decisions = %d ", m_Solver.decisions );
 //			printf("propagations = %d ", m_Solver.propagations );
 //			printf("conflicts = %d\n", m_Solver.conflicts );
@@ -635,40 +691,15 @@ end:	PrintData(vecUnknown.size(), setMuc.elems(), nIteration, true);
 		setMuc.copyTo(vecMuc);
 		sort(vecMuc);
 
-		printf("Summary: %d %d %d %d %d %d %d\n", nIteration, vecMuc.size(), m_nRotationFirstCalls, m_nRotationCalled, m_nRotationClausesAdded, m_nSecondRotationClausesAdded, falsifiedAdditionalLiterals);
-		 printf("### lpf_literals %d\n", falsifiedAdditionalLiterals);
+		printf("Summary: %d %d %d %d %d %d %d\n", nIteration, vecMuc.size(), m_nRotationFirstCalls, m_nRotationCalled, m_nRotationClausesAdded, m_nSecondRotationClausesAdded, m_Solver.pf_Literals);
+		printf("### lpf_literals %d\n", m_Solver.pf_Literals);
+		//printf("### secondary_lpf_literals %d\n", m_Solver.lpf_inprocess_added);
+		printf("### UNSAT_by_pf %d\n", m_Solver.nUnsatByPF);
 		printf("### iter %d\n", nIteration);		
 
 
 #ifdef TestResult
-		{
-			printf("final Testing...");
-			Solver testsolver;
-			for (int i = 0; i < m_Solver.nVars(); ++i)
-				testsolver.newVar();
-			for (int i = 0; i < vecUnknown.size(); ++i) {
-				CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
-				if (ref == CRef_Undef) continue;
-				Clause& cls = m_Solver.GetClause(ref);
-				vec<Lit> lits;
-				cls.copyTo(lits);					
-				testsolver.addClause(lits);
-			}
-
-			vec<unsigned int> tmpvec;
-			setMuc.copyTo(tmpvec);
-
-			for (int i = 0; i < tmpvec.size(); ++i) {
-				CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
-				if (ref == CRef_Undef) continue;
-				Clause& cls = m_Solver.GetClause(ref);
-				vec<Lit> lits;
-				cls.copyTo(lits);
-				testsolver.addClause(lits);
-			}
-			if (testsolver.solve()) {printf("did not pass test"); exit(1);}
-			printf("past test...");
-		}
+		test(vecUnknown, setMuc, "final");
 #endif
 
 		if (opt_print_sol)
@@ -689,49 +720,4 @@ end:	PrintData(vecUnknown.size(), setMuc.elems(), nIteration, true);
 
 		return result;
 	}
-
-	uint32_t CMinimalCore::GetMaxIc(Map<uint32_t, uint32_t>& mapIcToScore)
-	{
-		uint32_t maxVal = 0;
-		uint32_t maxInd = 0;
-		for (int bucketId = 0; bucketId < mapIcToScore.bucket_count(); ++bucketId)
-		{
-			const vec<Map<uint32_t, uint32_t>::Pair>& bucket = mapIcToScore.bucket(bucketId);
-			for (int elId = 0; elId < bucket.size(); ++elId)
-			{
-				const Map<uint32_t, uint32_t>::Pair& pair = bucket[elId];
-				if (pair.data > maxVal)
-				{
-					maxVal = pair.data;
-					maxInd = pair.key;
-				}
-			}
-		}
-
-		return maxInd;
-	}
-
-	uint32_t CMinimalCore::GetMinIc(Map<uint32_t, uint32_t>& mapIcToScore)
-	{
-		uint32_t minVal = UINT32_MAX;
-		uint32_t minInd = UINT32_MAX;
-		for (int bucketId = 0; bucketId < mapIcToScore.bucket_count(); ++bucketId)
-		{
-			const vec<Map<uint32_t, uint32_t>::Pair>& bucket = mapIcToScore.bucket(bucketId);
-			for (int elId = 0; elId < bucket.size(); ++elId)
-			{
-				const Map<uint32_t, uint32_t>::Pair& pair = bucket[elId];
-				if (pair.data < minVal)
-				{
-					minVal = pair.data;
-					minInd = pair.key;
-					if (minVal == 1)
-						return minInd;
-				}
-			}
-		}
-
-		return minInd;
-	}
-
 }

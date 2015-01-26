@@ -12,6 +12,7 @@ class CMinimalCore
 public:
     CMinimalCore(SimpSolver& solver);
 
+	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "" ); 
     lbool Solve(bool pre);
 
     inline SimpSolver& GetSolver() { return m_Solver; }

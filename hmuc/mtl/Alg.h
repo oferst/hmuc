@@ -142,6 +142,20 @@ static inline void Intersection(A& a, B& b, C& intersection)
 template<class T>
 static inline void append(const vec<T>& from, vec<T>& to){ copy(from, to, true); }
 
+
+template <class A, class B, class C>
+static inline bool empty_intersection(A& a, B& b)  // true if empty
+{
+	int b_itr = 0 ,a_itr = 0;
+	while (a_itr!=a.size() && b_itr!=b.size())  
+	{
+		if (a[a_itr]<b[b_itr]) ++a_itr;
+		else if (b[b_itr]<a[a_itr]) ++b_itr;
+		else return false;
+	}
+	return true;			
+}
+
 //=================================================================================================
 }
 

@@ -34,10 +34,13 @@ namespace Minisat {
 //=================================================================================================
 // Solver -- the main class:
 
+
+enum pf_modes{none, pf, lpf, lpf_inprocess};
+
 class Solver {
 public:
     //FILE* flog;
-	
+	void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
     void RemoveClauses(vec<uint32_t>& cone);
@@ -74,12 +77,21 @@ public:
     }
 
 	double time_for_pf;	
+	uint32_t nICtoRemove;   // the IC that is currently removed.
+			
+	vec<uint32_t> prev_icParents;
+	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
+	int pf_Literals;
+	bool lpf_inprocess_active;
+	//int lpf_inprocess_added;
 
     int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
     vec<uint32_t> icParents;
     bool m_bUnsatByPathFalsification;
-
+	int nUnsatByPF;
+	int pf_prev_trail_size;
+	bool test_mode;
     // Constructor/Destructor:
     //
 	Solver();
@@ -189,11 +201,14 @@ public:
     void CreateResolVertex(uint32_t uid);
     void ResetOk();
     int PF_get_assumptions(uint32_t uid, CRef cref);
-			
+	vec<Lit>    LiteralsFromPathFalsification;
+
 	// LPF
-	bool path_falsification;
-	bool lpf; // literal path-falsification is on
+	int pf_mode;
+	
+	bool pf_early_unsat_terminate();
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
+	bool lpf_compute_inprocess();
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	void ResGraph2dotty(uint32_t, vec<uint32_t>&, vec<Lit>&  );
@@ -215,6 +230,7 @@ protected:
     void CreateUnsatCore(CRef ref);
     
     vec<CRef> icUnitClauses;
+	
     vec<Map<Lit, CRef>::Pair> icImpl;
     Set<uint32_t> setGood;
     vec<uint32_t> uidsVec;
@@ -323,12 +339,13 @@ protected:
     void     removeClause     (CRef cr);               // Detach and free a clause.
     bool     locked           (const Clause& c) const; // Returns TRUE if a clause is a reason for some implication in the current state.
     bool     satisfied        (const Clause& c) const; // Returns TRUE if a clause is satisfied in the current state.
-
+	bool satisfiedInVec(const Clause& c, vec<int>&) const; // Returns TRUE if c has a non-empty intersection with the input vector<Lit>.
+	
     void     relocAll         (ClauseAllocator& to);
 
     // Misc:
     //
-    int      decisionLevel    ()      const; // Gives the current decisionlevel.
+    int      decisionLevel    ()      const; // Gives the current decision level.
     uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
     CRef     reason           (Var x) const;
     int      level            (Var x) const;
@@ -342,8 +359,7 @@ protected:
     vec<uint64_t>	decLevInConfl;
     int calculateDecisionLevels(vec<Lit>& cls);
 
-    vec<Lit>    LiteralsFromPathFalsification;
-
+    
     // Static helpers:
     //
 
