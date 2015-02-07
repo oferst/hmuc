@@ -60,12 +60,6 @@
     <ClInclude Include="utils\System.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="win\zlib.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="win\zconf.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="core\ResolutionGraph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -101,8 +95,5 @@
     <ClCompile Include="simp\SimpSolver.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="win\zdll.lib" />
   </ItemGroup>
 </Project>

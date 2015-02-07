@@ -235,8 +235,6 @@
     <ClInclude Include="utils\Options.h" />
     <ClInclude Include="utils\ParseUtils.h" />
     <ClInclude Include="utils\System.h" />
-    <ClInclude Include="win\zconf.h" />
-    <ClInclude Include="win\zlib.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core\MinimalCore.cc" />
@@ -246,9 +244,6 @@
     <ClCompile Include="simp\SimpSolver.cc" />
     <ClCompile Include="utils\Options.cc" />
     <ClCompile Include="utils\System.cc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="win\zdll.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

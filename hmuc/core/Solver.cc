@@ -60,9 +60,9 @@ static IntOption     opt_only_from_2       (_cat, "from-call_2", "start the opti
 static BoolOption    opt_use_clauses       (_cat, "use-clauses", "count from using clauses instead of sat calls for opt_only_from and opt_only_from2", false);
 static IntOption     opt_max_fcls_in_arow  (_cat, "max-false-in-a-row", "Max number of times to run path falsification in a row (0 - no limit)", 0, IntRange(0,INT32_MAX)); 
 static BoolOption    opt_lpf_cutoff        (_cat, "lpf-cutoff", "stop literal-based path-falsification if seems to be too costly", true);
-static IntOption     opt_lpf_block         (_cat, "lpf-block", "block literal-based path-falsification (lpf) until that many restarts", 0);
-static IntOption     opt_pf_mode		   (_cat, "pf-mode", "{0-none, 1 - path-falsification (pf), 2-literal-based pf (lpf), 3 - lpf inprocess};", 3, IntRange(0,3));
-
+static IntOption     opt_pf_delay         (_cat, "pf-delay", "delay activation of path-falsification until that many restarts", 0);
+static IntOption     opt_pf_mode		   (_cat, "pf-mode", "{0-none, 1 - ic clause only, 2 - path-falsification (pf), 3-literal-based pf (lpf), 4 - lpf inprocess};", 4, IntRange(0,4));
+static BoolOption    opt_test			   (_cat, "test", "test that the core is indeed unsat", false);
 
  
 //=================================================================================================
@@ -89,6 +89,7 @@ Solver::Solver() :
   , restart_first    (opt_restart_first)
   , restart_inc      (opt_restart_inc)
   , pf_mode			 (opt_pf_mode)
+  , test_result		 (opt_test)
       // Parameters (the rest):
     //
   , learntsize_factor((double)1/(double)3), learntsize_inc(1.1)
@@ -746,9 +747,9 @@ static void printfVec(T& v, char *msg) {
 }
 
 bool Solver::pf_early_unsat_terminate() {
-	printf("m_nUnsatPathFalsificationCalls = %d (m_bUnsatByPathFalsification = %d)\n", m_nUnsatPathFalsificationCalls, m_bUnsatByPathFalsification);
 	if (opt_max_fcls_in_arow && (++m_nUnsatPathFalsificationCalls == opt_max_fcls_in_arow))  // every now-and-then (opt_max_fcls_in_arow) we keep running although we know it is unsat, just so we can use the cone. 
 	{
+		printf("reached opt_max_fcls_in_arow\n");
 		m_nUnsatPathFalsificationCalls = 0;		
 		return false;
 	}	
@@ -827,20 +828,23 @@ lbool Solver::search(int nof_conflicts)
                 confl = propagate();
                 if (confl != CRef_Undef)
                     break;
-            }						
-			if ( 
-		//		lpf_inprocess_active && 	// seems we never get here because after restart we never, practically, go back to level 0.			
-			pf_mode == lpf_inprocess &&	nICtoRemove > 0 && !test_mode &&
-				confl == CRef_Undef && 					
-				(trail.size() > pf_prev_trail_size) //&& 
-			//	decisionLevel() == 0
-			)			 
-			{
-				if (lpf_compute_inprocess() == false) return l_False; // early termination
-			}
+            }									
 
         }
-				
+		if ( 
+				pf_active && 	// delay
+				pf_mode == lpf_inprocess &&
+				// nICtoRemove > 0 && !test_mode &&
+				confl == CRef_Undef && 					
+				decisionLevel() == 1 &&
+				(
+					(m_bConeRelevant && (trail.size() > pf_prev_trail_size)) || 
+					LiteralsFromPathFalsification.size() == 0  // if !m_bConeRelevant, then we only want to call compute_inprocess once, because the result is not changing. 
+				)    				
+		   )			 
+		{
+			if (lpf_compute_inprocess() == false) return l_False; // early termination
+		}
 		
 
 						
@@ -854,15 +858,15 @@ lbool Solver::search(int nof_conflicts)
 		if (confl != CRef_Undef){
             // CONFLICT
             conflicts++; conflictC++;
-            if (decisionLevel() == 1)
+            if (decisionLevel() == 1) // a core based on interesting constraints. 
             {
                 CreateUnsatCore(confl);
                 return l_False;
             }
 
-            if (decisionLevel() == 0) 
+            if (decisionLevel() == 0) // a core without interesting constraints (only remainder clauses, which are those clauses that were already marked as being in the core); in the next step the core will be empty, so the process should terminate.
             {
-                return l_False;  // bug ? If we really found a core with no dependency on the interesting constraints, then we should terminate the process. But we do not. 
+                return l_False;  
             }
 
             learnt_clause.clear();
@@ -977,70 +981,34 @@ lbool Solver::search(int nof_conflicts)
                 return l_Undef; 
             }
 
-        //    if (learnts.size()-nAssigns() >= max_learnts)                  
-		// 		reduceDB();  // Reduce the set of learnt clauses:
+            if (learnts.size()-nAssigns() >= max_learnts)                  
+		 		reduceDB();  // Reduce the set of learnt clauses:
 
             Lit next = lit_Undef;
-/*
-            while (decisionLevel() < assumptions.size()){
-                // Perform user provided assumption:
-                Lit p = assumptions[decisionLevel()];
-                if (value(p) == l_True){
-                    // Dummy decision level:
-                    newDecisionLevel();
-                }else if (value(p) == l_False){
-                    analyzeFinal(~p, conflict);
-                    return l_False;
-                }else{
-                    next = p;
-                    break;
-                }
-            }
-*/
-            
-			           
-				/*  // currently turning it off because it has little effect (adds only few literals)
-                if (lpf_inprocess && m_bConeRelevant && nICtoRemove > 0 && (decisionLevel() - 1 == LiteralsFromPathFalsification.size()) && (trail.size() > prev_trail_size)) {
-					prev_trail_size = trail.size();
-					//printf("trail = ");
-					//for (int i = 0 ; i < trail.size(); ++i) printf("%d,",trail[i].x);
-					//printf("\n");
-					double before_time = cpuTime();					
-					old_falsified_literals = LiteralsFromPathFalsification.size();
-					int addLiterals = PF_get_assumptions(nICtoRemove, resol.GetInd(nICtoRemove));					
-					printfVec(LiteralsFromPathFalsification, "lpf (mid) literals = ");
-					time_for_pf += (cpuTime() - before_time);						
-					int delta = addLiterals - old_falsified_literals;
-					printf("********* in process lpf literals (delta = %d, addLiterals = %d) \n", delta, addLiterals);
-					printf("cone relevant = %d\n", m_bConeRelevant);
-					if (addLiterals == 0) //< old_falsified_literals) 
-						if (pf_early_unsat_terminate()) return l_False; // This can happen if the trail cuts all paths to the empty clause.						
-					falsifiedAdditionalLiterals += delta;
-					lpf_inprocess_added += delta;
-				} // this may increase LiteralsFromPathFalsification
-				
-				*/
+
+			if (pf_active) {
 				while (decisionLevel() - 1 < LiteralsFromPathFalsification.size())  // literals in LiteralsFromPathFalsification are made assumptions
-                {
-                    Lit p = ~LiteralsFromPathFalsification[decisionLevel() - 1]; 
-                    if (value(p) == l_True)  // literal already implied by previous literals
-                        newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
-                    else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves				                                                
-                        if (pf_early_unsat_terminate()) return l_False;
+				{
+					Lit p = ~LiteralsFromPathFalsification[decisionLevel() - 1]; 
+					if (value(p) == l_True)  // literal already implied by previous literals
+						newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
+					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves				                                                
+						if (pf_early_unsat_terminate()) return l_False;
 						else LiteralsFromPathFalsification.clear();
-                    }
-                    else 
-                    {
-                        next = p;  // this will become the assumption
-                        break;
-                    }
-                }
+					}
+					else 
+					{
+						next = p;  // this will become the assumption
+						break;
+					}
+				}
+			}
             			
             if (next == lit_Undef) { // New variable decision:                
                 decisions++;
                 if ((next = pickBranchLit()) == lit_Undef) return l_True; // Model found:				
             }
-			
+//			printf("next = %d\n", next);
             // Increase decision level and enqueue 'next'
             newDecisionLevel(conflictC);
             uncheckedEnqueue(next);
@@ -1105,7 +1073,7 @@ bool Solver::lpf_compute_inprocess() {
 				printf("nICtoRemove = %d\n", nICtoRemove);
 				int old_falsified_literals = LiteralsFromPathFalsification.size();
 				int addLiterals = PF_get_assumptions(nICtoRemove, resol.GetInd(nICtoRemove));
-				//printfVec(LiteralsFromPathFalsification, "lpf literals = ");
+				printfVec(LiteralsFromPathFalsification, "lpf literals = ");
 				time_for_pf += (cpuTime() - before_time);								
 				printf("*** in process lpf = %d\n", addLiterals);
 				if (addLiterals == 0) { // If no literals are added it means that all paths from root are satisfied (otherwise we would at least have the literals in root), and hence the result of the next iteration is bound to be UNSAT. 				
@@ -1158,19 +1126,19 @@ lbool Solver::solve_()
 
     // Search:
     int curr_restarts = 0;		
-	lpf_inprocess_active = false;
+	pf_active = false;
 	pf_prev_trail_size = 0;
     while (status == l_Undef){
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
 //        fprintf(flog, "Starts %d\n", curr_restarts);
+		if (nICtoRemove > 0 && !test_mode &&  (curr_restarts >= opt_pf_delay)) 
+			pf_active = true;
         status = search(rest_base * restart_first);
         if (asynch_interrupt && status == l_Undef)
             return l_Undef;
 //        fflush(flog);
         if (!withinBudget()) break;		
         curr_restarts++;		
-		if (pf_mode == lpf_inprocess &&	nICtoRemove > 0 && !test_mode &&  (curr_restarts > opt_lpf_block)) 
-			lpf_inprocess_active = true;
     }
 	
     if (verbosity >= 1)
@@ -1345,8 +1313,8 @@ void Solver::garbageCollect()
 
 void Solver::CreateUnsatCore(CRef ref)
 {
-    if (decisionLevel() == 0)
-        return;
+    assert (decisionLevel() == 1);
+        // if (decisionLevel() == 0) return;
 
     m_bConeRelevant = true;
     CRef confl = ref;
@@ -1716,13 +1684,16 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
     return decLevels;
 }
 
+
+
+
 int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of literals in the falsified clause. 
 {	
     //if (uid == CRef_Undef)  // ?? comparing uid and CRef_Undef
         //return 0;
    
 	LiteralsFromPathFalsification.clear();
-
+	
 	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant)
 	{			
 		//printClause(stdout, ca[cr]);
@@ -1740,7 +1711,9 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 		for (int i = 0; i < c.size(); ++i)
 		{
 			LiteralsFromPathFalsification[i] = c[i];
+			printf("%d ", c[i].x);
 		}
+		printf("pf = removed ic only.\n");
 	}
 	   
 	
@@ -1762,13 +1735,13 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
             }
         }
     }
-	LiteralsFromPathFalsification.removeDuplicated_();
+	//LiteralsFromPathFalsification.removeDuplicated_(); // !!ofer. removed for comparing to the original version. 
 	
 	/*printf("falsified clause = ");
 	for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
 	printf("\n");*/
 
-
+	printfVec(LiteralsFromPathFalsification,"literals from pf");
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
 }
@@ -1814,7 +1787,7 @@ int current_id,m;
 			CRef childUid = r.m_Children[m];
 			if (!resol.ValidUid(childUid)) continue;
 			CRef childClauseRef = resol.GetInd(childUid);	
-			if ( (pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef])) continue;
+			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef])) continue;
 			if (first && opt_lpf_cutoff) {
 				++initialSpan;
 				if (initialSpan > 400) return false;  // magic cutoff number			
@@ -2136,8 +2109,11 @@ void Solver::LPF_get_assumptions(
 //			printfVec(res, "res - intersection");			
 		}		
 	}
+
 	if ((pf_mode == lpf_inprocess) && first) {
 		printf("no parent-of-empty-clause with a t-clause. should be unsat. \n"); 	
+		test_now = true;
+
 		//ResGraph2dotty(uid_root,parents_of_empty_clause, assump_literals);
 		// we are not returning here because we want the memory cleanup in the end; 
 	}

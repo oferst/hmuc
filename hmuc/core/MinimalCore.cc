@@ -12,7 +12,6 @@
 
 namespace Minisat
 {
-#define TestResult
 
 	static const char* _cat = "MUC";
 	static BoolOption    opt_muc_print			(_cat, "muc-progress", "print progress lines", true);
@@ -216,7 +215,7 @@ namespace Minisat
 	}
 
 	void CMinimalCore::Rotate(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
-	{
+	{		
 		++m_nRotationCalled;
 		CRef ref = m_Solver.GetClauseIndFromUid(uid);
 		assert(ref != CRef_Undef);
@@ -339,7 +338,7 @@ namespace Minisat
 				printf("did not pass test."); 
 				exit(1);
 			}
-			printf("passed test...");
+			printf("passed test...\n");
 		}
 	}
 
@@ -434,9 +433,9 @@ namespace Minisat
 
 					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 
-#ifdef TestResult
-				//	test(vecUnknown, setMuc, "normal unsat");
-#endif
+
+					//if (m_Solver.test_result) test(vecUnknown, setMuc, "normal unsat");
+
 
 					if (vecUnknown.size() == 0)
 					{
@@ -474,7 +473,7 @@ namespace Minisat
 						}
 					}
 
-					sort(vecUidsToRemove);
+					//sort(vecUidsToRemove);
 					// remove their cones				
 					if (!opt_only_cone)
 						m_Solver.RemoveClauses(vecUidsToRemove);
@@ -491,9 +490,11 @@ namespace Minisat
 					vecUidsToRemove.push(nIcForRemove);
 					m_Solver.RemoveClauses(vecUidsToRemove);    		
 
-#ifdef TestResult
-				//test(vecUnknown, setMuc, "unsat by assumptions");
-#endif
+				if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
+					test(vecUnknown, setMuc, "unsat by assumptions");
+				m_Solver.test_now = false;
+
+
 				PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 				}
 			}
@@ -503,6 +504,11 @@ namespace Minisat
 			else if (result == l_True)
 			{
 				printf("SAT\n");
+				/*for (int j = 0; j < 300; ++j)
+					printf("%d ", m_Solver.model[j]);*/
+				
+
+
 				if (nIteration == 0)
 					return result; // the problem is sat			
 
@@ -523,6 +529,7 @@ namespace Minisat
 					vecUidsToRemove.clear();
 					moreMucClauses.clear();
 					++m_nRotationFirstCalls;
+					printf("Rotate...\n");
 					Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
 					//Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));  // a little slower. Supposed to prevent stack-overflow problems with the recursive version. 
 
@@ -550,6 +557,7 @@ namespace Minisat
 						int nSizeBefore = setMuc.elems();
 						m_Solver.ReversePolarity();
 						((Solver*)&m_Solver)->solveLimited(assumptions);
+						printf("Rotate...\n");
 						Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
 						//Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecPrevUnknown.size()));
 						m_nSecondRotationClausesAdded += (setMuc.elems() - nSizeBefore);
@@ -577,7 +585,6 @@ namespace Minisat
 
 					sort(vecUidsToRemove);
 					m_Solver.GroupBindClauses(vecUidsToRemove);
-					//printf(" rotation = %d\n", m_nRotationClausesAdded);
 				}
 #pragma endregion
 				vecPrevUnknown.swap(vecUnknown);
@@ -658,20 +665,24 @@ namespace Minisat
 			}
 #pragma endregion
 
-			if (m_Solver.pf_mode != none) { 
-				m_Solver.icParents.copyTo(m_Solver.prev_icParents);
-				if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);				
-				if (m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)
+			
+			printf("nictoremove = %d\n", nIcForRemove);
+			if (m_Solver.pf_mode != none) {
+				bool ClauseOnly = (m_Solver.pf_mode == clause_only ) || !m_Solver.m_bConeRelevant;	// we will only add a clause in pf_get_assumptions 
+				if (!ClauseOnly && (result == l_False) && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
+					m_Solver.icParents.copyTo(m_Solver.prev_icParents);
+					if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);
+				}
+				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)  // note that we do not use ClauseOnly, because in mode lpf_inprocess, even if !m_bConeRelevant, we do not want to apply it here, because of the option to delay it via lpf_block
 				{				
 					double before_time = cpuTime();
 					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
-					printf("lpf literals = %d\n", addLiterals);					
+					printf("(between iterations) assumption literals = %d\n", addLiterals);										
 					m_Solver.pf_Literals += addLiterals;
 					m_Solver.time_for_pf += (cpuTime() - before_time);						
 				}
-				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration
+				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration. Note that lpf_inprocess is not activated if !m_bConeRelevant		
 			}
-			
 			m_Solver.RemoveClauses(vecUidsToRemove);
 			vecUidsToRemove.clear();
 			vecUidsToRemove.push(nIcForRemove);
@@ -698,9 +709,9 @@ end:	PrintData(vecUnknown.size(), setMuc.elems(), nIteration, true);
 		printf("### iter %d\n", nIteration);		
 
 
-#ifdef TestResult
-		test(vecUnknown, setMuc, "final");
-#endif
+
+		if (m_Solver.test_result ) test(vecUnknown, setMuc, "final");
+
 
 		if (opt_print_sol)
 		{

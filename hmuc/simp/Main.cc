@@ -22,9 +22,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <signal.h>
 #ifdef _MSC_VER
-#   include <win/zlib.h>
+//#   include <win/zlib.h>
 #else
-#   include <zlib.h>
+//#   include <zlib.h>
 #   include <sys/resource.h>
 #endif
 
@@ -132,7 +132,8 @@ int main(int argc, char** argv)
         if (argc == 1)
             printf("c Reading from standard input... Use '--help' for help.\n");
 
-        gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
+        //gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
+		FILE* in = (argc == 1) ? fopen(0, "rb") : fopen(argv[1], "rb");
 		printf("input: %s\n", argv[1]);
         if (in == NULL)
             printf("c ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);
@@ -143,7 +144,8 @@ int main(int argc, char** argv)
         
         CMinimalCore coreManager(S);
         parse_DIMACS(in, coreManager);
-        gzclose(in);
+        //gzclose(in);
+		fclose(in);
 
         if (S.verbosity > 0){
             printf("c |  Number of variables:  %12d                                         |\n", S.nVars());

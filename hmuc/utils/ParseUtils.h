@@ -23,11 +23,12 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef _MSC_VER
-#   include <win/zlib.h>
+// #   include <win/zlib.h>
 #else
-#   include <zlib.h>
+//#   include <zlib.h>
 #endif
 
 namespace Minisat {
@@ -39,7 +40,7 @@ static const int buffer_size = 1048576;
 
 
 class StreamBuffer {
-    gzFile        in;
+    FILE*        in;	
     unsigned char *buf;
     int           pos;
     int           size;
@@ -47,10 +48,14 @@ class StreamBuffer {
     void assureLookahead() {
         if (pos >= size) {
             pos  = 0;
-            size = gzread(in, buf, sizeof(buf)); } }
+            //size = gzread(in, buf, sizeof(buf)); } }
+			size = fread(buf, 1, sizeof(buf), in);  } }
+				
 
 public:
-    explicit StreamBuffer(gzFile i) : in(i), pos(0), size(0) { 
+	
+
+    explicit StreamBuffer(FILE* i) : in(i), pos(0), size(0) { 
         buf = (unsigned char*)malloc(buffer_size);
         assureLookahead(); 
     }

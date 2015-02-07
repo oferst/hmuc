@@ -47,30 +47,30 @@ static void readClause(B& in, Solver& S, vec<Lit>& lits) {
 }
 
 template<class B>
-static void parse_DIMACS_main(B& in, CMinimalCore& core) {
+static void parse_DIMACS_main(B& in_param, CMinimalCore& core) {
     SimpSolver& S = core.GetSolver();
     vec<Lit> lits;
     int vars    = 0;
     uint32_t clauses = 0;
     uint32_t cnt     = 0;
     for (;;){
-        skipWhitespace(in);
-        if (*in == EOF) break;
-        else if (*in == 'p'){
-            if (eagerMatch(in, "p cnf")){
-                vars    = parseInt(in);
-                clauses = parseInt(in);
+        skipWhitespace(in_param);
+        if (*in_param == EOF) break;
+        else if (*in_param == 'p'){
+            if (eagerMatch(in_param, "p cnf")){
+                vars    = parseInt(in_param);
+                clauses = parseInt(in_param);
                 // SATRACE'06 hack
                 // if (clauses > 4000000)
                 //     S.eliminate(true);
             }else{
-                printf("c PARSE ERROR! Unexpected char: %c\n", *in), exit(3);
+                printf("c PARSE ERROR! Unexpected char: %c\n", *in_param), exit(3);
             }
-        } else if (*in == 'c' || *in == 'p')
-            skipLine(in);
+        } else if (*in_param == 'c' || *in_param == 'p')
+            skipLine(in_param);
         else{
             cnt++;
-            readClause(in, S, lits);
+            readClause(in_param, S, lits);
 
             if (core.m_bIcInConfl)
             {
@@ -98,7 +98,7 @@ static void parse_DIMACS_main(B& in, CMinimalCore& core) {
 
 // Inserts problem into solver.
 //
-static void parse_DIMACS(gzFile input_stream, CMinimalCore& core) {
+static void parse_DIMACS(FILE* input_stream, CMinimalCore& core) {
     StreamBuffer in(input_stream);
     parse_DIMACS_main(in, core); }
 

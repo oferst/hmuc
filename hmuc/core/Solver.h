@@ -35,7 +35,13 @@ namespace Minisat {
 // Solver -- the main class:
 
 
-enum pf_modes{none, pf, lpf, lpf_inprocess};
+enum pf_modes{
+	none,
+	clause_only, // negated ic-clause-to-remove
+	pf, // unique prefix
+	lpf, // literal-based, between iterations
+	lpf_inprocess // literal-based, as part of search
+};
 
 class Solver {
 public:
@@ -77,12 +83,13 @@ public:
     }
 
 	double time_for_pf;	
+	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
 			
 	vec<uint32_t> prev_icParents;
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
-	bool lpf_inprocess_active;
+	bool pf_active;
 	//int lpf_inprocess_added;
 
     int m_nSatCall;
@@ -92,6 +99,7 @@ public:
 	int nUnsatByPF;
 	int pf_prev_trail_size;
 	bool test_mode;
+	bool m_bConeRelevant;
     // Constructor/Destructor:
     //
 	Solver();
@@ -205,13 +213,15 @@ public:
 
 	// LPF
 	int pf_mode;
-	
+	bool test_result;
+
 	bool pf_early_unsat_terminate();
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	void ResGraph2dotty(uint32_t, vec<uint32_t>&, vec<Lit>&  );
+	
 	//________________________________________________________________________________________________
 	
 
@@ -234,7 +244,7 @@ protected:
     vec<Map<Lit, CRef>::Pair> icImpl;
     Set<uint32_t> setGood;
     vec<uint32_t> uidsVec;
-    bool m_bConeRelevant;
+    
 
     // Helper structures:
     //
