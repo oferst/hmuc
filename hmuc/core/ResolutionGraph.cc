@@ -44,6 +44,32 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
     }
 }
 
+/// TODO: currently overapproximates P2, because once we touch a node that leads to icToremove, we block that node via 'checked'.
+/// we should mark instead all the nodes in the cone of icToremove, which will remove nodes in the initial set prev_icparents.
+bool CResolutionGraph::GetOriginalParentsUidsNoIC(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked, uint32_t icToremove)
+{
+	Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
+	if (nUid == icToremove) 
+		return false;
+	int nParentsSize = resol.ParentsSize();
+
+	if (nParentsSize == 0)
+	{		
+		allParents.push(nUid);
+		return true;
+	}
+
+	uint32_t* parents = resol.Parents();
+
+	for (int nParentId = 0; nParentId < nParentsSize; ++nParentId)
+	{
+		if (checked.insert(parents[nParentId]))
+			if (!GetOriginalParentsUidsNoIC(parents[nParentId], allParents, checked, icToremove)) return false;
+	}
+	return true;
+}
+
+
 void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
