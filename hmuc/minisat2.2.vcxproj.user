@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>ca002.shuffled.cnf -no-muc-print-sol -no-pre -pf-mode=1  -no-post-ic-imp -no-only-cone </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ca002.shuffled.cnf -no-muc-print-sol -no-pre -pf-mode=3  -test </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\industrial\biere\cmpadd</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
@@ -15,7 +15,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>barrel2.cnf -no-muc-print-sol -no-pre -pf-mode=1  -no-post-ic-imp -no-only-cone -test  &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>longmult6.cnf -no-muc-print-sol -no-pre -pf-mode=1  -test   </LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>

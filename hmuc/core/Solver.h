@@ -87,7 +87,7 @@ public:
 	double time_for_pf;	
 	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
-			
+	vec<uint32_t> ParentsOutsideCone;  // parents of the empty clause that are not in the cone of the current icToRemove
 	vec<uint32_t> prev_icParents;
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;

@@ -44,31 +44,6 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
     }
 }
 
-/// TODO: currently overapproximates P2, because once we touch a node that leads to icToremove, we block that node via 'checked'.
-/// we should mark instead all the nodes in the cone of icToremove, which will remove nodes in the initial set prev_icparents.
-bool CResolutionGraph::GetOriginalParentsUidsNoIC(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked, uint32_t icToremove)
-{
-	Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
-	if (nUid == icToremove) 
-		return false;
-	int nParentsSize = resol.ParentsSize();
-
-	if (nParentsSize == 0)
-	{		
-		allParents.push(nUid);
-		return true;
-	}
-
-	uint32_t* parents = resol.Parents();
-
-	for (int nParentId = 0; nParentId < nParentsSize; ++nParentId)
-	{
-		if (checked.insert(parents[nParentId]))
-			if (!GetOriginalParentsUidsNoIC(parents[nParentId], allParents, checked, icToremove)) return false;
-	}
-	return true;
-}
-
 
 void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
 {
@@ -90,39 +65,7 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
      }
  }
 
- /*
-void CResolutionGraph::BuildBackwardResolution()
-{
-    // clean all the maps
-    RemoveDeleted();
-    vec<uint32_t> dummy;
-    // pass over ResolutionMap and create corresponding vectors
-    for (int nBucket = 0; nBucket < m_ResolutionMap.bucket_count(); ++nBucket)
-    {
-        // each bucket its a pair between uid to vector of uids
-        const vec< Map<uint32_t, vec<uint32_t> >::Pair>&  pairs = m_ResolutionMap.bucket(nBucket);
-        for (int nPair = 0; nPair < pairs.size(); ++nPair)
-        {
-            const Map<uint32_t, vec<uint32_t> >::Pair&  pair = pairs[nPair];
-            dummy.push(pair.key);
-            int nParents = pair.data.size();
-            for (int nParent = 0; nParent < nParents; ++nParent)
-            {
-                if (m_BackwardResolutionMap.has(pair.data[nParent]))
-                {
-                    m_BackwardResolutionMap[pair.data[nParent]].push(pair.key);
-                }
-                else
-                {
-                    m_BackwardResolutionMap.insert(pair.data[nParent], dummy);
-                }
-            }
 
-            dummy.pop();
-        }
-    }
-}
-*/
 void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
 {
     Set<uint32_t> set;

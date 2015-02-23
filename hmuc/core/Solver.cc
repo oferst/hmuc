@@ -757,6 +757,7 @@ bool Solver::pf_early_unsat_terminate() {
 	m_bUnsatByPathFalsification = true;
 	nUnsatByPF++;
 	m_bConeRelevant = false; // since we reached a contradiction based on assumptions, we cannot use the cone, i.e., the cone includes facts (e.g. -c) that were added owing to a meta-argument (path-falsification), but we cannot extract an accurate core from this without an additional SAT run. 		
+	printf("**************** unsat by pf **************** \n");
 	return true;
 }
 
@@ -998,12 +999,25 @@ lbool Solver::search(int nof_conflicts)
 						newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves				                                                
 						if (pf_early_unsat_terminate()) {
-							printf("trail = "); 
+							/*printf("trail = "); 
 							for (int j = 0; j < trail.size(); ++j) printf("%s%d ", sign(trail[j]) ? "-" : "", var(trail[j]) + 1);
-							printf("\n");
+							printf("\n");*/
 
-							CreateUnsatCoreOfAssump(reason(var(p)));
+							CreateUnsatCoreOfAssump(reason(var(p)));  // core of proof of !assumption							
+							sort(icParents); // !! for test 
+							icParents.removeDuplicated_(); // !! for test 
+							printf("icparents size = %d\n", icParents.size());
 							printf("false literal (dimacs) = %s%d\n",sign(p) ? "-" : "", var(p)+1);
+							printf("Adding P2 literals: ");
+							for (int i = 0; i < ParentsOutsideCone.size(); ++i) {
+								icParents.push(ParentsOutsideCone[i]); // core of proof of assumption (P2)
+								printf("%d, ", ParentsOutsideCone[i]);
+							}
+							printf("\nP2 added %d literals\n", ParentsOutsideCone.size()); // there could be overlap between ParentsOutsideCone and icParents
+							sort(icParents); // !! for test 
+							icParents.removeDuplicated_(); // !! for test 
+							printf("icparents size = %d\n", icParents.size());
+							test_now = true;
 							return l_False;
 						}
 						else LiteralsFromPathFalsification.clear();
@@ -1323,8 +1337,6 @@ void Solver::garbageCollect()
 /// this means that reason(v) if v is an assumption, is CRef_Undef.
 void Solver::CreateUnsatCoreOfAssump(CRef ref)
 {
-	
-	m_bConeRelevant = true;
 	CRef confl = ref;
 	int index   = trail.size() - 1;
 	Var v = var_Undef;
@@ -1432,44 +1444,44 @@ void Solver::CreateUnsatCore(CRef ref)
     }
 }
 
-
-void Solver::GetUnsatCoreFromSet(vec<uint32_t>& pf_core, vec<uint32_t>& roots,  uint32_t nICtoRemove	) {	// this will hold the core of prev_icParents (the parents of the empty clause of the previous unsat proof), that were not removed as part of the ic.
-	Set<uint32_t> tmpCone;
-	
-	pf_core.clear();
-	/*printf("prev_icParents:\n");  // checked and indeed it is unsat
-	for (int nInd = 0; nInd < roots.size(); ++nInd) {
-		CRef ref = GetClauseIndFromUid(roots[nInd]);
-		Clause& cls = GetClause(ref);
-		printClause(stdout, cls);
-	}
-	exit(1);*/
-	
-	for (int nInd = 0; nInd < roots.size(); ++nInd)
-	{
-		/*CRef ref = GetClauseIndFromUid(roots[nInd]);
-		Clause& cls = GetClause(ref);		
-		if (cls.mark() > 0) {  // this strategy failed because there can be SAT instances between the time tof the last unsat (normal) happened until now. 
-		printClause(stdout, cls);
-		continue;
-		}			*/
-		vec<uint32_t> tmp_core;
-		if (tmpCone.insert(roots[nInd])) {		
-			resol.GetOriginalParentsUids(roots[nInd], tmp_core, tmpCone);				
-			for (int j = 0; j < tmp_core.size(); ++j) {					
-				Clause& cls = GetClause(GetClauseIndFromUid(tmp_core[j]));
-				if (!cls.learnt()) pf_core.push(tmp_core[j]);
-				else printf("skipped %d:\n", tmp_core[j]);  // no need to insert learnt clauses because they are implied by the remainder (setmuc) anyway.
-	
-				//tmp_core.addTo(pf_core);
-			}			
-		}
-		tmp_core.clear();			
-	}
-	tmpCone.clear(); // it is only needed in the process of GetOriginalParentsUids. The result is not needed. 
-	printf("core of pf_literals size = %d\n", pf_core.size());
-
-}
+//
+//void Solver::GetUnsatCoreFromSet(vec<uint32_t>& pf_core, vec<uint32_t>& roots,  uint32_t nICtoRemove	) {	// this will hold the core of prev_icParents (the parents of the empty clause of the previous unsat proof), that were not removed as part of the ic.
+//	Set<uint32_t> tmpCone;
+//	
+//	pf_core.clear();
+//	/*printf("prev_icParents:\n");  // checked and indeed it is unsat
+//	for (int nInd = 0; nInd < roots.size(); ++nInd) {
+//		CRef ref = GetClauseIndFromUid(roots[nInd]);
+//		Clause& cls = GetClause(ref);
+//		printClause(stdout, cls);
+//	}
+//	exit(1);*/
+//	
+//	for (int nInd = 0; nInd < roots.size(); ++nInd)
+//	{
+//		/*CRef ref = GetClauseIndFromUid(roots[nInd]);
+//		Clause& cls = GetClause(ref);		
+//		if (cls.mark() > 0) {  // this strategy failed because there can be SAT instances between the time tof the last unsat (normal) happened until now. 
+//		printClause(stdout, cls);
+//		continue;
+//		}			*/
+//		vec<uint32_t> tmp_core;
+//		if (tmpCone.insert(roots[nInd])) {		
+//			resol.GetOriginalParentsUids(roots[nInd], tmp_core, tmpCone);				
+//			for (int j = 0; j < tmp_core.size(); ++j) {					
+//				Clause& cls = GetClause(GetClauseIndFromUid(tmp_core[j]));
+//				if (!cls.learnt()) pf_core.push(tmp_core[j]);
+//				else printf("skipped %d:\n", tmp_core[j]);  // no need to insert learnt clauses because they are implied by the remainder (setmuc) anyway.
+//	
+//				//tmp_core.addTo(pf_core);
+//			}			
+//		}
+//		tmp_core.clear();			
+//	}
+//	tmpCone.clear(); // it is only needed in the process of GetOriginalParentsUids. The result is not needed. 
+//	printf("core of pf_literals size = %d\n", pf_core.size());
+//
+//}
 
 
 void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
@@ -1798,9 +1810,6 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
     return decLevels;
 }
 
-
-
-
 int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of literals in the falsified clause. 
 {	
     //if (uid == CRef_Undef)  // ?? comparing uid and CRef_Undef
@@ -1876,10 +1885,6 @@ void Solver::GeticUnits(vec<int>& v) {	// ofer
 }
 
 
-
-
-
-
 ///  But it uses class Map which is multimap, which complicates it. Should be replaced with ordinary map.
 bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) // uid is either c itself, or the clause at the bottom of a chain
 {
@@ -1923,7 +1928,6 @@ int current_id,m;
 	//printf("%d %d", initialSpan, maxQ);
 	return true;
 }
-
 
 void Solver::printResGraph(uint32_t uid, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions) // uid is either c itself, or the clause at the bottom of a chain
 {
@@ -1977,7 +1981,6 @@ int current_id,m;
 		printf("\n");
 	}	
 }
-
 
 void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions) // uid is either c itself, or the clause at the bottom of a chain
 {
@@ -2250,6 +2253,3 @@ void Solver::LPF_get_assumptions(
     }	
 	 //printf("--- exit get_Assumptions -----  \n");	
 }
-
-
-
