@@ -317,11 +317,11 @@ namespace Minisat
 				testsolver.newVar();
 			for (int i = 0; i < vecUnknown.size(); ++i) {
 				CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
-				if (ref == CRef_Undef) {
-					//m_Solver.printClause(stdout, m_Solver.GetClause(m_Solver.GetClauseIndFromUid()));
+				if (ref == CRef_Undef) {					
 					continue;
 				}
 				Clause& cls = m_Solver.GetClause(ref);				
+				m_Solver.printClause(stdout, cls);
 				lits.clear();
 				cls.copyTo(lits);					
 				testsolver.addClause(lits);
@@ -336,6 +336,7 @@ namespace Minisat
 				CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
 				if (ref == CRef_Undef) continue;
 				Clause& cls = m_Solver.GetClause(ref);			
+				m_Solver.printClause(stdout, cls);
 				lits.clear();
 				cls.copyTo(lits);
 				testsolver.addClause(lits);
@@ -404,13 +405,12 @@ namespace Minisat
 #pragma region UNSAT_case
 
 			if (result == l_False) {
-				//if(!m_Solver.m_bUnsatByPathFalsification)
-				{
+					//if(!m_Solver.m_bUnsatByPathFalsification)				
 					// First get all the clauses in unsat core
 					//printf("UNSAT (normal)\n");
 					printf("UNSAT \n"); 					
 					emptyClauseCone.clear();
-					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
+					if (m_Solver.GetUnsatCore(vecUids, emptyClauseCone)) {
 					
 					
 					// for each clause in vecUids check if its ic
@@ -534,34 +534,30 @@ namespace Minisat
 					if (!opt_only_cone)
 						m_Solver.RemoveClauses(vecUidsToRemove);  // removes cone(vecUidsToRemove).
 					else
-						m_Solver.RemoveEverythingNotInCone(emptyClauseCone, setMuc); // removes also clauses that are in the cone, but do not lead to the empty clause. 
+						m_Solver.RemoveEverythingNotInCone(emptyClauseCone, setMuc); // removes also clauses that are in the cone, but do not lead to the empty clause. 					
 					
-					ref = m_Solver.GetClauseIndFromUid(vecUnknown[5]);
 					if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
 					{
 						test(vecUnknown, setMuc, m_Solver.m_bUnsatByPathFalsification ? "unsat by assumptions" : "unsat (normal)");
 						m_Solver.test_now = false;
 					}
-					
-					
 				}
-				//else {  // unsat, but contradiction was discovered when the assumptions were added.
-				//	printf("UNSAT (by assumptions)\n");
 				
-				//	remove(vecPrevUnknown, nIcForRemove);
-				//	if (vecPrevUnknown.size() == 0) break;
-				//	vecPrevUnknown.swap(vecUnknown);
-				//	vecUidsToRemove.clear();
-				//	vecUidsToRemove.push(nIcForRemove);
-				//	m_Solver.RemoveClauses(vecUidsToRemove);    		
+				else {  // unsat, contradiction by assumption, cannot reconstruct core because some necessary clauses were removed in earlier iterations. 
+					printf("UNSAT (by assumptions)\n");
+				
+					remove(vecPrevUnknown, nIcForRemove);
+					if (vecPrevUnknown.size() == 0) break;
+					vecPrevUnknown.swap(vecUnknown);
+					vecUidsToRemove.clear();
+					vecUidsToRemove.push(nIcForRemove);
+					m_Solver.RemoveClauses(vecUidsToRemove);    		
 
-				//if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
-				//	test(vecUnknown, setMuc, "unsat by assumptions");
-				//m_Solver.test_now = false;
-
-
-				//PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
-				//}
+				if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
+					test(vecUnknown, setMuc, "unsat by assumptions / cannot reconstruct");
+					m_Solver.test_now = false;
+					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
+				}
 			}
 #pragma endregion
 

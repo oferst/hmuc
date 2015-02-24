@@ -45,15 +45,17 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
 }
 
 
-void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
+bool CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
 {
-    Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
+    CRef ref = m_UidToData[nUid].m_ResolRef;
+	if (ref == CRef_Undef) return false;
+	Resol& resol = m_RA[ref];
     int nParentsSize = resol.ParentsSize();
 
      if (nParentsSize == 0)
      {
          allParents.push(nUid);
-         return;
+         return true;
      }
 
      uint32_t* parents = resol.Parents();

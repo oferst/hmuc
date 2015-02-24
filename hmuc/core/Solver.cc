@@ -803,9 +803,9 @@ lbool Solver::search(int nof_conflicts)
             {
                 return l_False;
             }
-			printf("trail after simplify = "); 
-			for (int j = 0; j < trail.size(); ++j) printf("%s%d ", sign(trail[j]) ? "-" : "", var(trail[j]));
-			printf("\n");
+			//printf("trail after simplify = "); 
+			//for (int j = 0; j < trail.size(); ++j) printf("%s%d ", sign(trail[j]) ? "-" : "", var(trail[j]));
+			//printf("\n");
 			if (!test_mode && resol.GetInd(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
 				printf("root removed by simplify. Early unsat\n");
 				if (pf_early_unsat_terminate()) return l_False;				
@@ -864,7 +864,7 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 1) // a core based on interesting constraints. 
             {
-                CreateUnsatCore(confl);
+                CreateParentsOfEmptyClause(confl);
                 return l_False;
             }
 
@@ -1003,7 +1003,7 @@ lbool Solver::search(int nof_conflicts)
 							for (int j = 0; j < trail.size(); ++j) printf("%s%d ", sign(trail[j]) ? "-" : "", var(trail[j]) + 1);
 							printf("\n");*/
 
-							CreateUnsatCoreOfAssump(reason(var(p)));  // core of proof of !assumption							
+							CreateParentsOfNegatedAssump(reason(var(p)));  // core of proof of !assumption							
 							sort(icParents); // !! for test 
 							icParents.removeDuplicated_(); // !! for test 
 							printf("icparents size = %d\n", icParents.size());
@@ -1333,21 +1333,22 @@ void Solver::garbageCollect()
     to.moveTo(ca);
 }
 
-/// see explanation in CreateUnsatCore. The difference is that we activate this one at 1 < decision level < |assumptions| (or something like that...), which means that decisions were made.
+/// see explanation in CreateParentsOfEmptyClause. The difference is that we activate this one at 1 < decision level < |assumptions| (or something like that...), which means that decisions were made.
 /// this means that reason(v) if v is an assumption, is CRef_Undef.
-void Solver::CreateUnsatCoreOfAssump(CRef ref)
+void Solver::CreateParentsOfNegatedAssump(CRef ref)
 {
 	CRef confl = ref;
 	int index   = trail.size() - 1;
 	Var v = var_Undef;
 	int nSeen = 0;
+	int undefs = 0;
 	resol.m_EmptyClauseParents.clear();
 
 	for (;;) 
 	{
 	
 		Clause& c = ca[confl];
-		printf("in CreateUnsatCoreOfAssump checking clause: ");
+		printf("in CreateParentsOfNegatedAssump checking clause: ");
 		printClause(stdout, c);
 		if (c.ic())
 		{
@@ -1375,14 +1376,15 @@ void Solver::CreateUnsatCoreOfAssump(CRef ref)
 
 		// Select next clause to look at:
 		//while (!seen[var(trail[index])] || reason(var(trail[index]) == CRef_Undef)) index--;
-		int v;
+		int v;		
 		while (1) {
-			if (index < 0) return;
+			if (index < 0) { printf("undefs = %d\n", undefs); return;}
 			v = var(trail[index]);
 			bool b1 = !seen[v];
 			if (!b1) {
 				bool b2 = reason(v) == CRef_Undef;
 				if (!b2) break;
+				undefs++;
 			}
 			index --;
 		}
@@ -1391,11 +1393,12 @@ void Solver::CreateUnsatCoreOfAssump(CRef ref)
 		seen[v] = 0;
 		--nSeen;
 	}
+	printf("undefs = %d\n", undefs);
 }
 
 /// Goes over the trail of the current decision level (decision level 1, which here is like 0 in normal sat), and collects all the clauses that participated in the BCP.
 /// These clauses together with the root (ref) can resolve the empty clause. 
-void Solver::CreateUnsatCore(CRef ref)
+void Solver::CreateParentsOfEmptyClause(CRef ref)
 {
     assert (decisionLevel() == 1);
         // if (decisionLevel() == 0) return;
@@ -1484,13 +1487,13 @@ void Solver::CreateUnsatCore(CRef ref)
 //}
 
 
-void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
+bool Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 {
     core.clear();
     for (int nInd = 0; nInd < icParents.size(); ++nInd)
     {
         if (emptyClauseCone.insert(icParents[nInd]))
-            resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone);
+            if (!resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone)) return false;
     }
 }
 

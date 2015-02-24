@@ -48,7 +48,7 @@ public:
     //FILE* flog;
 	void GeticUnits(vec<int>&);
 	void GetUnsatCoreFromSet(vec<uint32_t>&, vec<uint32_t>& roots, uint32_t nicTotemove); //ofer: get the core starting from a set of clauses rather than the empty clause, but not from clause that are in the code of nicTotemove. Used for computing pf_core.
-    void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
+    bool GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
 
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
     void RemoveClauses(vec<uint32_t>& cone);
@@ -239,8 +239,8 @@ public:
 	CResolutionGraph resol; 
 
 protected:
-	void CreateUnsatCoreOfAssump(CRef ref); // ofer
-    void CreateUnsatCore(CRef ref);
+	void CreateParentsOfNegatedAssump(CRef ref); // ofer
+    void CreateParentsOfEmptyClause(CRef ref);
     
     vec<CRef> icUnitClauses;
 	
