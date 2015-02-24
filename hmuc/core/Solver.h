@@ -48,7 +48,7 @@ public:
     //FILE* flog;
 	void GeticUnits(vec<int>&);
 	void GetUnsatCoreFromSet(vec<uint32_t>&, vec<uint32_t>& roots, uint32_t nicTotemove); //ofer: get the core starting from a set of clauses rather than the empty clause, but not from clause that are in the code of nicTotemove. Used for computing pf_core.
-    bool GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
+    void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
 
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
     void RemoveClauses(vec<uint32_t>& cone);

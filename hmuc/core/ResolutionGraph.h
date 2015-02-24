@@ -168,7 +168,7 @@ public:
     }
 
     bool GetOriginalParentsUidsNoIC(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked, uint32_t icToremove);
-	bool GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
+	void GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
 
     //void BuildBackwardResolution();
 

@@ -321,7 +321,7 @@ namespace Minisat
 					continue;
 				}
 				Clause& cls = m_Solver.GetClause(ref);				
-				m_Solver.printClause(stdout, cls);
+				//m_Solver.printClause(stdout, cls);
 				lits.clear();
 				cls.copyTo(lits);					
 				testsolver.addClause(lits);
@@ -336,7 +336,7 @@ namespace Minisat
 				CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
 				if (ref == CRef_Undef) continue;
 				Clause& cls = m_Solver.GetClause(ref);			
-				m_Solver.printClause(stdout, cls);
+				//m_Solver.printClause(stdout, cls);
 				lits.clear();
 				cls.copyTo(lits);
 				testsolver.addClause(lits);
@@ -410,8 +410,7 @@ namespace Minisat
 					//printf("UNSAT (normal)\n");
 					printf("UNSAT \n"); 					
 					emptyClauseCone.clear();
-					if (m_Solver.GetUnsatCore(vecUids, emptyClauseCone)) {
-					
+					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);					
 					
 					// for each clause in vecUids check if its ic
 					// and mark it as unknown. 
@@ -541,23 +540,23 @@ namespace Minisat
 						test(vecUnknown, setMuc, m_Solver.m_bUnsatByPathFalsification ? "unsat by assumptions" : "unsat (normal)");
 						m_Solver.test_now = false;
 					}
-				}
+			
 				
-				else {  // unsat, contradiction by assumption, cannot reconstruct core because some necessary clauses were removed in earlier iterations. 
-					printf("UNSAT (by assumptions)\n");
-				
-					remove(vecPrevUnknown, nIcForRemove);
-					if (vecPrevUnknown.size() == 0) break;
-					vecPrevUnknown.swap(vecUnknown);
-					vecUidsToRemove.clear();
-					vecUidsToRemove.push(nIcForRemove);
-					m_Solver.RemoveClauses(vecUidsToRemove);    		
+				//else {  // unsat, contradiction by assumption, cannot reconstruct core because some necessary clauses were removed in earlier iterations. 
+				//	printf("UNSAT (by assumptions)\n");
+				//
+				//	remove(vecPrevUnknown, nIcForRemove);
+				//	if (vecPrevUnknown.size() == 0) break;
+				//	vecPrevUnknown.swap(vecUnknown);
+				//	vecUidsToRemove.clear();
+				//	vecUidsToRemove.push(nIcForRemove);
+				//	m_Solver.RemoveClauses(vecUidsToRemove);    		
 
-				if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
-					test(vecUnknown, setMuc, "unsat by assumptions / cannot reconstruct");
-					m_Solver.test_now = false;
-					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
-				}
+				//	if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
+				//		test(vecUnknown, setMuc, "unsat by assumptions / cannot reconstruct");
+				//	m_Solver.test_now = false;
+				//	PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
+				//}
 			}
 #pragma endregion
 
@@ -725,8 +724,7 @@ namespace Minisat
 				}				
 			}
 #pragma endregion
-
-			
+						
 			printf("nictoremove = %d\n", nIcForRemove);
 			if (m_Solver.pf_mode != none) {
 				if (m_Solver.m_bConeRelevant && result == l_False)	 {
@@ -748,16 +746,20 @@ namespace Minisat
 			if (vecUidsToRemove.size() > 0) m_Solver.RemoveClauses(vecUidsToRemove);  // only relevant for clauses that were removed by rotation (?)
 			vecUidsToRemove.clear();
 			vecUidsToRemove.push(nIcForRemove);
-			m_Solver.UnbindClauses(vecUidsToRemove); // assigns vecUidsToRemove = cone(nIcForRemove) and removes those clause. 
+			m_Solver.UnbindClauses(vecUidsToRemove); // assigns vecUidsToRemove = cone(nIcForRemove) and removes those clauses. 
 
 			// now vecuidsToRemove = cone(nIcForRemove). We use it to calculate ParentsOutsideCone = cone(P2) = cone of parents of empty clause that are not in the cone of nIcToRemove
 			m_Solver.ParentsOutsideCone.clear();
 			sort(vecUidsToRemove); 			
-			// update ParentsOutsideCone (a.k.a P2 clauses). We need to do it in every iteration because every time we remove a different icToRemove. It is done with respect to prev_icParents, which is updated aove only when cone is relevant. 
+			// update ParentsOutsideCone (a.k.a P2 clauses). We need to do it in every iteration because every time we remove a different icToRemove. It is done with respect to prev_icParents, which is updated above only when cone is relevant.
+			CRef ref_l;
 			for (int j = 0; j < m_Solver.prev_icParents.size(); ++j) {  
 				int tmp; 
 				tmp = m_Solver.prev_icParents[j];
-				if (!vecUidsToRemove.binary_search(tmp)) m_Solver.ParentsOutsideCone.push(tmp);
+				if (!vecUidsToRemove.binary_search(tmp)) {
+					m_Solver.ParentsOutsideCone.push(tmp);
+					ref_l = m_Solver.resol.GetResolId(tmp);
+				}
 			}			
 			
 			vecPrevUnknown.swap(vecUnknown);

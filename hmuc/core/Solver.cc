@@ -104,7 +104,7 @@ Solver::Solver() :
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
 
-  , m_bConeRelevant    (false)
+  , m_bConeRelevant    (true) // !! ofer changed from false. 
   , ok                 (true)
   , cla_inc            (1)
   , var_inc            (1)
@@ -756,7 +756,7 @@ bool Solver::pf_early_unsat_terminate() {
 	}	
 	m_bUnsatByPathFalsification = true;
 	nUnsatByPF++;
-	m_bConeRelevant = false; // since we reached a contradiction based on assumptions, we cannot use the cone, i.e., the cone includes facts (e.g. -c) that were added owing to a meta-argument (path-falsification), but we cannot extract an accurate core from this without an additional SAT run. 		
+	//m_bConeRelevant = false; // since we reached a contradiction based on assumptions, we cannot use the cone, i.e., the cone includes facts (e.g. -c) that were added owing to a meta-argument (path-falsification), but we cannot extract an accurate core from this without an additional SAT run. 		
 	printf("**************** unsat by pf **************** \n");
 	return true;
 }
@@ -1003,20 +1003,35 @@ lbool Solver::search(int nof_conflicts)
 							for (int j = 0; j < trail.size(); ++j) printf("%s%d ", sign(trail[j]) ? "-" : "", var(trail[j]) + 1);
 							printf("\n");*/
 
-							CreateParentsOfNegatedAssump(reason(var(p)));  // core of proof of !assumption							
-							sort(icParents); // !! for test 
-							icParents.removeDuplicated_(); // !! for test 
+							CreateParentsOfNegatedAssump(reason(var(p)));  // core of proof of !assumption.
+							sort(icParents); // !! for test
+							icParents.removeDuplicated_(); // !! for test
 							printf("icparents size = %d\n", icParents.size());
 							printf("false literal (dimacs) = %s%d\n",sign(p) ? "-" : "", var(p)+1);
-							printf("Adding P2 literals: ");
+							printf("Adding P2 clauses: ");
+							vec<uint32_t> vec_temp;
+							for (int i = 0; i < ParentsOutsideCone.size(); ++i) {
+								if (resol.GetResolId(ParentsOutsideCone[i]) != CRef_Undef) vec_temp.push(ParentsOutsideCone[i]);
+							}
+							vec_temp.swap(ParentsOutsideCone);
 							for (int i = 0; i < ParentsOutsideCone.size(); ++i) {
 								icParents.push(ParentsOutsideCone[i]); // core of proof of assumption (P2)
-								printf("%d, ", ParentsOutsideCone[i]);
-							}
+								printf("%d, ", ParentsOutsideCone[i]);								
+							}							
 							printf("\nP2 added %d literals\n", ParentsOutsideCone.size()); // there could be overlap between ParentsOutsideCone and icParents
 							sort(icParents); // !! for test 
 							icParents.removeDuplicated_(); // !! for test 
 							printf("icparents size = %d\n", icParents.size());
+							
+							for (int i = 0; i < decisionLevel(); ++i) { //!! check bounds. 
+									Lit p1 = ~LiteralsFromPathFalsification[i]; 
+									printf("Connecting to assumption (dimacs): %s%d\n ", sign(p1) ? "-" : "", var(p1) + 1);
+									vec<Lit>  assumpAsUnit;                 
+									assumpAsUnit.push(p1);
+									CRef cr = ca.alloc(assumpAsUnit, false, true);
+									icUnitClauses.push(cr);
+									resol.AddNewResolution(ca[cr].uid(), cr, ParentsOutsideCone);									
+								}
 							test_now = true;
 							return l_False;
 						}
@@ -1487,13 +1502,14 @@ void Solver::CreateParentsOfEmptyClause(CRef ref)
 //}
 
 
-bool Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
+/// Gets core, but only made of interesting roots. 
+void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 {
     core.clear();
     for (int nInd = 0; nInd < icParents.size(); ++nInd)
     {
         if (emptyClauseCone.insert(icParents[nInd]))
-            if (!resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone)) return false;
+            resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone);
     }
 }
 

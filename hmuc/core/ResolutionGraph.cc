@@ -16,7 +16,10 @@ void CResolutionGraph::AddNewResolution
     // increase reference count for all the parents
     for (int nInd = 0; nInd < parents.size(); ++nInd)
     {
-        Resol& res = m_RA[m_UidToData[parents[nInd]].m_ResolRef];
+		uint32_t parent = parents[nInd];
+		CRef ref_l = m_UidToData[parent].m_ResolRef;
+		if (ref_l == CRef_Undef) continue; // this is supposed to only happen when this function is called from serch with parents = ParentsOutsideCone. It happens because some of the parents in this list might have been reclassified as not-interesting since the original list was created. 
+        Resol& res = m_RA[ref_l];
         ++res.m_nRefCount;
         res.m_Children.push(nNewClauseId);
     }
@@ -45,17 +48,17 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
 }
 
 
-bool CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
+void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
 {
     CRef ref = m_UidToData[nUid].m_ResolRef;
-	if (ref == CRef_Undef) return false;
+	if (ref == CRef_Undef) return;  // this can happen when the clause became non-interesting (probably by a SAT/rotation instance).  
 	Resol& resol = m_RA[ref];
     int nParentsSize = resol.ParentsSize();
 
      if (nParentsSize == 0)
      {
          allParents.push(nUid);
-         return true;
+         return;
      }
 
      uint32_t* parents = resol.Parents();
