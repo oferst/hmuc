@@ -1004,21 +1004,30 @@ lbool Solver::search(int nof_conflicts)
 							printf("\n");*/
 
 							CreateParentsOfNegatedAssump(reason(var(p)));  // core of proof of !assumption.
+							vec<Lit> out_conflict;
+							analyzeFinal(p, out_conflict);
+//							assert(out_conflict.size() == icParents.size());
 							sort(icParents); // !! for test
 							icParents.removeDuplicated_(); // !! for test
-							printf("icparents size = %d\n", icParents.size());
+							printf("icparents size = %d, out_conflict size = %d\n", icParents.size(), out_conflict.size() );
 							printf("false literal (dimacs) = %s%d\n",sign(p) ? "-" : "", var(p)+1);
-							printf("Adding P2 clauses: ");
+
+							// removing clauses from ParentsOutsideCone which are not interesting by now. 
 							vec<uint32_t> vec_temp;
 							for (int i = 0; i < ParentsOutsideCone.size(); ++i) {
-								if (resol.GetResolId(ParentsOutsideCone[i]) != CRef_Undef) vec_temp.push(ParentsOutsideCone[i]);
+								if (resol.GetResolId(ParentsOutsideCone[i]) != CRef_Undef) {
+									assert(GetClause(GetClauseIndFromUid(ParentsOutsideCone[i])).ic());
+									vec_temp.push(ParentsOutsideCone[i]);}								
 							}
-							vec_temp.swap(ParentsOutsideCone);
+							if (vec_temp.size() < ParentsOutsideCone.size()) 
+								vec_temp.swap(ParentsOutsideCone);
+							
+							printf("Adding P2 clauses: ");
 							for (int i = 0; i < ParentsOutsideCone.size(); ++i) {
 								icParents.push(ParentsOutsideCone[i]); // core of proof of assumption (P2)
 								printf("%d, ", ParentsOutsideCone[i]);								
 							}							
-							printf("\nP2 added %d literals\n", ParentsOutsideCone.size()); // there could be overlap between ParentsOutsideCone and icParents
+							printf("\nP2 added %d clauses\n", ParentsOutsideCone.size()); // there could be overlap between ParentsOutsideCone and icParents
 							sort(icParents); // !! for test 
 							icParents.removeDuplicated_(); // !! for test 
 							printf("icparents size = %d\n", icParents.size());
@@ -1363,14 +1372,14 @@ void Solver::CreateParentsOfNegatedAssump(CRef ref)
 	{
 	
 		Clause& c = ca[confl];
-		printf("in CreateParentsOfNegatedAssump checking clause: ");
-		printClause(stdout, c);
+		//printf("in CreateParentsOfNegatedAssump checking clause: ");
+		//printClause(stdout, c);
 		if (c.ic())
 		{
 			icParents.push(c.uid());
-			printf("icParents (dimacs) += "); 
-			printClause(stdout,c);
-			printf("\n");
+			//printf("icParents (dimacs) += "); 
+			//printClause(stdout,c);
+			//printf("\n");
 			resol.m_EmptyClauseParents.insert(c.uid());
 		}
 

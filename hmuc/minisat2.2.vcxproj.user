@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>42.shuffled.cnf -no-muc-print-sol -no-pre -pf-mode=3  -test  </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>queueinvar4.cnf -no-muc-print-sol -no-pre -pf-mode=0  -test  </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\small</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\small</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerCommandArguments>hardware-verification\dp02u01.shuffled.cnf -no-muc-print-sol -no-pre -pf-mode=1  -no-post-ic-imp -no-only-cone -test  &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
@@ -15,8 +15,8 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>ca002.shuffled.cnf -no-muc-print-sol -no-pre -pf-mode=1  -test </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\small</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>longmult6.cnf -no-muc-print-sol -no-pre -pf-mode=1  -test   </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
