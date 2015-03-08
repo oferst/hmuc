@@ -1,22 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>queueinvar4.cnf -no-muc-print-sol -no-pre -pf-mode=0  -test  </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>hardware-verification\f6n.cnf -no-muc-print-sol -no-pre  -pf-mode=3   -lpf-delay=2 </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\small</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>hardware-verification\dp02u01.shuffled.cnf -no-muc-print-sol -no-pre -pf-mode=1  -no-post-ic-imp -no-only-cone -test  &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>hardware-verification\c6bidw_s.cnf -no-muc-print-sol -no-pre  -pf-mode=4</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\industrial\biere\dinphil</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|Win32'">
     <LocalDebuggerCommandArguments>c:\temp\barrel6.cnf  -no-muc-print-sol</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>longmult6.cnf -no-muc-print-sol -no-pre -pf-mode=1  -test   </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>equivalence-checking\c3540-s.cnf -no-muc-print-sol -no-pre -pf-mode=2  -test</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
