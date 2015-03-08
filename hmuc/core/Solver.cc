@@ -994,7 +994,7 @@ lbool Solver::search(int nof_conflicts)
 						newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves				                                                
 						if (pf_early_unsat_terminate()) return l_False;
-						else LiteralsFromPathFalsification.clear();
+						  else LiteralsFromPathFalsification.clear();
 					}
 					else 
 					{
