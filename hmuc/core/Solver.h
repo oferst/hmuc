@@ -47,7 +47,9 @@ class Solver {
 public:
     //FILE* flog;
 	void GeticUnits(vec<int>&);
+	void GetUnsatCoreFromSet(vec<uint32_t>&, vec<uint32_t>& roots, uint32_t nicTotemove); //ofer: get the core starting from a set of clauses rather than the empty clause, but not from clause that are in the code of nicTotemove. Used for computing pf_core.
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
+
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
     void RemoveClauses(vec<uint32_t>& cone);
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
@@ -85,7 +87,7 @@ public:
 	double time_for_pf;	
 	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
-			
+	vec<uint32_t> ParentsOutsideCone;  // parents of the empty clause that are not in the cone of the current icToRemove
 	vec<uint32_t> prev_icParents;
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
@@ -237,7 +239,8 @@ public:
 	CResolutionGraph resol; 
 
 protected:
-    void CreateUnsatCore(CRef ref);
+	void CreateParentsOfNegatedAssump(CRef ref); // ofer
+    void CreateParentsOfEmptyClause(CRef ref);
     
     vec<CRef> icUnitClauses;
 	

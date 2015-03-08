@@ -6,7 +6,7 @@
 #include "core/SolverTypes.h"
 
 #include <string.h>
-
+#include <iostream>
 namespace Minisat
 {
 
@@ -122,6 +122,9 @@ public:
         ClearWasted();
     }
 
+
+	
+
 private:
     CRef m_LastRelocLoc;
 };
@@ -164,7 +167,8 @@ public:
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
 
-    void GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
+    bool GetOriginalParentsUidsNoIC(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked, uint32_t icToremove);
+	void GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
 
     //void BuildBackwardResolution();
 
@@ -198,6 +202,35 @@ public:
     }
 
     Set<uint32_t> m_EmptyClauseParents;
+
+	/*void PrintReasonsGraph(uint32_t inUid, const char* fileName)
+	{
+		std::ofstream outFile;
+		outFile.open (fileName);
+		outFile << "digraph G {\n";
+		vec<uint32_t> inUids;
+		inUids.push(inUid);
+		CBackwardIterator iter(*this, inUids);
+
+		while (iter.IsDone() == false)
+		{
+			TClsUid uid = iter.Next();
+
+			int nParentsSize = GetParentsSize(uid);
+			if (nParentsSize != 0)
+			{
+				TClsUid* pParents = GetParents(uid);
+				for (int nParent = 0; nParent < nParentsSize; ++nParent)
+				{
+					outFile << pParents[nParent] << " -> " << uid << "\n";
+				}
+			}
+		}
+
+		outFile << "}\n";
+		outFile.close();
+	}*/
+
 
 private:
     void DecreaseReference(uint32_t nUid);
