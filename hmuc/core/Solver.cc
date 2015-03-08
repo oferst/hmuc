@@ -988,7 +988,7 @@ lbool Solver::search(int nof_conflicts)
 
 			if (pf_active) {
 				while (decisionLevel() - 1 < LiteralsFromPathFalsification.size())  // literals in LiteralsFromPathFalsification are made assumptions
-				{
+		 		{
 					Lit p = ~LiteralsFromPathFalsification[decisionLevel() - 1]; 
 					if (value(p) == l_True)  // literal already implied by previous literals
 						newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
