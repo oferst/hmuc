@@ -64,7 +64,7 @@ static void SIGINT_interrupt(int signum) { solver->interrupt(); }
 // functions are guarded by locks for multithreaded use).
 static void SIGINT_exit(int signum) {
     printf("\n"); printf("c *** INTERRUPTED ***\n");
-    if (solver->verbosity > 0){
+    if (solver->verbosity > 0){ 
         printStats(*solver);
         printf("\n"); printf("c *** INTERRUPTED ***\n"); }
     _exit(1); }
@@ -86,12 +86,13 @@ int main(int argc, char** argv)
         // Extra options:
         //
         IntOption    verb   ("MAIN", "verb",   "Verbosity level (0=silent, 1=some, 2=more).", 0, IntRange(0, 2));
-        BoolOption   pre    ("MAIN", "pre",    "Completely turn on/off any preprocessing.", true);
+        BoolOption   pre    ("MAIN", "pre",    "Completely turn on/off any preprocessing.", false);
         StringOption dimacs ("MAIN", "dimacs", "If given, stop after preprocessing and write the result to this file.");
         IntOption    cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
         IntOption    mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
-
-        parseOptions(argc, argv, true);
+		
+        
+		parseOptions(argc, argv, true);
         
         SimpSolver  S;
         double      initial_time = cpuTime();

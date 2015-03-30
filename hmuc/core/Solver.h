@@ -90,6 +90,8 @@ public:
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
 	bool pf_active;
+	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
+	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 
 	//int lpf_inprocess_added;
 
     int m_nSatCall;
@@ -100,6 +102,7 @@ public:
 	int pf_prev_trail_size;
 	bool test_mode;
 	bool m_bConeRelevant;
+		
     // Constructor/Destructor:
     //
 	Solver();
@@ -210,12 +213,13 @@ public:
     void ResetOk();
     int PF_get_assumptions(uint32_t uid, CRef cref);
 	vec<Lit>    LiteralsFromPathFalsification;
-
+	int count_true_assump;
+	int count_assump;
 	// LPF
 	int pf_mode;
 	bool test_result;
 
-	bool pf_early_unsat_terminate();
+	bool pf_early_unsat_terminate(); 
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);

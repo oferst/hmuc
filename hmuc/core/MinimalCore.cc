@@ -14,14 +14,15 @@ namespace Minisat
 {
 
 	static const char* _cat = "MUC";
-	static BoolOption    opt_muc_print			(_cat, "muc-progress", "print progress lines", true);
+	static BoolOption    opt_muc_print			(_cat, "muc-progress", "print progress lines", false);
 	static BoolOption    opt_muc_rotate			(_cat, "muc-rotate", "perform rotation algorithm", true);
-	static BoolOption    opt_print_sol			(_cat, "muc-print-sol", "print the satisfying solution", true);
+	static BoolOption    opt_print_sol			(_cat, "muc-print-sol", "print the satisfying solution", false);
 	static DoubleOption  opt_set_ratio			(_cat, "set-ratio",   "When we should start using set", 0.0, DoubleRange(0.0, true, 1000000.0, true));
 	static BoolOption    opt_second_sat_call	(_cat, "sec-sat-call", "call solver again to get a different SAT assignment", false);
 	static BoolOption    opt_sec_rot_use_prev	(_cat, "sec-call-use-prev", "include in second rotation-call previously discovered clauses", true);
 	static IntOption     opt_remove_order		(_cat, "remove-order", "removal order: 0 - biggest, 1 - smallest, 2 - highest, 3 - lowest, 4 - rotation\n", 2, IntRange(0, 4));
 	static BoolOption    opt_only_cone			(_cat, "only-cone", "remove all the clauses outside the empty clause cone\n", true);
+	
 	
 
 	CMinimalCore::CMinimalCore(SimpSolver& solver): 
@@ -356,14 +357,15 @@ namespace Minisat
 		Set<uint32_t> moreMucClauses;
 		Set<uint32_t> emptyClauseCone;
 		vec<uint32_t> moreMucVec;
-		
-		
+		double time_after_initial_run;
+		double longestcall = 0;
 		int lpf_boost_found_trivial_UNSAT = 0;
 				
 		m_Solver.time_for_pf = 0.0;		
 		m_Solver.nICtoRemove = 0; 
 		m_Solver.pf_Literals = 0;
 		m_Solver.nUnsatByPF = 0;
+		m_Solver.pf_zombie_iter = 0;
 		//m_Solver.lpf_inprocess_added = 0;
 		m_Solver.test_mode = false;
 		// run preprocessing
@@ -381,8 +383,15 @@ namespace Minisat
 		int nIteration = 0;		
 		for (; true; ++nIteration)
 		{		
-			if (!m_bIcInConfl) {				
+			if (!m_bIcInConfl) {			
+				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
+				if (nIteration)
+					{
+						double time = cpuTime() - before_time;
+						if (time > longestcall) longestcall = time;
+				}
+				if (nIteration == 0) time_after_initial_run = cpuTime();
 			}
 
 			else
@@ -707,8 +716,9 @@ end:	PrintData(vecUnknown.size(), setMuc.elems(), nIteration, true);
 		//printf("### secondary_lpf_literals %d\n", m_Solver.lpf_inprocess_added);
 		printf("### UNSAT_by_pf %d\n", m_Solver.nUnsatByPF);
 		printf("### iter %d\n", nIteration);		
-
-
+		printf("### true_assump_ratio %f\n", (float)m_Solver.count_assump > 0 ? (float)m_Solver.count_true_assump / (float)m_Solver.count_assump : 0.0);		
+		printf("### nettime %g\n", cpuTime() -  time_after_initial_run);
+		printf("### longestcall %g\n", longestcall);		
 
 		if (m_Solver.test_result ) test(vecUnknown, setMuc, "final");
 
