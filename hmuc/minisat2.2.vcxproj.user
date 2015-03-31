@@ -15,13 +15,13 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>f7.cnf  -pf-mode=2 -pf_z_budget=20 </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\hardware-verification</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>longmult7.cnf  -pf-mode=4 -pf_z_budget=80 -pf-delay=15</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>queueinvar14.cnf -pf-mode=4 -pf_z_budget=40 </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>longmult7.cnf  -pf-mode=4 -pf_z_budget=80 -pf-delay=15</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

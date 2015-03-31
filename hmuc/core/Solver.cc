@@ -992,7 +992,7 @@ lbool Solver::search(int nof_conflicts)
 						return l_False;
 					}
 				}
-				else printf("R ");				
+				else printf("R ");								
                 progress_estimate = progressEstimate();				
                 cancelUntil(1);
 				
@@ -1149,11 +1149,14 @@ lbool Solver::solve_()
 	pf_active = false;
 	pf_zombie = false;	
 	pf_prev_trail_size = 0;
+	lpf_delay = false;
+
     while (status == l_Undef){
 		
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
-		if (!pf_zombie && !pf_active && !test_mode && nICtoRemove > 0 && (curr_restarts >= opt_pf_delay))
+		if (!pf_zombie && !pf_active && !test_mode && nICtoRemove > 0 )
 			pf_active = true;		
+		lpf_delay = curr_restarts < opt_pf_delay;
 
 		status = search(rest_base * restart_first);		
         
@@ -1715,7 +1718,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
    
 	LiteralsFromPathFalsification.clear();
 	
-	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant)
+	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay)
 	{			
 		//printClause(stdout, ca[cr]);
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification); 
@@ -1738,7 +1741,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 	}
 	   
 	
-	if (opt_pf_mode == pf && m_bConeRelevant)
+	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
     {
         uidsVec.clear();
         resol.GetTillMultiChild(uid, uidsVec);

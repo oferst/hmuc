@@ -92,6 +92,7 @@ public:
 	bool pf_active;
 	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
 	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 
+	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).
 	//int lpf_inprocess_added;
 
     int m_nSatCall;
