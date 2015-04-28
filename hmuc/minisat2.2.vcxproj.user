@@ -15,13 +15,13 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>longmult7.cnf  -pf-mode=4 -pf_z_budget=80 -pf-delay=15</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>8cnf20_2400000_2400000_2.shuffled.cnf  -pf-mode=2 -pf_force -test</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\pehoushek\twentyvars</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\bmc-default</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\pehoushek\twentyvars</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>longmult7.cnf  -pf-mode=4 -pf_z_budget=80 -pf-delay=15</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>8cnf20_2400000_2400000_2.shuffled.cnf  -pf-mode=2 -pf_force</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

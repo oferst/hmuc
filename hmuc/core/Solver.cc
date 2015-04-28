@@ -30,6 +30,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <algorithm> 
 using namespace Minisat;
 
+
 //=================================================================================================
 // Options:
 
@@ -68,7 +69,6 @@ static BoolOption    opt_always_prove      (_cat, "always_prove", "prevent early
 static IntOption     opt_exp			   (_cat, "exp", "experiment index (not used in solver. only used externally, in bench) ", 0, IntRange(0,4));
 static IntOption     opt_pf_z_budget	   (_cat, "pf_z_budget", "# of restarts we budget for building a proof in case we already know it is unsat", 40, IntRange(0,4000));
 static BoolOption    opt_pf_reset_z_budget (_cat, "pf_reset_z_budget", "upon detection of unsat by assumptions, resets zombie-budget", false); 
-
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -1741,6 +1741,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 	}
 	   
 	
+
 	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
     {
         uidsVec.clear();

@@ -519,7 +519,7 @@ namespace Minisat
 
 
 				if (nIteration == 0)
-					return result; // the problem is sat			
+				{printf("### SAT\n"); return result; }// the problem is sat			
 
 				// we removed too much ics; add the last one back
 				setMuc.insert(nIcForRemove);  
