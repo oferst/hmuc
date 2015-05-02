@@ -216,11 +216,11 @@ namespace Minisat
 	}
 
 	void CMinimalCore::Rotate(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
-	{		
+	{			
 		++m_nRotationCalled;
 		CRef ref = m_Solver.GetClauseIndFromUid(uid);
 		assert(ref != CRef_Undef);
-		Clause& cls = m_Solver.GetClause(ref);
+		Clause& cls = m_Solver.GetClause(ref);		
 		for (int i = 0; i < cls.size(); ++i)
 		{
 			// we will pass one by one literal and check if the clause is satisfiable with change 
@@ -491,12 +491,45 @@ namespace Minisat
 
 				}
 				else {  // unsat, but contradiction was discovered when the assumptions were added.
-					printf("UNSAT (by assumptions)\n");
+					printf("UNSAT (by assumptions)\n");					
 					remove(vecPrevUnknown, nIcForRemove);
 					if (vecPrevUnknown.size() == 0) break;
 					vecPrevUnknown.swap(vecUnknown);
 					vecUidsToRemove.clear();
 					vecUidsToRemove.push(nIcForRemove);
+#ifdef unsat_opt
+						vec<uint32_t> C; // root clauses not used in proof
+						emptyClauseCone.clear();
+						m_Solver.GetUnsatCore(vecUids, emptyClauseCone); // now vecuids includes the core. 					
+						sort(vecUids);
+						sort(vecUnknown);
+						Diff(vecUnknown, vecUids, C);
+						printf("C (# ic clauses not in proof) size = %d\n", C.size());
+						printfVec(C, "clauses ids not in proof");
+						sort(m_Solver.pf_assump_used_in_proof);
+						if (C.size() > 0) {
+							printf("assumptions used in proof: ");
+							for (int i = 0; i < m_Solver.pf_assump_used_in_proof.size(); ++i) 
+								printf("%d ", m_Solver.pf_assump_used_in_proof[i]);	
+							printf("\n");
+
+							for (int j= 0; j < C.size(); ++j) {									
+								m_Solver.PF_get_assumptions(C[j], m_Solver.resol.GetInd(C[j]), true);
+								if (m_Solver.pf_assump_used_in_proof.size() <= m_Solver.LiteralsFromPathFalsification.size()) {
+									for (int k = 0; k < m_Solver.LiteralsFromPathFalsification.size(); ++k)
+										m_Solver.LiteralsFromPathFalsification[k] = ~m_Solver.LiteralsFromPathFalsification[k];
+									sort (m_Solver.LiteralsFromPathFalsification);
+									if (Contains(m_Solver.LiteralsFromPathFalsification, m_Solver.pf_assump_used_in_proof)) {
+										vecUidsToRemove.push(C[j]);
+										printf("!!\n");
+									}
+								}
+							}
+						}
+
+#endif
+
+
 					m_Solver.RemoveClauses(vecUidsToRemove);    		
 
 				if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations

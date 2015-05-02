@@ -129,8 +129,8 @@ int main(int argc, char** argv)
                     printf("c WARNING! Could not set resource limit: Virtual memory.\n");
             } }
 #endif
-
-        if (argc == 1)
+		
+		if (argc == 1)
             printf("c Reading from standard input... Use '--help' for help.\n");
 
         //gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");

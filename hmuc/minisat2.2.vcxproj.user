@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>3pipe_1_ooo.cnf.mus  -no-muc-print-sol -no-pre -pf-mode=0</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ssa2670-129.cnf -no-always_prove -pf-mode=3 </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\minimal</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\marques-silva\atpg\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerCommandArguments>hardware-verification\c6bidw_s.cnf -no-muc-print-sol -no-pre  -pf-mode=4</LocalDebuggerCommandArguments>
@@ -15,13 +15,14 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>8cnf20_2400000_2400000_2.shuffled.cnf  -pf-mode=2 -pf_force -test</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\pehoushek\twentyvars</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\small</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\pehoushek\twentyvars</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\small</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>8cnf20_2400000_2400000_2.shuffled.cnf  -pf-mode=2 -pf_force</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>qg4-8.shuffled.cnf  -pf-mode=3 </LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

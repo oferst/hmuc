@@ -119,7 +119,40 @@ static inline void union_vec(A& a, B& b, C& union_)
 }
 
 
+template <class A, class B>
+static inline bool Contains(A& a, B& b)   // true <-> a contains b   // not tested yet.
+{
+    int b_itr = 0 ,a_itr = 0;
+	int gap = a.size() - b.size();
+    while (a_itr!=a.size() && b_itr!=b.size())  
+    {
+		if (a[a_itr]<b[b_itr]) {++a_itr; if (gap-- == 0) return false; }
+        else if (b[b_itr]<a[a_itr]) return false;
+        else {            
+            ++a_itr;
+            ++b_itr;
+        }
+    }
+    return b_itr == b.size();			
+}
 
+
+
+template <class A, class B, class C>
+static inline void Diff(A& a, B& b, C& diff)   // diff = a - b   // not tested yet.
+{
+    int b_itr = 0 ,a_itr = 0;
+    while (a_itr!=a.size() && b_itr!=b.size())  
+    {
+		if (a[a_itr]<b[b_itr]) {diff.push(a[a_itr]); ++a_itr;}
+        else if (b[b_itr]<a[a_itr]) ++b_itr;
+        else {            
+            ++a_itr;
+            ++b_itr;
+        }
+    }
+    return;			
+}
 
 
 template <class A, class B, class C>

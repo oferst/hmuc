@@ -204,9 +204,9 @@ private:
 
     void Shrink();
 
-    struct Pair 
+    struct Pair // every node in the resolution graph is a pair of a reference to clause and a reference to resolution. From the latter we can reach the children of this clause. 
     {
-        CRef m_ClauseRef;
+        CRef m_ClauseRef;  
         CRef m_ResolRef;
 
         Pair() : m_ClauseRef(CRef_Undef) , m_ResolRef(CRef_Undef)

@@ -213,7 +213,15 @@ public:
 
 
 
-
+template<typename T>
+static void printfVec(T& v, char *msg) {
+	if (v == NULL) printf("NULL\n");
+	printf("%s (", msg);	
+	for (int i = 0; i < v.size(); ++i) {
+		printf("%d ", v[i]);
+	}
+	printf(")\n");
+}
 
 template<class T>
 void vec<T>::capacity(int min_cap) {

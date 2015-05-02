@@ -28,6 +28,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/SolverTypes.h"
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
+#define unsat_opt
 
 namespace Minisat {
 
@@ -93,6 +94,7 @@ public:
 	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
 	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 
 	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).
+	vec<Lit> pf_assump_used_in_proof;
 	//int lpf_inprocess_added;
 
     int m_nSatCall;
@@ -212,7 +214,7 @@ public:
     void AddConflictingIc(uint32_t uid);
     void CreateResolVertex(uint32_t uid);
     void ResetOk();
-    int PF_get_assumptions(uint32_t uid, CRef cref);
+    int PF_get_assumptions(uint32_t uid, CRef cref, bool force = false);
 	vec<Lit>    LiteralsFromPathFalsification;
 	int count_true_assump;
 	int count_assump;
@@ -242,7 +244,8 @@ public:
 	CResolutionGraph resol; 
 
 protected:
-    void CreateUnsatCore(CRef ref);
+    void CreateParentsOfNegatedAssump(CRef ref);
+	void CreateParentsOfEmptyClause(CRef ref);
     
     vec<CRef> icUnitClauses;
 	

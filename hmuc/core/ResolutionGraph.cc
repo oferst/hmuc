@@ -129,7 +129,7 @@ void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniq
     {
         if (m_UidToData[nextUid].m_ResolRef == CRef_Undef)
         {
-            return;
+            return;  // how can it be that we are 
         }
         Resol& resol = m_RA[m_UidToData[nextUid].m_ResolRef];
 
