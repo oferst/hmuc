@@ -237,14 +237,13 @@ void Solver::detachClause(CRef cr, bool strict) {
 void Solver::removeClause(CRef cr) {
     Clause& c = ca[cr];
     if (c.size() > 1)
-        detachClause(cr);
-    // Don't leave pointers to freed memory!
+        detachClause(cr);  // remove watches
+    // Don't leave pointers to freed memory! // ?
     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
     if (c.ic() && c.mark() != 2)
-        resol.DeleteClause(c.uid());
-    c.mark(1); 
-    ca.free(cr);
-
+        resol.DeleteClause(c.uid());  // remove reference to clause from resolution node
+    c.mark(1); // the clause is no longer relevant; can be erased. 
+    ca.free(cr);  // does not really free the clause. Only increases the counter of wasted space. The memory itself will be freed once in a while. 
 }
 
 bool Solver::satisfied(const Clause& c) const {
@@ -487,7 +486,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
             }else{
                 Clause& c = ca[reason(x)];
                 for (int j = 1; j < c.size(); j++)
-                    if (level(var(c[j])) > 0)
+                    if (level(var(c[j])) > 1) // changed to '1'
                         seen[var(c[j])] = 1;
             }
             seen[x] = 0;
@@ -564,16 +563,16 @@ CRef Solver::propagate()
 
                 // Did not find watch -- clause is unit under assignment:
                 *j++ = w;
-                if (value(first) == l_False){
+                if (value(first) == l_False){  // found conflict
                         confl = cr;
                         qhead = trail.size();
                         // Copy the remaining watches:
                         while (i < end)
                             *j++ = *i++;
                 }
-                else
+                else  // unit propagation
                 {
-                    if ((decisionLevel() == 0) && c.ic())
+                    if ((decisionLevel() == 0) && c.ic())  // decisionlevel = 0 means that these are facts which are independent of ICs (facts dependent on ICs are kept at decisionlevel 1). We replace the clause by the unit that it implies. It is all because units of ICs are treated differently. 
                     {
                         add_tmp.clear();
                         add_tmp.push(first);
@@ -582,7 +581,7 @@ CRef Solver::propagate()
                         CRef newCr = ca.alloc(add_tmp, false, true);
                         Clause::DecreaseUid();
                         ca[newCr].uid() = uid;
-                        ca[cr].mark(2);
+                        ca[cr].mark(2); // do not erase from resolution. 
                         removeClause(cr);
                         resol.UpdateInd(uid, newCr);
                         icUnitClauses.push(newCr);
@@ -979,7 +978,7 @@ lbool Solver::search(int nof_conflicts)
                 // Reached bound on number of conflicts:
 				if (pf_zombie) {
 					printf("Z ");
-					if (++pf_zombie_iter > opt_pf_z_budget) { // magic cutoff number. We spent too much time at trying to rebuild a proof; instead we'll declare it unsat and do not reuse the cone.
+					if (++pf_zombie_iter > opt_pf_z_budget) { // We spent too much time at trying to rebuild a proof; instead we'll declare it unsat and do not reuse the cone.
 						m_bUnsatByPathFalsification = true;
 						nUnsatByPF++;
 						m_bConeRelevant = false;
@@ -1010,8 +1009,15 @@ lbool Solver::search(int nof_conflicts)
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves                                                                     
 						if (pf_early_unsat_terminate()) {
 #ifdef unsat_opt
-							analyzeFinal(p, pf_assump_used_in_proof); 
-							CreateParentsOfNegatedAssump(reason(var(p))); 
+							analyzeFinal(p, pf_assump_used_in_proof);  // fills pf_assump_used_in_proof with the used assumptions. 
+							//CreateParentsOfNegatedAssump(reason(var(p)));  
+							//printfVec(icParents,"icparents");
+							icParents.clear();
+							CRef reason_clause = reason(var(p));
+							Clause &c = ca[reason_clause];							
+							if (!c.ic()) {printf("reason not an ic clause."); }
+							else icParents.push(c.uid());
+							printfVec(icParents, "clause (icparents) to seed the search for the core: ");
 #endif
 							return l_False;
 						}
@@ -1344,31 +1350,32 @@ void Solver::CreateParentsOfNegatedAssump(CRef ref)
 	Var v = var_Undef;
 	int nSeen = 0;
 	int undefs = 0;
-	vec<char>  saw; // holds the indices in 'seen' that we touched, for cleanup;
+	vec<int>  saw; // holds the indices in 'seen' that we touched, for cleanup;!!
 	resol.m_EmptyClauseParents.clear(); 
 	for (;;) 
 	{
 	
 		Clause& c = ca[confl];
-		//printf("in CreateParentsOfNegatedAssump checking clause: ");
-		//printClause(stdout, c);
+		printf("in CreateParentsOfNegatedAssump checking clause: ");
+		printClause(stdout, c);
 		if (c.ic())
 		{
 			icParents.push(c.uid()); 
-			//printf("icParents (dimacs) += "); 
-			//printClause(stdout,c);
-			//printf("\n");
+			printf("icParents (dimacs) += [uid = %d] ", c.uid());
+			printClause(stdout,c);
+			printf("\n");
 			resol.m_EmptyClauseParents.insert(c.uid()); 
 		}
 
 		for (int j = (v == var_Undef) ? 0 : 1 ; j < c.size(); j++)
 		{
 			v = var(c[j]);			
+			printf("%d ", v);
 
 			if (!seen[v] && level(v) > 0)
 			{
 				seen[v] = 1;
-				saw.push(v);
+				saw.push(v); 
 				++nSeen;
 			}
 		}
@@ -1382,8 +1389,11 @@ void Solver::CreateParentsOfNegatedAssump(CRef ref)
 		while (1) {
 			if (index < 0) { 				
 				//printf("/ = %d\n", undefs); 
-				for (int i = 0; i < saw.size(); ++i) seen[saw[i]] = 0;				
-				saw.clear(true);
+				for (int i = 0; i < saw.size(); ++i) {
+					printf("%d,", saw[i]);
+					seen[saw[i]] = 0;			
+				}
+				saw.clear(true); 
 				return;
 			}
 			v = var(trail[index]);
@@ -1455,9 +1465,39 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
     core.clear();
     for (int nInd = 0; nInd < icParents.size(); ++nInd)
     {
-        if (emptyClauseCone.insert(icParents[nInd]))
-            resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone);
+        if (emptyClauseCone.insert(icParents[nInd])) {
+				resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone);
+		}
     }
+}
+
+
+void Solver::test_RemoveClauses(vec<uint32_t>& cone)
+{
+	resol.GetClausesCones(cone);
+	cancelUntil(0);
+
+	// cone contains all the clauses we want to remove
+	for (int i = 0; i < cone.size(); ++i)
+	{
+		CRef cr = resol.GetInd(cone[i]);
+		if (cr != CRef_Undef)
+		{
+			ca[cr].mark(0);  // will be replaced with mark(1) in removeClause below. Effectively this erases mark(2) if there was one. 
+			
+			{
+				Clause& c = ca[cr];
+				if (c.size() > 1)
+					detachClause(cr);  // remove watches
+				
+				if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
+				if (c.ic() && c.mark() != 2)
+					resol.DeleteClause(c.uid());  // remove reference to clause from resolution node
+				c.mark(1); // the clause is no longer relevant; can be erased. 
+				ca.free(cr);  // does not really free the clause. Only increases the counter of wasted space. The memory itself will be freed once in a while. 
+			}
+		}
+	}
 }
 
 void Solver::RemoveClauses(vec<uint32_t>& cone)
@@ -1471,7 +1511,7 @@ void Solver::RemoveClauses(vec<uint32_t>& cone)
         CRef cr = resol.GetInd(cone[i]);
         if (cr != CRef_Undef)
         {
-            ca[cr].mark(0);
+            ca[cr].mark(0);  // will be replaced with mark(1) in removeClause below. Effectively this erases mark(2) if there was one. 
             removeClause(cr);
         }
     }
@@ -1519,7 +1559,7 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
     resol.GetClausesCones(cone);
     cancelUntil(0);
 
-    // cone contains all the clauses we want to remove
+    // now cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
         CRef cr = resol.GetInd(cone[i]);
@@ -1528,13 +1568,12 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
             Clause& c = ca[cr];
             if (c.size() > 1)
             {
-                detachClause(cr);
-                // so we will be able to use lazy watch removal
-                c.mark(1); 
+                detachClause(cr);  // remove watches               
+                c.mark(1);  // so we will be able to use lazy watch removal. Note that below it turns into c.mark(0).
             }
             else
             {
-                c.mark(2);
+                c.mark(2); // units. Note that units with mark > 0 are ignored inside search. and hence this is equivalent to erasing it from the list of ic units. 
             }
         }
     }
@@ -1561,8 +1600,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
         init[0] = startUid;
         resol.GetAllIcUids(setGood, init);
     }
-
-    //resol.GetClausesCones(cone) - we don't need that because we pass the previous found set of nodes
+	    
     cancelUntil(0);
 
     // cone contains all the clauses we want to remove
@@ -1790,9 +1828,9 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr, bool force /*=false*/) // 
 	{			
 		//printClause(stdout, ca[cr]);
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification); 
-		printf("literals returned by get_assumption = ("); 
-		for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
-		printf(")\n");			
+		//printf("literals returned by get_assumption = ("); 
+		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
+		//printf(")\n");			
 		//printf("lpf found %d lits\n",LiteralsFromPathFalsification.size());
 		return LiteralsFromPathFalsification.size();
 	}
@@ -2052,6 +2090,7 @@ void Solver::LPF_get_assumptions(
 	int peakQueueSize = 0;
 	vec<int> icUnits;	
 	uint32_t uid_root_bck = uid_root;
+	
 	if (prev_icParents.size() > 0) {  // if the result was unsat, this condition is true and we need to clear the previous list; otherwise this condition is false, and we use the parents_of_empty_clause form the last run that it was unsat.
 		parents_of_empty_clause.clear();
 		parents_of_empty_clause.growTo(prev_icParents.size());
@@ -2060,7 +2099,7 @@ void Solver::LPF_get_assumptions(
 		}	
 		sort(parents_of_empty_clause); // sorted because we run binary-search on it later
 	}		
-	
+//	printfVec(parents_of_empty_clause, "in lpf: parents_of_empty_clause =");
 	assert(parents_of_empty_clause.size()>0); // empty clause always has parents.
 	
 #pragma region compute_Top_Tclause
@@ -2068,7 +2107,7 @@ void Solver::LPF_get_assumptions(
 	vec<Lit>* Top_TClause = new vec<Lit>(); 
     CRef c = resol.GetInd(uid_root);  // the clause reference of c
     Clause& cc = ca[c];
-	printfVec(cc, "removing (c) ");
+//	printfVec(cc, "removing (c) ");
 
 	if ((pf_mode == lpf_inprocess) && satisfied(cc)) {
 		printf("root is satisfied\n");
@@ -2119,7 +2158,7 @@ void Solver::LPF_get_assumptions(
 	
 	sort(*Top_TClause);
 	// from hereon uid_root is the bottom clause in the unit-chain, and its Tclause is the union of the clauses in the chain.
-	printfVec(*Top_TClause, "Top clause");
+//	printfVec(*Top_TClause, "Top clause");
 	map_cls_to_Tclause[uid_root] = new vec<Lit>();
 	
 	queue.push(uid_root);

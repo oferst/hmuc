@@ -160,7 +160,7 @@ public:
 
     void DeleteClause(uint32_t nUid)
     {
-        DecreaseReference(nUid);
+        DecreaseReference(nUid); // if the subtree under this node does not contain clause references, it will be freed. This will propagate up the resolution tree. 
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
 

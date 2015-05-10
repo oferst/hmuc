@@ -28,6 +28,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/SolverTypes.h"
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
+
 #define unsat_opt
 
 namespace Minisat {
@@ -51,6 +52,7 @@ public:
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
     void RemoveClauses(vec<uint32_t>& cone);
+	void test_RemoveClauses(vec<uint32_t>& cone); //!!
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
     void GroupBindClauses(vec<uint32_t>& initUids);
     void UnbindClauses(vec<uint32_t>& cone);

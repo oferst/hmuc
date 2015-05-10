@@ -14,7 +14,7 @@ namespace Minisat
 {
 
 	static const char* _cat = "MUC";
-	static BoolOption    opt_muc_print			(_cat, "muc-progress", "print progress lines", false);
+	static BoolOption    opt_muc_progress		(_cat, "muc-progress", "print progress lines", false);
 	static BoolOption    opt_muc_rotate			(_cat, "muc-rotate", "perform rotation algorithm", true);
 	static BoolOption    opt_print_sol			(_cat, "muc-print-sol", "print the satisfying solution", false);
 	static DoubleOption  opt_set_ratio			(_cat, "set-ratio",   "When we should start using set", 0.0, DoubleRange(0.0, true, 1000000.0, true));
@@ -25,7 +25,7 @@ namespace Minisat
 	
 	
 
-	CMinimalCore::CMinimalCore(SimpSolver& solver): 
+ 	CMinimalCore::CMinimalCore(SimpSolver& solver): 
 		m_bIcInConfl(false)
 		, m_Solver(solver)
 		, m_nICSize(0)
@@ -43,7 +43,7 @@ namespace Minisat
 
 	void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, bool last)
 	{
-		if (opt_muc_print)
+		if (opt_muc_progress)
 		{
 			printf("c %siter %d time %g not-muc %d unknown %d muc %d\n", 
 				last ? "final " : "", 
@@ -352,6 +352,7 @@ namespace Minisat
 		vec<Lit> assumptions;
 		uint32_t nIcForRemove = 0;
 		vec<uint32_t> vecUidsToRemove;
+		vec<uint32_t> accumulate_vecUidsToRemove;
 		lbool result = l_Undef;
 		Set<uint32_t> setMuc;  // set of ICs that must be in the core
 		Set<uint32_t> moreMucClauses;
@@ -360,7 +361,7 @@ namespace Minisat
 		double time_after_initial_run;
 		double longestcall = 0;
 		int lpf_boost_found_trivial_UNSAT = 0;
-				
+		int removed = 0;		
 		m_Solver.time_for_pf = 0.0;		
 		m_Solver.nICtoRemove = 0; 
 		m_Solver.pf_Literals = 0;
@@ -379,7 +380,7 @@ namespace Minisat
 			printf("c |                                                                             |\n"); 
 		}
 
-		m_Occurs.growTo(m_Solver.nVars() << 1);
+		m_Occurs.growTo(m_Solver.nVars() << 1);		
 		int nIteration = 0;		
 		for (; true; ++nIteration)
 		{		
@@ -402,7 +403,7 @@ namespace Minisat
 			}
 			
 #pragma region UNSAT_case
-
+			
 			if (result == l_False) {
 				if(!m_Solver.m_bUnsatByPathFalsification)
 				{
@@ -411,14 +412,16 @@ namespace Minisat
 					emptyClauseCone.clear();
 					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
 					// vecUids.removeDuplicated_();
-					// for each clause in vecUids check if its ic
-					// and mark it as unknown. 
+					// for each clause in vecUids check if it is ic and mark it as unknown. 
 					for (int nInd = 0; nInd < vecUids.size(); ++nInd)
 					{
 						uint32_t nIc = vecUids[nInd];
 						assert(nIc <= m_nICSize);
 						if (!setMuc.has(nIc))
-						{
+						{						
+//							assert(nIc != removed);
+							assert(!accumulate_vecUidsToRemove.search(nIc));
+							assert(nIc != nIcForRemove);
 							vecUnknown.push(nIc);
 						}
 
@@ -451,27 +454,35 @@ namespace Minisat
 						break;
 					}
 
-					// now lets remove all unused ics and all their clauses
-					// for the first iteration all ics are inside so this need
-					// a different treatment, for all others we will check 
-					// the previous vector
-
-					// build backward resolution relation so it will be much
-					// easier to remove cones
-					assert(vecUnknown.size() != vecPrevUnknown.size());
+					// now lets remove all unused ics and all their clauses.
+					// For the first iteration all ics are inside so this need a different treatment
+					// For all others we will compare to the previous vector
+					fflush(stdout);					
+					if (vecUnknown.size() == vecPrevUnknown.size()) {
+						for (int i = 0; i < vecPrevUnknown.size(); ++i)
+							if (!vecPrevUnknown.search(vecUnknown[i])) {
+								printf("%d: %d not in vecprevunknown\n", i, vecUnknown[i]);
+								//goto ok;
+							}
+						for (int i = 0; i < vecPrevUnknown.size(); ++i)
+							if (!vecUnknown.search(vecPrevUnknown[i])) {
+								printf("%d: %d not in vecUnknown\n", i, vecPrevUnknown[i]);
+									//goto ok;
+								}
+						assert(0);
+					}
+					//ok:
+					//assert(vecUnknown.size() != vecPrevUnknown.size());
 					int nIndUnknown = 0;
 					int nSize = nIteration == 0 ? m_nICSize : vecPrevUnknown.size();
 					vecUidsToRemove.clear();
 					for (int nInd = 0; nInd < nSize; ++nInd)
 					{
 						uint32_t nIcId = nIteration == 0 ? nInd : vecPrevUnknown[nInd];
-						if (nIcId != vecUnknown[nIndUnknown])
-						{
-							// remove from sat solver
-							// get all the clauses that are related to this ic
+						if (nIcId != vecUnknown[nIndUnknown])   // found a clause in vecPrevUnknown that is not in vecunknown (i.e., not in current core). Should be removed.
+						{			
 							assert(vecUidsToRemove.size() == 0 || vecUidsToRemove.last() < nIcId);
-							vecUidsToRemove.push(nIcId);
-							//                    setNotMuc.insert(nIcId);
+							vecUidsToRemove.push(nIcId);						
 						}
 						else
 						{
@@ -480,64 +491,79 @@ namespace Minisat
 								++nIndUnknown;
 							}
 						}
-					}
-
-					//sort(vecUidsToRemove);
-					// remove their cones				
+					} 
+#ifdef unsat_opt
+					accumulate_vecUidsToRemove.addTo(vecUidsToRemove);  //!! useless given that below we do not use it with RemoveEverythingNotInCone
+					accumulate_vecUidsToRemove.clear(); 
+#endif
+					
 					if (!opt_only_cone)
 						m_Solver.RemoveClauses(vecUidsToRemove);
 					else
 						m_Solver.RemoveEverythingNotInCone(emptyClauseCone, setMuc);
 
 				}
+
 				else {  // unsat, but contradiction was discovered when the assumptions were added.
 					printf("UNSAT (by assumptions)\n");					
 					remove(vecPrevUnknown, nIcForRemove);
 					if (vecPrevUnknown.size() == 0) break;
 					vecPrevUnknown.swap(vecUnknown);
 					vecUidsToRemove.clear();
-					vecUidsToRemove.push(nIcForRemove);
+					vecUidsToRemove.push(nIcForRemove);					
+					printf("removing = %d\n", nIcForRemove);
 #ifdef unsat_opt
-						vec<uint32_t> C; // root clauses not used in proof
-						emptyClauseCone.clear();
-						m_Solver.GetUnsatCore(vecUids, emptyClauseCone); // now vecuids includes the core. 					
-						sort(vecUids);
-						sort(vecUnknown);
-						Diff(vecUnknown, vecUids, C);
-						printf("C (# ic clauses not in proof) size = %d\n", C.size());
-						printfVec(C, "clauses ids not in proof");
-						sort(m_Solver.pf_assump_used_in_proof);
-						if (C.size() > 0) {
-							printf("assumptions used in proof: ");
-							for (int i = 0; i < m_Solver.pf_assump_used_in_proof.size(); ++i) 
-								printf("%d ", m_Solver.pf_assump_used_in_proof[i]);	
-							printf("\n");
+					vec<uint32_t> C; // root clauses not used in proof
+					emptyClauseCone.clear();				
 
-							for (int j= 0; j < C.size(); ++j) {									
-								m_Solver.PF_get_assumptions(C[j], m_Solver.resol.GetInd(C[j]), true);
-								if (m_Solver.pf_assump_used_in_proof.size() <= m_Solver.LiteralsFromPathFalsification.size()) {
-									for (int k = 0; k < m_Solver.LiteralsFromPathFalsification.size(); ++k)
-										m_Solver.LiteralsFromPathFalsification[k] = ~m_Solver.LiteralsFromPathFalsification[k];
-									sort (m_Solver.LiteralsFromPathFalsification);
-									if (Contains(m_Solver.LiteralsFromPathFalsification, m_Solver.pf_assump_used_in_proof)) {
-										vecUidsToRemove.push(C[j]);
-										printf("!!\n");
-									}
+					m_Solver.GetUnsatCore(vecUids, emptyClauseCone); // now vecuids includes the core. 					
+					printf("size of core = %d\n", vecUids.size());
+					sort(vecUids);
+
+					vec<uint32_t> tmp_vecUnknown;  // !! because we do not want to sort vecUnkown
+					vecUnknown.copyTo(tmp_vecUnknown);
+					sort(tmp_vecUnknown);
+					printf("size of vecunknown = %d\n", tmp_vecUnknown.size());
+					Diff(tmp_vecUnknown, vecUids, C);
+					printf("C (# ic clauses not in proof) size = %d\n", C.size());
+					printfVec(C, "clauses ids not in proof");
+					sort(m_Solver.pf_assump_used_in_proof);
+					if (C.size() > 0) {
+						printf("assumptions used in proof: {");
+						for (int i = 0; i < m_Solver.pf_assump_used_in_proof.size(); ++i) 
+							printf("%d ", m_Solver.pf_assump_used_in_proof[i]);	
+						printf("}\n");
+
+						for (int j= 0; j < C.size(); ++j) {									
+							m_Solver.PF_get_assumptions(C[j], m_Solver.resol.GetInd(C[j]), true);
+							if (m_Solver.pf_assump_used_in_proof.size() <= m_Solver.LiteralsFromPathFalsification.size()) {
+								for (int k = 0; k < m_Solver.LiteralsFromPathFalsification.size(); ++k)
+									m_Solver.LiteralsFromPathFalsification[k] = ~m_Solver.LiteralsFromPathFalsification[k];
+								sort (m_Solver.LiteralsFromPathFalsification);
+								printfVec(m_Solver.LiteralsFromPathFalsification, "pf literals (negated): ");
+								if (Contains(m_Solver.LiteralsFromPathFalsification, m_Solver.pf_assump_used_in_proof)) {
+									vecUidsToRemove.push(C[j]);
+									removed = C[j];
+									remove(vecUnknown,C[j]);
+									printf("!! removing %d\n", C[j]);
 								}
 							}
 						}
-
-#endif
-
-
+					}
+					vecUidsToRemove.addTo(accumulate_vecUidsToRemove);
+					m_Solver.UnbindClauses(vecUidsToRemove);					
+					//m_Solver.RemoveClauses(vecUidsToRemove);    		
+					//m_Solver.test_RemoveClauses(vecUidsToRemove);//!!
+					// current state: 
+#else
 					m_Solver.RemoveClauses(vecUidsToRemove);    		
+#endif
+					m_Solver.test_now = true; //!!
+					if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
+						test(vecUnknown, setMuc, "unsat by assumptions");
+					m_Solver.test_now = false;
 
-				if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
-					test(vecUnknown, setMuc, "unsat by assumptions");
-				m_Solver.test_now = false;
-
-
-				PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
+					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 				}
 			}
 #pragma endregion
@@ -545,12 +571,7 @@ namespace Minisat
 #pragma region SAT_case
 			else if (result == l_True)
 			{
-				printf("SAT\n");
-				/*for (int j = 0; j < 300; ++j)
-					printf("%d ", m_Solver.model[j]);*/
-				
-
-
+				printf("SAT\n");		
 				if (nIteration == 0)
 				{printf("### SAT\n"); return result; }// the problem is sat			
 
@@ -564,6 +585,12 @@ namespace Minisat
 				}
 
 				m_Solver.BindClauses(vecUidsToRemove, nIcForRemove); // introduce the clauses that were previously removed back into the formula, as 'normal' clauses
+#ifdef unsat_opt
+				vec<uint32_t> tmpvec;
+				accumulate_vecUidsToRemove.copyTo(tmpvec);  // because unbindClauses changes the parameter. 
+				m_Solver.UnbindClauses(tmpvec); // let c be the last clause that was removed. It can be the case that cone(c) intersects the cone of clauses in accumulate_vecUidsToRemove, and hence falsely re-binds them. 
+#endif
+
 #pragma region rotation
 
 				if (opt_muc_rotate)
@@ -725,7 +752,7 @@ namespace Minisat
 				}
 				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration. Note that lpf_inprocess is not activated if !m_bConeRelevant		
 			}
-			m_Solver.RemoveClauses(vecUidsToRemove);
+			m_Solver.RemoveClauses(vecUidsToRemove);  // note that here we only remove clauses that were removed by rotation. Inside rotation these clauses are added again as remainder clauses. 
 			vecUidsToRemove.clear();
 			vecUidsToRemove.push(nIcForRemove);
 			m_Solver.UnbindClauses(vecUidsToRemove); // removes cone(nIcForRemove);

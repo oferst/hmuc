@@ -367,8 +367,8 @@ class BoolOption : public Option
     virtual void help (bool verbose = false){
 
         fprintf(stderr, "  -%s, -no-%s", name, name);
-
-        for (uint32_t i = 0; i < 32 - strlen(name)*2; i++)
+		assert(strlen(name) <= 25);
+        for (uint32_t i = 0; i < 50 - strlen(name)*2; i++)
             fprintf(stderr, " ");
 
         fprintf(stderr, " ");
