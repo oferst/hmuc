@@ -216,7 +216,7 @@ public:
     void AddConflictingIc(uint32_t uid);
     void CreateResolVertex(uint32_t uid);
     void ResetOk();
-    int PF_get_assumptions(uint32_t uid, CRef cref, bool force = false);
+    int PF_get_assumptions(uint32_t uid, CRef cref, bool more_unsat_clauses_mode = false);
 	vec<Lit>    LiteralsFromPathFalsification;
 	int count_true_assump;
 	int count_assump;
@@ -225,7 +225,7 @@ public:
 	bool test_result;
 
 	bool pf_early_unsat_terminate(); 
-	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
+	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits, bool more_unsat_clauses_mode = false);    
 	bool lpf_compute_inprocess();
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );

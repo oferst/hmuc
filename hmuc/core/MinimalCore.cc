@@ -540,7 +540,7 @@ namespace Minisat
 								for (int k = 0; k < m_Solver.LiteralsFromPathFalsification.size(); ++k)
 									m_Solver.LiteralsFromPathFalsification[k] = ~m_Solver.LiteralsFromPathFalsification[k];
 								sort (m_Solver.LiteralsFromPathFalsification);
-								printfVec(m_Solver.LiteralsFromPathFalsification, "pf literals (negated): ");
+								printfVec(m_Solver.LiteralsFromPathFalsification, "pf literals (negated) that are also used in proof: ");
 								if (Contains(m_Solver.LiteralsFromPathFalsification, m_Solver.pf_assump_used_in_proof)) {
 									vecUidsToRemove.push(C[j]);
 									removed = C[j];

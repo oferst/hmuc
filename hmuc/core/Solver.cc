@@ -1817,17 +1817,17 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
 
 
 
-int Solver::PF_get_assumptions(uint32_t uid, CRef cr, bool force /*=false*/) // Returns the number of literals in the falsified clause. force = true when we force it to compute the literals although bconerelevant = false. 
+int Solver::PF_get_assumptions(uint32_t uid, CRef cr, bool more_unsat_clauses_mode /*=false*/) // Returns the number of literals in the falsified clause. force = true when we force it to compute the literals although bconerelevant = false. 
 {	
     //if (uid == CRef_Undef)  // ?? comparing uid and CRef_Undef
         //return 0;
    
 	LiteralsFromPathFalsification.clear();
 	
-	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (force || m_bConeRelevant) && !lpf_delay)
+	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (more_unsat_clauses_mode || m_bConeRelevant) && !lpf_delay)
 	{			
 		//printClause(stdout, ca[cr]);
-		LPF_get_assumptions(uid, LiteralsFromPathFalsification); 
+		LPF_get_assumptions(uid, LiteralsFromPathFalsification, more_unsat_clauses_mode); 
 		//printf("literals returned by get_assumption = ("); 
 		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
 		//printf(")\n");			
@@ -1848,7 +1848,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr, bool force /*=false*/) // 
 	   
 	
 
-	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (force || m_bConeRelevant)) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
+	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (more_unsat_clauses_mode || m_bConeRelevant)) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
     {
         uidsVec.clear();
         resol.GetTillMultiChild(uid, uidsVec);
@@ -2080,7 +2080,8 @@ void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause
 /************************************************************************/
 void Solver::LPF_get_assumptions(
 	uint32_t uid_root, /**< uid of a clause that we are about to remove */ // Doxygen-friendly comments. 
-	vec<Lit>& assump_literals /**< to be filled with literals */
+	vec<Lit>& assump_literals, /**< to be filled with literals */
+	bool more_unsat_clauses_mode /** when true, intersects the clauses literals with the set pf_assump_used_in_proof. */
 	)
 {
 	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
@@ -2117,6 +2118,9 @@ void Solver::LPF_get_assumptions(
 	// adding root to Top_TClause. 
 	
 	for (int i = 0; i < cc.size(); ++i)	
+#ifdef unsat_opt
+				if (!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~cc[i]))
+#endif
 		(*Top_TClause).push(cc[i]);
 
     // adding clauses in the unit-chain to Top_Tclause. 
@@ -2135,18 +2139,32 @@ void Solver::LPF_get_assumptions(
 				if (pf_mode == lpf_inprocess) {
 					if (value(l) == l_True) return;
 				}
+#ifdef unsat_opt
+				if (!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~l))
+#endif
 				(*Top_TClause).push(l);
 			}	
 		}
 	}    
 
 	if (uidvec_prefix.size() > 0) {
-        assert(Top_TClause->size() > 0);
+		assert(more_unsat_clauses_mode || Top_TClause->size() > 0);
 		uid_root = uidvec_prefix.last(); 
 	}
-	else {        
-        ca[resol.GetInd(uid_root)].copyTo(*Top_TClause);        
-	}    	
+/*	else { //!! seems like redundant given that we add the same clause higher up
+			Clause& cl = ca[resol.GetInd(uid_root)];
+			for (int i = 0; i < cl.size(); ++i)
+			{
+				Lit l = cl[i];				
+#ifdef unsat_opt
+				if (!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~l))
+#endif
+				(*Top_TClause).push(l);
+
+        //ca[].copyTo(*Top_TClause);        
+			}    	
+	}
+	*/
 #pragma endregion
 
     bool proceed = CountParents(map_cls_parentsCount , uid_root);
@@ -2191,11 +2209,11 @@ void Solver::LPF_get_assumptions(
                 map_cls_to_Tclause[childUid] = new vec<Lit>();
 				map_cls_to_Tclause[curr_id]->copyTo(*map_cls_to_Tclause[childUid]);
 			}
-			else {  // otherwise we intersect the current Tclause with the one owned by the Top_TClause. 				
+			else {  // otherwise we intersect the current Tclause with the one owned by the parent. 				
 //				printfVec(*map_cls_to_Tclause[curr_id], "curr_id");
 //				printfVec(*map_cls_to_Tclause[res.m_Children[i]], "child[i]");
                 vec<Lit> intersection;
-				Intersection(*map_cls_to_Tclause[curr_id], *map_cls_to_Tclause[childUid], intersection);  // intersection between Tclause-s of child and Top_TClause.                   
+				Intersection(*map_cls_to_Tclause[curr_id], *map_cls_to_Tclause[childUid], intersection);  // intersection between Tclause-s of child and parent.                   
 				map_cls_to_Tclause[childUid]->swap(intersection);
 			}			
 
@@ -2207,9 +2225,23 @@ void Solver::LPF_get_assumptions(
 				if (childClauseRef != CRef_Undef) {  // in case that clause is erased, we do not have its literals to add to its Tclause. 
 					ca[childClauseRef].copyTo(temp_lit);
 					sort(temp_lit);
-
+#ifdef unsat_opt
+					if (more_unsat_clauses_mode) { // only follow literals in the set pf_assump_used_in_proof
+						vec<Lit> temp_lit_projected;
+						for (int i = 0; i < temp_lit.size(); ++i) {
+							if (pf_assump_used_in_proof.binary_search(~temp_lit[i]))  temp_lit_projected.push(temp_lit[i]);
+						}
+						if (temp_lit_projected.size() > 0) union_vec(*map_cls_to_Tclause[childUid], temp_lit_projected, tmp_union);					
+					}
+					else {
+#endif
 					assert(map_cls_to_Tclause.count(childUid)>0);
 					union_vec(*map_cls_to_Tclause[childUid], temp_lit, tmp_union);					
+#ifdef unsat_opt
+					}
+#endif
+
+
 	//				printfVec(tmp_union, "union");				
 					map_cls_to_Tclause[childUid]->swap(tmp_union);
 					//tmp_union -> clear();

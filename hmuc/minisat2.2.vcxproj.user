@@ -1,14 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>3pipe_1_ooo.cnf.mus  -no-muc-print-sol -no-pre -pf-mode=0</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ssa2670-140.cnf   -pf-mode=3 -no-always_prove -no-muc-rotate -muc-progress -test &gt; c:\temp\tmp2</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\minimal</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\marques-silva\atpg</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>hardware-verification\c6bidw_s.cnf -no-muc-print-sol -no-pre  -pf-mode=4</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>ssa2670-129.cnf   -pf-mode=3 -no-always_prove -no-muc-rotate -muc-progress -test &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\atpg</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|Win32'">
     <LocalDebuggerCommandArguments>c:\temp\barrel6.cnf  -no-muc-print-sol</LocalDebuggerCommandArguments>
