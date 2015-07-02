@@ -28,6 +28,7 @@ void CResolutionGraph::AddNewResolution
 void CResolutionGraph::DecreaseReference(uint32_t nUid)
 {
     CRef& ref = m_UidToData[nUid].m_ResolRef;
+	if (ref == CRef_Undef) {printf("%d undef\n", nUid); fflush(stdout);exit(1);}
     Resol& res = m_RA[ref];
     --res.m_nRefCount;
     if (res.m_nRefCount == 0)
@@ -114,8 +115,9 @@ void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
             for (int nChild = 0; nChild < children.size(); ++nChild)
             {
                 uint32_t nChildId = children[nChild];
-                if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId))
+                if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId)) {					
                     cone.push(nChildId);
+				}
             }
         }
     }
@@ -156,7 +158,7 @@ void CResolutionGraph::Shrink()
 
 
 void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
-{
+{	
     vec<uint32_t> vecToCheck;
     vec<uint32_t> vecCurrChecked;
     bool firstTime = true;

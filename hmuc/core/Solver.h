@@ -29,7 +29,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
 
-#define unsat_opt
+#define LOG(x) if (verbosity > 1) { std::cout << __FUNCTION__ <<  " " << x << "\n"; fflush(stdout);}
 
 namespace Minisat {
 
@@ -45,17 +45,27 @@ enum pf_modes{
 	lpf_inprocess // literal-based, as part of search
 };
 
+
+enum get_assump_mode {  // modes in operating pf_get_assumptions
+	restricted,  // beyond a single clause only when coneisrelevant = true
+	full, // beyond a single clause even when coneisrelevant = false
+	restrict_to_used_assumptions  // with pf_unsatopt, intersect the result with assumptions used in proof
+};
+
+
 class Solver {
 public:
-    //FILE* flog;
+    
 	void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
-    void RemoveClauses(vec<uint32_t>& cone);
-	void test_RemoveClauses(vec<uint32_t>& cone); //!!
+    void RemoveClauses(vec<uint32_t>& cone, bool leaveMark3 = false);
+	void Remark(vec<uint32_t>& cone);	
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
     void GroupBindClauses(vec<uint32_t>& initUids);
-    void UnbindClauses(vec<uint32_t>& cone);
+	void UnbindClauses(vec<uint32_t>& cone);
+    void UnbindClauses_force(vec<uint32_t>& cone, bool mark_delayed = false);
+	
     CRef GetClauseIndFromUid(uint32_t uid) const
     {
         return resol.GetInd(uid);
@@ -92,12 +102,21 @@ public:
 	vec<uint32_t> prev_icParents;
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
+	int pf_unsat_opt_cnt;
 	bool pf_active;
 	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
 	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 
+	bool pf_unsatopt; // when unsat by assumptions, in addition to the root 'c', removes other clauses that did not participate in the proof and their pf literals include those that participated in the proof. 
+	bool pf_force;
 	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).
 	vec<Lit> pf_assump_used_in_proof;
-	//int lpf_inprocess_added;
+	int pf_learnt_marked_unsatopt; // # of learnt clauses that are marked as '3' ('3'). 	
+	bool retain_proof;
+	vec<CRef>  pf_learnts_forceopt_accum;   // list of learnt clauses that are marked as '3' ('3') and taken out of 'learnts'.
+											// Constructed lazily in reducedb; this means that it does not necessarily contain all such clauses.
+											// Clauses in this list will be relocated with the rest of the clause-db (in reduceDb => relocall);
+											// Without it these clauses will be 'freed' and then we'll have in the resolution graph clause references (clauseref) pointing to nonexisting clauses.
+	vec<CRef>  pf_learnts_forceopt_current; // same, for mark 4 clauses. 
 
     int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
@@ -107,7 +126,9 @@ public:
 	int pf_prev_trail_size;
 	bool test_mode;
 	bool m_bConeRelevant;
-		
+	
+	vec<CRef>           learnts;          // List of learnt clauses.
+
     // Constructor/Destructor:
     //
 	Solver();
@@ -183,7 +204,7 @@ public:
     vec<lbool> model;             // If problem is satisfiable, this vector contains the model (if any).
     vec<Lit>   conflict;          // If problem is unsatisfiable (possibly under assumptions),
                                   // this vector represent the final conflict clause expressed in the assumptions.
-
+	Lit ltemp; // !! debugging 
     // Mode of operation:
     //
     int       verbosity;
@@ -216,14 +237,14 @@ public:
     void AddConflictingIc(uint32_t uid);
     void CreateResolVertex(uint32_t uid);
     void ResetOk();
-    int PF_get_assumptions(uint32_t uid, CRef cref, bool more_unsat_clauses_mode = false);
+    int PF_get_assumptions(uint32_t uid, CRef cref, get_assump_mode mode = restricted);
 	vec<Lit>    LiteralsFromPathFalsification;
 	int count_true_assump;
 	int count_assump;
 	// LPF
 	int pf_mode;
 	bool test_result;
-
+	bool removed_from_learnts;  // with retain_proof (pf_force/pf_unsatopt), true <-> we reached reduceDB, which means that clauses marked '4' were removed from learnts.
 	bool pf_early_unsat_terminate(); 
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits, bool more_unsat_clauses_mode = false);    
 	bool lpf_compute_inprocess();
@@ -231,10 +252,11 @@ public:
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	void ResGraph2dotty(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	
+	void checkuids(ClauseAllocator& ca, char* msg); // just for testing consistency of the data
 	//________________________________________________________________________________________________
 	
 
-    void printClause(FILE* f, Clause& c);
+    void printClause(FILE* f, const Clause& c);
 
     template<class T>
     void printLits(FILE* f, const T& c)
@@ -286,7 +308,7 @@ protected:
     //
     bool                ok;               // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
     vec<CRef>           clauses;          // List of problem clauses.
-    vec<CRef>           learnts;          // List of learnt clauses.
+
     double              cla_inc;          // Amount to bump next clause with.
     vec<double>         activity;         // A heuristic measurement of the activity of a variable.
     double              var_inc;          // Amount to bump next variable with.
@@ -341,6 +363,7 @@ protected:
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
+	void	 myreduceDB		  (); // ofer
     void     removeSatisfied  (vec<CRef>& cs);                                         // Shrink 'cs' to contain only non-satisfied clauses.
     void     rebuildOrderHeap ();
 

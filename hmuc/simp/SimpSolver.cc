@@ -777,7 +777,7 @@ void SimpSolver::garbageCollect()
     // is not precise but should avoid some unnecessary reallocations for the new region:
     ClauseAllocator to(ca.size() - ca.wasted()); 
 
-    cleanUpClauses();
+    cleanUpClauses(); // removes from 'clauses' those that are marked 1
     to.extra_clause_field = ca.extra_clause_field; // NOTE: this is important to keep (or lose) the extra fields.
     relocAll(to);
     Solver::relocAll(to);

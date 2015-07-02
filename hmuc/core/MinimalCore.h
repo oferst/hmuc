@@ -11,8 +11,8 @@ class CMinimalCore
 {
 public:
     CMinimalCore(SimpSolver& solver);
-
-	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "" ); 
+	
+	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "", vec<Lit>* assump  = NULL); 
     lbool Solve(bool pre);
 
     inline SimpSolver& GetSolver() { return m_Solver; }
@@ -21,7 +21,7 @@ public:
 
     bool m_bIcInConfl;
 private:
-   void PrintData(int unknownSize, int mucSize, int iter, bool last = false);
+   void PrintData(int unknownSize, int mucSize, int iter);
 
    uint32_t GetMaxIc(Map<uint32_t, uint32_t>& mapIcToScore);
    uint32_t GetMinIc(Map<uint32_t, uint32_t>& mapIcToScore);

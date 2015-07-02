@@ -1,27 +1,27 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>ssa2670-140.cnf   -pf-mode=3 -no-always_prove -no-muc-rotate -muc-progress -test &gt; c:\temp\tmp2</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>3pipe_1_ooo.cnf.mus  -no-muc-print-sol -no-pre -pf-mode=0</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\marques-silva\atpg</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\minimal</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>ssa2670-129.cnf   -pf-mode=3 -no-always_prove -no-muc-rotate -muc-progress -test &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>hardware-verification\c6bidw_s.cnf -no-muc-print-sol -no-pre  -pf-mode=4</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\atpg</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|Win32'">
     <LocalDebuggerCommandArguments>c:\temp\barrel6.cnf  -no-muc-print-sol</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>ssa2670-129.cnf  -pf-mode=3 -no-always_prove -no-muc-rotate -muc-progress  &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\atpg</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>edn_25208_14.cnf_37.38000000.unsat.cnf -pf-mode=2 -pf_unsatopt </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\abstraction-refinement-intel</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\atpg</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\fpga-routing</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>ssa2670-129.cnf  -pf-mode=3 -no-always_prove -no-muc-rotate -muc-progress -test &gt; c:\temp\tmp</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>vda_gr_rcs_w7.shuffled.cnf  -pf-mode=2 -pf_unsatopt  -verb=2 &gt;c:\temp\tmp</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

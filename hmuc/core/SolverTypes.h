@@ -123,12 +123,13 @@ typedef RegionAllocator<uint32_t>::Ref CRef;
 
 class Clause {
     struct {
-        unsigned mark      : 2;
+        unsigned mark      : 3;		
         unsigned learnt    : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned ic        : 1;
-        unsigned size      : 26; }                            header;
+        unsigned size      : 25; }   header;
+
     union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
 
     static uint32_t icUid;
@@ -183,7 +184,7 @@ public:
     }
     void         pop         ()              { shrink(1); }
     bool         learnt      ()      const   { return header.learnt; }
-    bool         ic        ()      const   { return header.ic; }
+    bool         ic          ()      const   { return header.ic; }
     bool         has_extra   ()      const   { return header.has_extra; }
     uint32_t     mark        ()      const   { return header.mark; }
     void         mark        (uint32_t m)    { header.mark = m; }
@@ -286,7 +287,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 
 
 //=================================================================================================
-// OccLists -- a class for maintaining occurence lists with lazy deletion:
+// OccLists -- a class for maintaining occurrence lists with lazy deletion:
 
 template<class Idx, class Vec, class Deleted>
 class OccLists
@@ -333,13 +334,13 @@ void OccLists<Idx,Vec,Deleted>::cleanAll()
 
 
 template<class Idx, class Vec, class Deleted>
-void OccLists<Idx,Vec,Deleted>::clean(const Idx& idx)
+void OccLists<Idx,Vec,Deleted>::clean(const Idx& idx)   // removes from the occlist all the clauses that satisfy mark() == removed
 {
     Vec& vec = occs[toInt(idx)];
     int  i, j;
     for (i = j = 0; i < vec.size(); i++)
         if (!deleted(vec[i]))
-            vec[j++] = vec[i];
+            vec[j++] = vec[i];  
     vec.shrink(i - j);
     dirty[toInt(idx)] = 0;
 }

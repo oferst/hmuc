@@ -158,7 +158,7 @@ public:
 	{
 		int it, step, 
 			first = 0, // searching from beginning
-			count = sz;	 // to end
+			count = sz - 1;	 // to end
 		while (count>0)
 		{
 			it = first; step=count/2; it += step;
@@ -180,7 +180,9 @@ public:
 
 	bool search (const T& val) // ofer. does not assume object is sorted. 
 	{				
-		for (int i = 0; i < size(); ++i) if (data[i] == val) return true;
+		for (int i = 0; i < size(); ++i) 
+			if (data[i] == val) 
+				return true;
 		return false;
 	}
 
