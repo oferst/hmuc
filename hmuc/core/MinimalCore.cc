@@ -372,7 +372,7 @@ namespace Minisat
 		vec<uint32_t> moreMucVec;
 		double time_after_initial_run;
 		double longestcall = 0;
-		int lpf_boost_found_trivial_UNSAT = 0;
+		int num_normal_unsat = 0;
 		int removed = 0;		
 		m_Solver.time_for_pf = 0.0;		
 		m_Solver.nICtoRemove = 0; 
@@ -382,7 +382,7 @@ namespace Minisat
 		m_Solver.nUnsatByPF = 0;
 		m_Solver.pf_zombie_iter = 0;		
 		//m_Solver.lpf_inprocess_added = 0;
-		m_Solver.test_mode = false;		
+		m_Solver.test_mode = false;
 		// run preprocessing
 		double before_time = cpuTime();
 		if (!m_bIcInConfl)
@@ -399,12 +399,6 @@ namespace Minisat
 		
 		for (; true; ++nIteration)
 		{				
-			for (int i = 0; i < m_Solver.pf_learnts_forceopt_accum.size(); ++i)  // !!
-				assert(m_Solver.GetClause(m_Solver.pf_learnts_forceopt_accum[i]).mark()==3);
-			for (int i = 0; i < m_Solver.pf_learnts_forceopt_current.size(); ++i)  // !!
-				assert(m_Solver.GetClause(m_Solver.pf_learnts_forceopt_current[i]).mark()==4);			
-			
-
 			printf("--- nIteration = %d\n", nIteration);			
 			if (!m_bIcInConfl) {			
 				before_time = cpuTime();
@@ -422,24 +416,7 @@ namespace Minisat
 				result = l_False;
 				m_bIcInConfl = false;
 				m_Solver.ResetOk();
-			}
-			
-			/*if (nIteration) { // !!
-				fflush(stdout);
-				for (int uid = 0; uid < m_Solver.resol.GetMaxUid(); ++uid) {
-					CRef cr = m_Solver.GetClauseIndFromUid(uid);					
-					if (cr==CRef_Undef) continue;
-					if (m_Solver.GetClause(cr).ic())
-						if (m_Solver.GetClause(m_Solver.resol.GetInd(uid)).uid() != uid)  {
-							printf("uid mismatch\n");
-							exit(1);
-						};
-
-				}
-				printf("checkuids after sat call: ok\n");
-			}*/
-
-
+			}			
 			
 			if (result == l_False) {
 #pragma region UNSAT_NORMAL
@@ -447,21 +424,18 @@ namespace Minisat
 				{
 					// First get all the clauses in unsat core
 					printf("UNSAT (normal)\n");
+					num_normal_unsat++;
 					emptyClauseCone.clear();
 					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
 					
-//					Clause& clst = m_Solver.GetClause(m_Solver.GetClauseIndFromUid(51202));
-//					printf("mark = %d, ref = %d\n", clst.mark(), m_Solver.GetClauseIndFromUid(51202));
-					// vecUids.removeDuplicated_();
 					// for each clause in vecUids check if it is ic and mark it as unknown. 
 					for (int nInd = 0; nInd < vecUids.size(); ++nInd)
 					{
 						uint32_t nIc = vecUids[nInd];
 						assert(nIc <= m_nICSize);
 						if (!setMuc.has(nIc))
-						{						
-							//assert(!accumulate_vecUidsToRemove.search(nIc)); 
-							assert(!nIcForRemove || (nIc != nIcForRemove)); // !! added the !nIcForRemove because a clause #0 can be in the core in the first iteration. 
+						{										
+							assert(!nIcForRemove || (nIc != nIcForRemove)); // added the !nIcForRemove because a clause #0 can be in the core in the first iteration. 
 							vecUnknown.push(nIc);
 						}
 
@@ -525,6 +499,7 @@ namespace Minisat
 						//m_Solver.pf_learnt_marked_unsatopt = 0;
 						m_Solver.pf_learnts_forceopt_accum.clear();
 						m_Solver.pf_learnts_forceopt_current.clear();
+						m_Solver.pf_lits_in_all_cones.clear();
 					}
 					
 				}
@@ -533,13 +508,15 @@ namespace Minisat
 #pragma region UNSAT_ASSUMP
 
 				else {  // unsat, but contradiction was discovered when the assumptions were added.
-					printf("UNSAT (by assumptions)\n");					
+					printf("UNSAT (by assumptions)\n");	
+					
 					remove(vecPrevUnknown, nIcForRemove);
 					if (vecPrevUnknown.size() == 0) break;
 					vecPrevUnknown.swap(vecUnknown);
 					vecUidsToRemove.clear();				
 					//printf("removing = %d\n", nIcForRemove);
-					
+					m_Solver.LiteralsFromPathFalsification.copyTo(m_Solver.pf_lits_in_all_cones);
+#pragma region unsatopt
 					if (m_Solver.pf_unsatopt) {
 						CRef ref = m_Solver.GetClauseIndFromUid(nIcForRemove);
 						if (ref != CRef_Undef) {  // ref == CRef_Undef when it was removed by removesatisfied
@@ -550,12 +527,10 @@ namespace Minisat
 							m_Solver.GetUnsatCore(vecUids, emptyClauseCone); // now vecuids includes the core. 											
 							sort(vecUids);
 
-							vec<uint32_t> tmp_vecUnknown;  // !! because we do not want to sort vecUnkown
+							vec<uint32_t> tmp_vecUnknown;  // because we do not want to sort vecUnkown
 							vecUnknown.copyTo(tmp_vecUnknown);
 							sort(tmp_vecUnknown);					
-							Diff(tmp_vecUnknown, vecUids, C);
-							//printf("C (# ic clauses not in proof) size = %d\n", C.size());
-							//printfVec(C, "clauses ids not in proof");
+							Diff(tmp_vecUnknown, vecUids, C);							
 							sort(m_Solver.pf_assump_used_in_proof);
 							for (int j= 0; j < C.size(); ++j) {
 								double before_time = cpuTime();
@@ -567,6 +542,7 @@ namespace Minisat
 									sort (m_Solver.LiteralsFromPathFalsification);
 									//printfVec(m_Solver.LiteralsFromPathFalsification, "pf literals (negated) that are also used in proof: ");
 									if (Contains(m_Solver.LiteralsFromPathFalsification, m_Solver.pf_assump_used_in_proof)) {
+										m_Solver.LiteralsFromPathFalsification.copyTo(m_Solver.pf_lits_in_all_cones);
 										vecUidsToRemove.push(C[j]);
 										CRef ref = m_Solver.GetClauseIndFromUid(C[j]);
 										if (ref == CRef_Undef) continue; //
@@ -583,7 +559,7 @@ namespace Minisat
 						}
 						vecUidsToRemove.clear();
 					}
-
+#pragma	endregion 					
 					vecUidsToRemove.push(nIcForRemove);										
 					if (m_Solver.retain_proof) {						
 						m_Solver.Remark(vecUidsToRemove); // mark every clause in cone(c), c \in vecuidstoremove, with 3.
@@ -810,7 +786,8 @@ end:	PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 		printf("### time %g\n", cpuTime());
 		printf("### lpf_literals %d\n", m_Solver.pf_Literals);
 		//printf("### secondary_lpf_literals %d\n", m_Solver.lpf_inprocess_added);
-		printf("### UNSAT_by_pf %d\n", m_Solver.nUnsatByPF);
+		printf("### UNSAT_normal %d\n", num_normal_unsat);
+		printf("### UNSAT_by_pf %d\n", m_Solver.nUnsatByPF);		
 		printf("### iter %d\n", nIteration);		
 		printf("### true_assump_ratio %f\n", (float)m_Solver.count_assump > 0 ? (float)m_Solver.count_true_assump / (float)m_Solver.count_assump : 0.0);		
 		printf("### nettime %g\n", cpuTime() -  time_after_initial_run);

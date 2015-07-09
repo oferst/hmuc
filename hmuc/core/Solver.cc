@@ -219,7 +219,6 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* parents)
 
 void Solver::attachClause(CRef cr) {
     const Clause& c = ca[cr];	
-	int x = c.ic()? c.uid(): 0; // !!
     assert(c.size() > 1);
     watches[~c[0]].push(Watcher(cr, c[1]));
     watches[~c[1]].push(Watcher(cr, c[0]));
@@ -701,7 +700,6 @@ void Solver::reduceDB()
 	for (i = j = 0; i < learnts.size(); i++) {
 		Clause& c = ca[learnts[i]];
 		int mark = c.mark();
-		int x = c.ic() ? c.uid(): 0;  //!!
 		//assert(c.mark() != 3); // this assertion is not necessarily true because we can have '3' clauses that were not removed from learnts before simply because this function was not called. 
 		if (mark== 0 && c.size() > 2 && !locked(c) && (i < (learnts.size()) / 2 || c.activity() < extra_lim))  
 		{
@@ -710,7 +708,7 @@ void Solver::reduceDB()
 		}
 		else // maintains in learnt those that are not removed 
 		{
-			if (mark != 1 && mark != 3 && mark != 4)  // !!added 2nd & 3rd term; 
+			if (mark != 1 && mark != 3 && mark != 4)  
 				learnts[j++] = learnts[i];
 			if (mark == 4) pf_learnts_forceopt_current.push(learnts[i]);  // we need those for relocation inside checkgarbage/relocall
 			if (mark == 3) pf_learnts_forceopt_accum.push(learnts[i]);  // we need those for relocation inside checkgarbage/relocall
@@ -733,7 +731,6 @@ void Solver::removeSatisfied(vec<CRef>& cs)  // called with e.g. 'learnts'; remo
             continue;
         if (c.mark() == 0 && satisfied(c)) //!! was c.mark() != 2. Changed since we started using mark(3), and we do not want to remove those clauses. 
         {
-            //c.mark(normal);  //!! because we enter here with mark==0 anyway. 
             removeClause(cs[i]);
         }
         else
@@ -1020,7 +1017,7 @@ lbool Solver::search(int nof_conflicts)
             {
                 // Reached bound on number of conflicts:
 				if (pf_zombie) {
-					printf("Z ");
+					//printf("Z ");
 					if (++pf_zombie_iter > opt_pf_z_budget) { // We spent too much time at trying to rebuild a proof; instead we'll declare it unsat and do not reuse the cone.
 						m_bUnsatByPathFalsification = true;
 						nUnsatByPF++;
@@ -1028,8 +1025,8 @@ lbool Solver::search(int nof_conflicts)
 						return l_False;
 					}
 				}
-				else printf("R ");						
-				printf("%d %d %d\n", conflictC, vecConfl[decisionLevel()], !withinBudget());
+				//else printf("R ");						
+				//printf("%d %d %d\n", conflictC, vecConfl[decisionLevel()], !withinBudget());
                 progress_estimate = progressEstimate();				
                 cancelUntil(1);
 				
@@ -1052,7 +1049,7 @@ lbool Solver::search(int nof_conflicts)
 					}
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves                                                                     
 						if (pf_early_unsat_terminate()) {
-							printf("contradiction with assumption %d\n", p);
+//							printf("contradiction with assumption %d\n", p);
 							if (pf_unsatopt) {
 								analyzeFinal(p, pf_assump_used_in_proof);  // fills pf_assump_used_in_proof with the used assumptions. 
 								//	printfVec(pf_assump_used_in_proof, "assump used in proof");
@@ -1148,7 +1145,7 @@ bool Solver::lpf_compute_inprocess() {
 				//printfVec(LiteralsFromPathFalsification, "lpf literals = ");
 				time_for_pf += (cpuTime() - before_time);								
 				printf("*** in process lpf = %d\n", addLiterals);
-				if (addLiterals == 0) { // If no literals are added it means that all paths from root are satisfied (otherwise we would at least have the literals in root), and hence the result of the next iteration is bound to be UNSAT. 				
+				if (addLiterals == 0) { // If no literals are added it means that all paths from root are satisfied (otherwise we would at least have the literals in root), and hence the result of the next iteration is bound to be UNSAT.
 					if (pf_early_unsat_terminate()) return false;
 				}
 				pf_Literals += (addLiterals - old_falsified_literals);								
@@ -1368,8 +1365,7 @@ void Solver::relocAll(ClauseAllocator& to)
     }
     
     // All learnt:
-    //
-	//checkuids(ca, "before all lerant"); // !!
+    
     for (int i = 0; i < learnts.size(); i++) 
     {
         ca.reloc(learnts[i], to);
@@ -1379,9 +1375,8 @@ void Solver::relocAll(ClauseAllocator& to)
           resol.UpdateInd(c.uid(), learnts[i]); 
 		  assert(to[resol.GetInd(c.uid())].uid() == c.uid());			  
 		}
-    }	
-	
-	//checkuids(to, "after all lerant");
+    }		
+
 	// clauses removed from learnts because they were marked '3' in previous iterations (as of the last golden proof) 
 	
 	for (int i = 0; i < pf_learnts_forceopt_accum.size(); i++) 
@@ -1575,15 +1570,17 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 void Solver::Remark(vec<uint32_t>& cone)
 {	
 	LOG("");
-	resol.GetClausesCones(cone);
-
+	resol.GetClausesCones(cone, 3, ca); // !! 
+	//printf("cone_Size remark= %d, learnts = %d\n", cone.size(), learnts.size());
 	for (int i = 0; i < cone.size(); ++i)
 	{
 		CRef cr = resol.GetInd(cone[i]);
 //		assert(cr != CRef_Undef);
 		if (cr == CRef_Undef) continue;
 		assert(ca[cr].mark() == 4 || ca[cr].mark() == 3);
-		ca[cr].mark(3);              
+		ca[cr].mark(3);
+		//resol.DecreaseReference_mark3(ca[cr].uid(), ca); // !!
+		
 	}
 }
 
@@ -1599,26 +1596,17 @@ void Solver::RemoveClauses(vec<uint32_t>& cone, bool leaveMark3)
         CRef cr = resol.GetInd(cone[i]);
         if (cr != CRef_Undef)
         {
-			if (leaveMark3 && ca[cr].mark() == 3) continue;  // we need this because cone can contain roots of clauses from rotation. Their cone as computed by getclausescone above can contain mark3 clauses and we do not want to remove those.  
+			if (leaveMark3 && ca[cr].mark() == 3) continue;  // we need this because cone can contain roots of clauses from rotation. Their cone as computed by getclausescone above can contain mark3 clauses and we do not want to remove those.
             ca[cr].mark(0);  // will be replaced with mark(removed) in removeClause below. Effectively this erases mark(2) if there was one. 
             removeClause(cr);
         }
     }
-
-    // check that all the clauses are actually removed
-/*    for (int i = 0; i < cone.size(); ++i)
-    {
-        assert (resol.GetInd(cone[i]) == CRef_Undef);
-        assert(resol.GetResolId(cone[i]) == CRef_Undef);
-    }
-*/
 }
 
 void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
 {
 	LOG("");
-    uidsVec.clear();
-    //sort(uidsVec);  // !! removed. ? what for if it is cleared ? 
+    uidsVec.clear();    
     cone.copyTo(uidsVec);
     cancelUntil(0);
     sort(uidsVec);
@@ -1650,7 +1638,9 @@ void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
 
 void Solver::UnbindClauses(vec<uint32_t>& cone)
 {
+	LOG("");
 	resol.GetClausesCones(cone);
+	//printf("cone_Size = %d, learnts_size = %d\n", cone.size(), learnts.size());
 	cancelUntil(0);
 
 	// cone contains all the clauses we want to remove
@@ -1695,31 +1685,10 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
 void Solver::UnbindClauses_force(vec<uint32_t>& cone, bool temporary)
 {
 	LOG((temporary?"t":"f"));
-    resol.GetClausesCones(cone);
+    resol.GetClausesCones(cone, 3, ca); 
+	//printf("cone_Size %d= %d, learnts_size = %d\n", temporary, cone.size(), learnts.size());
     assert(decisionLevel() == 0);  // if this assertion does not fall, then we do not need the canceluntil(0) below. 
 	cancelUntil(0);
-	//printf("cone size= %d\n", cone.size());
-	if (temporary) 
-	{  // we remove from 'cone' those that are marked already with 3, because they were already unbound. This will prevent those clauses from being bound back in case the formula is SAT. 
-		vec<uint32_t> tmp_cone;
-		
-		for (int i = 0; i < cone.size(); ++i) {
-			CRef cr = resol.GetInd(cone[i]);
-			if (cr != CRef_Undef)
-			{
-				Clause& c = ca[cr];			
-				if (c.mark() != 3) tmp_cone.push(cone[i]);  // we do not include in the cone clauses that were already marked '3'
-			}
-			else tmp_cone.push(cone[i]);  // ?? do we need in the cone clauses that are CRef_Undef?
-		}
-		if (tmp_cone.size() != cone.size()) {
-			//printf("removed %d clauses from cone due to previously marked clauses", cone.size() - tmp_cone.size());
-			tmp_cone.swap(cone);			
-		}			
-		//printf("cone size (2) = %d\n", cone.size());
-	}
-	
-	
     // now cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
@@ -1751,12 +1720,12 @@ void Solver::UnbindClauses_force(vec<uint32_t>& cone, bool temporary)
         {
             Clause& c = ca[cr];
 			if (temporary) {
-				c.mark(4);  //! 4
+				c.mark(4);  
 				cnt++; 				
 			}
             else 
 				if (c.size() > 1) {
-                c.mark(3);  // !! was 0
+                c.mark(3);   
 				cnt++;
 				}
         }
@@ -1783,7 +1752,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)  // called when
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
-			assert(!retain_proof || c.mark() == 4); // !!  because cone is not supposed to include '3' clauses (this is guaranteed by unbindClauses, which computes the cone that eventually get here as a parameter)
+			assert(!retain_proof || c.mark() == 4); // because cone is not supposed to include '3' clauses (this is guaranteed by unbindClauses, which computes the cone that eventually get here as a parameter)
             c.mark(0);
             if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) == 0) ||  // uid is a parent and we chose to add parents as remainder
                 (opt_bind_as_orig == 2 && setGood.has(uid)))  // uid is in the cone of startUid (?) and we chose to add all clauses in that cone as remainder
@@ -1842,7 +1811,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)  // called when
                 if (c.size() > 1)
                 {
 					if (retain_proof && removed_from_learnts) 
-						learnts.push(cr); // !! clauses that we bind, were previously removed from learnts in relocall (if it was called).
+						learnts.push(cr); // clauses that we bind, were previously removed from learnts in relocall (if it was called).
                     attachClause(cr);
                 }
             }
@@ -1859,7 +1828,7 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
     {		
         resol.GetAllIcUids(setGood, cone);
 		LOG("after GetAllIcUids");
-        resol.GetClausesCones(cone);
+        resol.GetClausesCones(cone, 3, ca); // !!
 		LOG("after getclausecones");
     }
 	
@@ -2006,8 +1975,10 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr, get_assump_mode mode /*=re
         return 0;
    
 	LiteralsFromPathFalsification.clear();
+	assert(!m_bConeRelevant || pf_lits_in_all_cones.size() == 0);
+	bool pf_relevant = (m_bConeRelevant || pf_lits_in_all_cones.size() > 0);  // if !m_bConeRelevant && pf_lits_in_all_cones.size() = 0 then there are no literals in the shared cut of all clauses removed since the last golden proof.
 	
-	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (mode != restricted || m_bConeRelevant) && !lpf_delay)
+	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (mode != restricted || m_bConeRelevant) && !lpf_delay && pf_relevant)
 	{			
 		//printClause(stdout, ca[cr]);
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification, mode == restrict_to_used_assumptions); 
@@ -2034,7 +2005,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr, get_assump_mode mode /*=re
 	   
 	
 
-	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (mode!= restricted || m_bConeRelevant)) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
+	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (mode!= restricted || m_bConeRelevant) && pf_relevant) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
     {
         uidsVec.clear();
         resol.GetTillMultiChild(uid, uidsVec);
@@ -2059,7 +2030,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr, get_assump_mode mode /*=re
 	//LiteralsFromPathFalsification.removeDuplicated_(); // !!ofer. removed for comparing to the original version. 
 	
 
-	if (mode != restrict_to_used_assumptions) printfVec(LiteralsFromPathFalsification,"literals from pf");
+	//if (mode != restrict_to_used_assumptions) printfVec(LiteralsFromPathFalsification,"literals from pf");
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
 }
@@ -2092,9 +2063,7 @@ bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) /
 		{
 			CRef childUid = r.m_Children[m];
 			if (!resol.ValidUid(childUid)) continue;
-			CRef childClauseRef = resol.GetInd(childUid);	
-			//if (childClauseRef != CRef_Undef) printClause(stdout, ca[childClauseRef]);
-			fflush(stdout)		; // !!
+			CRef childClauseRef = resol.GetInd(childUid);				
 			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef])) continue;	
 			if (first && opt_lpf_cutoff) {
 				++initialSpan;
@@ -2265,12 +2234,14 @@ void Solver::LPF_get_assumptions(
 	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
 	std::queue<uint32_t> queue;		
 	Map<uint32_t,uint32_t> map_cls_parentsCount;  // maps from uid of clause, to the number of parents on the relevant cone of c, i.e., parents on paths from c to the empty clause.
-	printf("in lpf; moreunsat_clauses_mode - %d\n", more_unsat_clauses_mode);
+	
 	bool prefix = true; 
 	int peakQueueSize = 0;
 	vec<int> icUnits;	
 	uint32_t uid_root_bck = uid_root;
 	
+	assert(m_bConeRelevant || pf_lits_in_all_cones.size() > 0); // because we check this before we go into this function. 
+
 	if (prev_icParents.size() > 0) {  // if the result was unsat, this condition is true and we need to clear the previous list; otherwise this condition is false, and we use the parents_of_empty_clause form the last run that it was unsat.
 		parents_of_empty_clause.clear();
 		parents_of_empty_clause.growTo(prev_icParents.size());
@@ -2297,13 +2268,15 @@ void Solver::LPF_get_assumptions(
 	// adding root to Top_TClause. 
 	
 	for (int i = 0; i < cc.size(); ++i)	
-		if (!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~cc[i]))
+		if ((!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~cc[i])) 			 	
+			// &&(m_bConeRelevant || pf_lits_in_all_cones.binary_search(cc[i]))
+			)
 			(*Top_TClause).push(cc[i]);
 
     // adding clauses in the unit-chain to Top_Tclause. 
 	vec<uint32_t> uidvec_prefix; 	
 	resol.GetTillMultiChild(uid_root, uidvec_prefix);
-    uint32_t last_in_chain;
+    
 	for (int i = 0; i < uidvec_prefix.size(); ++i)  // for each clause in the prefix
 	{
 		CRef cr = resol.GetInd(uidvec_prefix[i]);
@@ -2316,14 +2289,16 @@ void Solver::LPF_get_assumptions(
 				if (pf_mode == lpf_inprocess) {
 					if (value(l) == l_True) return;
 				}
-				if (!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~l))
+				if ((!more_unsat_clauses_mode || pf_assump_used_in_proof.binary_search(~l)) && 
+					(m_bConeRelevant || pf_lits_in_all_cones.binary_search(l))
+					)
 					(*Top_TClause).push(l);
 			}	
 		}
 	}    
 
 	if (uidvec_prefix.size() > 0) {
-		assert(more_unsat_clauses_mode || Top_TClause->size() > 0);
+		//assert(more_unsat_clauses_mode || Top_TClause->size() > 0); not true anymore since we added the search in pf_lits_in_all_cones
 		uid_root = uidvec_prefix.last(); 
 	}
 /*	else { //!! seems like redundant given that we add the same clause higher up
@@ -2372,7 +2347,7 @@ void Solver::LPF_get_assumptions(
 			
 			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef]))					
 			{				
-				printfVec(ca[childClauseRef], "satisfied. removed by lpf_inprocess");				
+				if (verbosity>2) printfVec(ca[childClauseRef], "satisfied. removed by lpf_inprocess");				
 				continue; // lpf_inprocess. satisfied refers to current assignment. So this is relevant only if we call this function after at least one propagation in search.
 			}					
 			--map_cls_parentsCount[childUid]; // reducing parents count	
@@ -2404,13 +2379,19 @@ void Solver::LPF_get_assumptions(
 					if (more_unsat_clauses_mode) { // only follow literals in the set pf_assump_used_in_proof
 						vec<Lit> temp_lit_projected;
 						for (int i = 0; i < temp_lit.size(); ++i) {
-							if (pf_assump_used_in_proof.binary_search(~temp_lit[i]))  temp_lit_projected.push(temp_lit[i]);
+							if (pf_assump_used_in_proof.binary_search(~temp_lit[i]) && (m_bConeRelevant || pf_lits_in_all_cones.binary_search(temp_lit[i])))  temp_lit_projected.push(temp_lit[i]);
 						}
 						if (temp_lit_projected.size() > 0) union_vec(*map_cls_to_Tclause[childUid], temp_lit_projected, tmp_union);					
 					}
 					else {
+						
 						assert(map_cls_to_Tclause.count(childUid)>0);
-						union_vec(*map_cls_to_Tclause[childUid], temp_lit, tmp_union);										
+						union_vec(*map_cls_to_Tclause[childUid], temp_lit, tmp_union);
+						if (!m_bConeRelevant) {
+							vec<Lit> temp_intersect;
+							Intersection(tmp_union, pf_lits_in_all_cones, temp_intersect);
+							temp_intersect.swap(tmp_union);
+						}						
 					}
 					
 
@@ -2431,10 +2412,7 @@ void Solver::LPF_get_assumptions(
 	bool first = true;
 	for (int i = 0; i < parents_of_empty_clause.size(); ++i) {
 		if (map_cls_to_Tclause.find(parents_of_empty_clause[i])== map_cls_to_Tclause.end()) continue; // only those that have T-clause are actual parents of the empty clause in cone(c). In some cases a node is a parent, but all paths to it were cut warlier by a clause that is currently satisfied. 
-		int idx = parents_of_empty_clause[i];
-		//printf("parent index %d\n", idx);
-		//printfVec(ca[resol.GetInd(idx)], "parent of empty clause");
-		//printfVec(*map_cls_to_Tclause[idx], "Tclause of a parent of empty clause");
+		
 		if (first) {
 			(*map_cls_to_Tclause[parents_of_empty_clause[i]]).swap(res);			
 			first = false;
@@ -2458,7 +2436,7 @@ void Solver::LPF_get_assumptions(
 	else union_vec(res, *Top_TClause, assump_literals); // adding the literals from the top chain 
 
 	if (opt_reverse_pf) {
-		int sz = assump_literals.size(); // !! reversing order just to test the effect. 
+		int sz = assump_literals.size(); // reversing order just to test the effect. 
 		for (int i = 0; i < sz / 2; ++i) {Lit t = assump_literals[i]; assump_literals[i] = assump_literals[sz-1-i]; assump_literals[sz-1-i] = t;}
 	}
 

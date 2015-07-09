@@ -15,13 +15,13 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>edn_25208_14.cnf_37.38000000.unsat.cnf -pf-mode=2 -pf_unsatopt </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\abstraction-refinement-intel</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>rand_net40-30-5.shuffled.cnf  -pf_force -pf-mode=4   &gt; c:\temp\tmpf</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\goldberg\rand_net</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva\fpga-routing</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\goldberg\rand_net</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>vda_gr_rcs_w7.shuffled.cnf  -pf-mode=2 -pf_unsatopt  -verb=2 &gt;c:\temp\tmp</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>rand_net40-30-5.shuffled.cnf -pf-mode=4 -pf_force</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

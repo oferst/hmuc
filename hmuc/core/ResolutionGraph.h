@@ -144,8 +144,7 @@ public:
 	void UpdateInd(uint32_t nUid, CRef newRef)
     {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
-        assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
-		if (m_UidToData[nUid].m_ClauseRef == CRef_Undef) {printf("%d has no resolution clauseref\n", nUid); fflush(stdout); exit(1);} // !!
+        assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);		
         m_UidToData[nUid].m_ClauseRef = newRef;
     }
 
@@ -171,7 +170,7 @@ public:
 
     //void DestroyBackwardResolution();
 
-    void GetClausesCones(vec<uint32_t>& cone);
+    void GetClausesCones(vec<uint32_t>& cone, int stopAtMark = -1, ClauseAllocator& ca = (ClauseAllocator) 0);
 
     void CheckGarbage()
     {
@@ -199,9 +198,11 @@ public:
     }
 
     Set<uint32_t> m_EmptyClauseParents;
+	void DecreaseReference_mark3(uint32_t nUid, ClauseAllocator& ca);
 
 private:
     void DecreaseReference(uint32_t nUid);
+	
 
     void Shrink();
 

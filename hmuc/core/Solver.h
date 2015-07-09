@@ -47,8 +47,8 @@ enum pf_modes{
 
 
 enum get_assump_mode {  // modes in operating pf_get_assumptions
-	restricted,  // beyond a single clause only when coneisrelevant = true
-	full, // beyond a single clause even when coneisrelevant = false
+	restricted,  // beyond a single clause only when coneIsRelevant = true
+	full, // beyond a single clause even when coneIsRelevant = false
 	restrict_to_used_assumptions  // with pf_unsatopt, intersect the result with assumptions used in proof
 };
 
@@ -110,6 +110,7 @@ public:
 	bool pf_force;
 	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).
 	vec<Lit> pf_assump_used_in_proof;
+	vec<Lit> pf_lits_in_all_cones; // pf literals that are present in all cones removed since the last golden proof.
 	int pf_learnt_marked_unsatopt; // # of learnt clauses that are marked as '3' ('3'). 	
 	bool retain_proof;
 	vec<CRef>  pf_learnts_forceopt_accum;   // list of learnt clauses that are marked as '3' ('3') and taken out of 'learnts'.

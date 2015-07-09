@@ -25,10 +25,13 @@ void CResolutionGraph::AddNewResolution
     m_UidToData[nNewClauseId].m_ResolRef = refResol;
 }
 
+
+// Every resolution node has m_nRefCount initialized to 1 (by the constructor or Resol).
+// So if a resolution node has m_nRefCount == 0, it means that it points to a clause that was removed (we call this function only from DeleteClause, which sets ClauseRef = Cref_Undef), and has no children.
 void CResolutionGraph::DecreaseReference(uint32_t nUid)
 {
     CRef& ref = m_UidToData[nUid].m_ResolRef;
-	if (ref == CRef_Undef) {printf("%d undef\n", nUid); fflush(stdout);exit(1);}
+	assert(ref != CRef_Undef);
     Resol& res = m_RA[ref];
     --res.m_nRefCount;
     if (res.m_nRefCount == 0)
@@ -40,9 +43,33 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
             DecreaseReference(parents[nInd]);
         }
 
-        m_RA.free(ref);
+        m_RA.free(ref);		
         ref = CRef_Undef;
     }
+}
+
+void CResolutionGraph::DecreaseReference_mark3(uint32_t nUid, ClauseAllocator& ca)
+{
+	CRef& ref = m_UidToData[nUid].m_ResolRef;
+	assert(ref != CRef_Undef);
+	Resol& res = m_RA[ref];
+	--res.m_nRefCount;
+	if (res.m_nRefCount == 0)
+	{
+		// first decrease reference count for all the parents
+		uint32_t* parents = res.Parents();
+		for (int nInd = 0; nInd < res.ParentsSize(); ++nInd)
+		{
+			DecreaseReference_mark3(parents[nInd], ca);
+		}
+		CRef cr = m_UidToData[nUid].m_ClauseRef;
+		if (cr != CRef_Undef)
+			{
+				ca[cr].mark(3);				
+		}
+		//m_RA.free(ref);
+		//ref = CRef_Undef;
+	}
 }
 
 void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
@@ -98,29 +125,47 @@ void CResolutionGraph::BuildBackwardResolution()
     }
 }
 */
-void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
+
+
+void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone, int stopAtMark, ClauseAllocator& ca)
 {
-    Set<uint32_t> set;
-    set.add(cone);
-    for (int nInd = 0; nInd < cone.size(); ++nInd)
-    {
-        uint32_t nUid = cone[nInd];
-        CRef ref = m_UidToData[nUid].m_ResolRef;
-        if (ref == CRef_Undef)
-            continue;
-        Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
-        if (resol.m_Children.size() > 0)
-        {
-            const vec<uint32_t>& children = resol.m_Children;
-            for (int nChild = 0; nChild < children.size(); ++nChild)
-            {
-                uint32_t nChildId = children[nChild];
-                if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId)) {					
-                    cone.push(nChildId);
+	Set<uint32_t> set;
+	set.add(cone);
+	for (int nInd = 0; nInd < cone.size(); ++nInd)
+	{
+		uint32_t nUid = cone[nInd];
+		/*if (stopAtMark >=0) {
+			CRef cr = GetInd(nInd);
+			if (cr != CRef_Undef) {
+				Clause& c = ca[cr];				
+				printf("%d (%d), ", nUid, c.mark());
+			}
+			if (!(nUid % 20)) printf("\n");
+		}*/
+
+		CRef ref = m_UidToData[nUid].m_ResolRef;
+		if (ref == CRef_Undef)
+			continue;		
+		Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
+		if (resol.m_Children.size() > 0)
+		{
+			const vec<uint32_t>& children = resol.m_Children;
+			for (int nChild = 0; nChild < children.size(); ++nChild)
+			{
+				uint32_t nChildId = children[nChild];
+				if (stopAtMark >= 0) {					
+					CRef cr = GetInd(nChildId);
+					if (cr != CRef_Undef) {
+						Clause& c = ca[cr];
+						if (c.mark() == stopAtMark) continue;
+					}
 				}
-            }
-        }
-    }
+				if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId)) {					
+					cone.push(nChildId);
+				}
+			}
+		}
+	}
 }
 
 void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath)
@@ -203,7 +248,7 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
         }
 
         firstTime = false;
-        vecToCheck.removeDuplicated_();
+        //vecToCheck.removeDuplicated_(); // !! just because it leads to stack overflow.
         vecToCheck.swap(vecCurrChecked);
         vecToCheck.clear();
     }
