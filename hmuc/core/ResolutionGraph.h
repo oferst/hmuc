@@ -170,10 +170,11 @@ public:
 
     //void DestroyBackwardResolution();
 
-    void GetClausesCones(vec<uint32_t>& cone, int stopAtMark = -1, ClauseAllocator& ca = (ClauseAllocator) 0);
+    void GetClausesCones(vec<uint32_t>& cone, int stopAtMark, ClauseAllocator& ca);
 
     void CheckGarbage()
     {
+		printf("in resol/CheckGarabage\n");
         if (m_RA.wasted() > m_RA.size() * 0.3)
             Shrink();
     }

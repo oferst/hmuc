@@ -400,6 +400,7 @@ namespace Minisat
 		for (; true; ++nIteration)
 		{				
 			printf("--- nIteration = %d\n", nIteration);			
+			//if (nIteration == 10) exit(1);
 			if (!m_bIcInConfl) {			
 				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	

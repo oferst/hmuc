@@ -134,14 +134,15 @@ void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone, int stopAtMark, Clau
 	for (int nInd = 0; nInd < cone.size(); ++nInd)
 	{
 		uint32_t nUid = cone[nInd];
-		/*if (stopAtMark >=0) {
+		//if (stopAtMark >=0) {
 			CRef cr = GetInd(nInd);
 			if (cr != CRef_Undef) {
 				Clause& c = ca[cr];				
 				printf("%d (%d), ", nUid, c.mark());
 			}
+			else printf("%d!, ", nUid);
 			if (!(nUid % 20)) printf("\n");
-		}*/
+		//}
 
 		CRef ref = m_UidToData[nUid].m_ResolRef;
 		if (ref == CRef_Undef)

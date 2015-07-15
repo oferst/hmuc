@@ -452,8 +452,11 @@ inline void Solver::claBumpActivity (Clause& c) {
 
 inline void Solver::checkGarbage(void){ return checkGarbage(garbage_frac); }
 inline void Solver::checkGarbage(double gf){
+	printf("in checkGarabage\n");
     if (ca.wasted() > ca.size() * gf)
-        garbageCollect(); }
+        garbageCollect(); 
+	else printf("skipping garbageCollect\n");
+}
 
 // NOTE: enqueue does not set the ok flag! (only public methods do)
 inline bool     Solver::enqueue         (Lit p, CRef from)      { return value(p) != l_Undef ? value(p) != l_False : (uncheckedEnqueue(p, from), true); }

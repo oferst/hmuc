@@ -1579,7 +1579,7 @@ void Solver::Remark(vec<uint32_t>& cone)
 		if (cr == CRef_Undef) continue;
 		assert(ca[cr].mark() == 4 || ca[cr].mark() == 3);
 		ca[cr].mark(3);
-		//resol.DecreaseReference_mark3(ca[cr].uid(), ca); // !!
+	//	resol.DecreaseReference_mark3(ca[cr].uid(), ca); // !!
 		
 	}
 }
@@ -1587,7 +1587,7 @@ void Solver::Remark(vec<uint32_t>& cone)
 void Solver::RemoveClauses(vec<uint32_t>& cone, bool leaveMark3)
 {
 	LOG("");
-    resol.GetClausesCones(cone);
+    resol.GetClausesCones(cone, -1, ca);
     cancelUntil(0);
 
     // cone contains all the clauses we want to remove
@@ -1639,8 +1639,8 @@ void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
 void Solver::UnbindClauses(vec<uint32_t>& cone)
 {
 	LOG("");
-	resol.GetClausesCones(cone);
-	//printf("cone_Size = %d, learnts_size = %d\n", cone.size(), learnts.size());
+	resol.GetClausesCones(cone, -1, ca);
+	printf("cone_Size = %d, learnts_size = %d\n", cone.size(), learnts.size());
 	cancelUntil(0);
 
 	// cone contains all the clauses we want to remove
@@ -1686,7 +1686,7 @@ void Solver::UnbindClauses_force(vec<uint32_t>& cone, bool temporary)
 {
 	LOG((temporary?"t":"f"));
     resol.GetClausesCones(cone, 3, ca); 
-	//printf("cone_Size %d= %d, learnts_size = %d\n", temporary, cone.size(), learnts.size());
+	printf("cone_Size %d= %d, learnts_size = %d\n", temporary, cone.size(), learnts.size());
     assert(decisionLevel() == 0);  // if this assertion does not fall, then we do not need the canceluntil(0) below. 
 	cancelUntil(0);
     // now cone contains all the clauses we want to remove
