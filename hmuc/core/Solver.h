@@ -66,7 +66,7 @@ public:
 	void UnbindClauses(vec<uint32_t>& cone);
     void UnbindClauses_force(vec<uint32_t>& cone, bool mark_delayed = false);
 	
-    CRef GetClauseIndFromUid(uint32_t uid) const
+    CRef GetClauseRefFromUid(uint32_t uid) const
     {
         return resol.GetInd(uid);
     }
@@ -452,10 +452,10 @@ inline void Solver::claBumpActivity (Clause& c) {
 
 inline void Solver::checkGarbage(void){ return checkGarbage(garbage_frac); }
 inline void Solver::checkGarbage(double gf){
-	printf("in checkGarabage\n");
+	//printf("in checkGarabage\n");
     if (ca.wasted() > ca.size() * gf)
         garbageCollect(); 
-	else printf("skipping garbageCollect\n");
+	//else printf("skipping garbageCollect\n");
 }
 
 // NOTE: enqueue does not set the ok flag! (only public methods do)

@@ -28,6 +28,8 @@ private:
 
    void Rotate_it(uint32_t clsUid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet); // iterative version
    void Rotate(uint32_t clsUid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet);
+   void updateOccurListForRotate(vec<uint32_t>& core); 
+   void updateHeap(vec<uint32_t>& core);
 
     SimpSolver& m_Solver;
     uint32_t m_nICSize;
@@ -41,10 +43,10 @@ private:
         const Solver& solver;
         int m_RemoveOrder;
         bool operator () (unsigned x, unsigned y) const { 
-            CRef refX = solver.GetClauseIndFromUid(x);
+            CRef refX = solver.GetClauseRefFromUid(x);
             if (refX == CRef_Undef)
                 return false;
-            CRef refY = solver.GetClauseIndFromUid(y);
+            CRef refY = solver.GetClauseRefFromUid(y);
             if (refY == CRef_Undef)
                 return true;
             if (m_RemoveOrder == 0)

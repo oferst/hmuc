@@ -21,8 +21,6 @@ namespace Minisat
 	static BoolOption    opt_second_sat_call	(_cat, "sec-sat-call", "call solver again to get a different SAT assignment", false);
 	static BoolOption    opt_sec_rot_use_prev	(_cat, "sec-call-use-prev", "include in second rotation-call previously discovered clauses", true);
 	static IntOption     opt_remove_order		(_cat, "remove-order", "removal order: 0 - biggest, 1 - smallest, 2 - highest, 3 - lowest, 4 - rotation\n", 2, IntRange(0, 4));
-	static BoolOption    opt_only_cone			(_cat, "only-cone", "remove all the clauses outside the empty clause cone\n", true);
-
 	
 
  	CMinimalCore::CMinimalCore(SimpSolver& solver): 
@@ -125,7 +123,7 @@ namespace Minisat
 			rec_record curr = S.back();
 			S.pop_back();
 
-			CRef ref = m_Solver.GetClauseIndFromUid(curr.uid);
+			CRef ref = m_Solver.GetClauseRefFromUid(curr.uid);
 			assert(ref != CRef_Undef);
 			Clause& cls = m_Solver.GetClause(ref);
 			for (int i = 0; i < cls.size(); ++i)
@@ -150,7 +148,7 @@ namespace Minisat
 				uint32_t unsatCls2 = CRef_Undef;
 				for (int j = 0; j < _cs.size() && unsatClss < 2; ++j)
 				{
-					CRef ref = m_Solver.GetClauseIndFromUid(cs[j]);
+					CRef ref = m_Solver.GetClauseRefFromUid(cs[j]);
 					// check if this clause was previously removed
 					if  (ref == CRef_Undef)
 						continue;
@@ -215,7 +213,7 @@ namespace Minisat
 	void CMinimalCore::Rotate(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
 	{	
 		++m_nRotationCalled;
-		CRef ref = m_Solver.GetClauseIndFromUid(uid);
+		CRef ref = m_Solver.GetClauseRefFromUid(uid);
 		assert(ref != CRef_Undef);
 		Clause& cls = m_Solver.GetClause(ref);		
 		for (int i = 0; i < cls.size(); ++i)
@@ -240,7 +238,7 @@ namespace Minisat
 			uint32_t unsatCls2 = CRef_Undef;
 			for (int j = 0; j < _cs.size() && unsatClss < 2; ++j)
 			{
-				CRef ref = m_Solver.GetClauseIndFromUid(cs[j]);
+				CRef ref = m_Solver.GetClauseRefFromUid(cs[j]);
 				// check if this clause was previously removed
 				if  (ref == CRef_Undef)
 					continue;
@@ -315,7 +313,7 @@ namespace Minisat
 			for (int i = 0; i < m_Solver.nVars(); ++i)
 				testsolver.newVar();
 			for (int i = 0; i < vecUnknown.size(); ++i) {
-				CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
+				CRef ref = m_Solver.GetClauseRefFromUid(vecUnknown[i]);
 				if (ref == CRef_Undef) continue;
 				Clause& cls = m_Solver.GetClause(ref);
 				lits.clear();
@@ -328,7 +326,7 @@ namespace Minisat
 			setMuc.copyTo(tmpvec);
 		//	fprintf(out, "c remainder:\n");
 			for (int i = 0; i < tmpvec.size(); ++i) {
-				CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
+				CRef ref = m_Solver.GetClauseRefFromUid(tmpvec[i]);
 				if (ref == CRef_Undef) continue;
 				Clause& cls = m_Solver.GetClause(ref);
 				lits.clear();
@@ -356,11 +354,30 @@ namespace Minisat
 	}
 
 
+	void CMinimalCore::updateOccurListForRotate(vec<uint32_t>& core) {
+		for (int nInd = 0; nInd < core.size(); ++nInd) {
+			uint32_t nIc = core[nInd];
+			CRef ref = m_Solver.GetClauseRefFromUid(nIc);
+			Clause& cls = m_Solver.GetClause(ref);
+			for (int i = 0; i < cls.size(); ++i)						
+				m_Occurs[toInt(cls[i])].push(nIc);			
+		}
+	}
+
+	/// only used with removal order < 2
+	void CMinimalCore::updateHeap(vec<uint32_t>& core) {
+		for (int nInd = 0; nInd < core.size(); ++nInd) {
+			uint32_t nIc = core[nInd];
+			m_ClauseHeap.insert(nIc);		
+		}
+	}
+
+
 	lbool CMinimalCore::Solve(bool pre)
 	{
 		vec<uint32_t> vecUnknown;
 		vec<uint32_t> vecPrevUnknown;
-		vec<uint32_t> vecUids;
+		vec<uint32_t> core;
 		vec<Lit> assumptions;
 		uint32_t nIcForRemove = 0;
 		vec<uint32_t> vecUidsToRemove;
@@ -400,7 +417,7 @@ namespace Minisat
 		for (; true; ++nIteration)
 		{				
 			printf("--- nIteration = %d\n", nIteration);			
-			//if (nIteration == 10) exit(1);
+			//if (nIteration == 5) exit(1);
 			if (!m_bIcInConfl) {			
 				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
@@ -411,7 +428,6 @@ namespace Minisat
 				}
 				if (nIteration == 0) time_after_initial_run = cpuTime();
 			}
-
 			else
 			{
 				result = l_False;
@@ -425,75 +441,35 @@ namespace Minisat
 				{
 					// First get all the clauses in unsat core
 					printf("UNSAT (normal)\n");
-					num_normal_unsat++;
-					emptyClauseCone.clear();
-					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
-					
-					// for each clause in vecUids check if it is ic and mark it as unknown. 
-					for (int nInd = 0; nInd < vecUids.size(); ++nInd)
+					num_normal_unsat++;					
+					m_Solver.GetUnsatCore(core, emptyClauseCone);
+										
+					if (nIteration == 0)
 					{
-						uint32_t nIc = vecUids[nInd];
+						if (opt_muc_rotate)  updateOccurListForRotate(core);							
+						if (opt_remove_order < 2) updateHeap(core);							
+					}
+
+					vecUnknown.clear(); // !! vecunknown = core - setmuc. so no need to keep old values. 
+					// for each clause in core check if it is ic and mark it as unknown. 
+					for (int nInd = 0; nInd < core.size(); ++nInd)
+					{
+						uint32_t nIc = core[nInd];
 						assert(nIc <= m_nICSize);
 						if (!setMuc.has(nIc))
 						{										
 							assert(!nIcForRemove || (nIc != nIcForRemove)); // added the !nIcForRemove because a clause #0 can be in the core in the first iteration. 
 							vecUnknown.push(nIc);
 						}
-
-						if (nIteration == 0)
-						{
-							// get clauses and add them to occ list
-							CRef ref = m_Solver.GetClauseIndFromUid(nIc);
-							Clause& cls = m_Solver.GetClause(ref);
-							for (int i = 0; i < cls.size(); ++i)
-							{
-								m_Occurs[toInt(cls[i])].push(nIc);
-							}
-
-							if (opt_remove_order < 2)
-							{
-								m_ClauseHeap.insert(nIc);
-							}
-						}
 					}
-					vecUnknown.removeDuplicated_();					
-
-					if (vecUnknown.size() == 0)
-					{
-						break;
-					}
-
-					// now lets remove all unused ics and all their clauses.
-					// For the first iteration all ics are inside so this need a different treatment
-					// For all others we will compare to the previous vector
-										
-					assert(vecUnknown.size() != vecPrevUnknown.size());
-					int nIndUnknown = 0;
-					int nSize = nIteration == 0 ? m_nICSize : vecPrevUnknown.size();
-					vecUidsToRemove.clear();
-					for (int nInd = 0; nInd < nSize; ++nInd)
-					{
-						uint32_t nIcId = nIteration == 0 ? nInd : vecPrevUnknown[nInd];
-						if (nIcId != vecUnknown[nIndUnknown])   // found a clause in vecPrevUnknown that is not in vecunknown (i.e., not in current core). Should be removed.
-						{			
-							assert(vecUidsToRemove.size() == 0 || vecUidsToRemove.last() < nIcId);
-							vecUidsToRemove.push(nIcId);						
-						}
-						else
-						{
-							if (nIndUnknown + 1 < vecUnknown.size())
-							{
-								++nIndUnknown;
-							}
-						}
-					} 					
+					if (vecUnknown.size() == 0) break;					
 					
-					if (!opt_only_cone) {
-						// if (retain_proof) accumulate_vecUidsToRemove.addTo(vecUidsToRemove);  // if we ever use opt_only_cone then we should create accumulate... . currently it is not computed. 
-						m_Solver.RemoveClauses(vecUidsToRemove);
-					}
-					else
-						m_Solver.RemoveEverythingNotInCone(emptyClauseCone, setMuc);
+					//vecUnknown.removeDuplicated_();					// !! not necessary since now we do vecUnknown.clear();
+					sort(vecUnknown); // only because remove_order was tested based on a sorted list.
+									
+					assert(vecUnknown.size() != vecPrevUnknown.size());
+
+					m_Solver.RemoveEverythingNotInCone(emptyClauseCone, setMuc);
 					
 					if (m_Solver.retain_proof) {
 						//accumulate_vecUidsToRemove.clear(); 
@@ -501,8 +477,7 @@ namespace Minisat
 						m_Solver.pf_learnts_forceopt_accum.clear();
 						m_Solver.pf_learnts_forceopt_current.clear();
 						m_Solver.pf_lits_in_all_cones.clear();
-					}
-					
+					}					
 				}
 #pragma endregion 
 
@@ -519,19 +494,18 @@ namespace Minisat
 					m_Solver.LiteralsFromPathFalsification.copyTo(m_Solver.pf_lits_in_all_cones);
 #pragma region unsatopt
 					if (m_Solver.pf_unsatopt) {
-						CRef ref = m_Solver.GetClauseIndFromUid(nIcForRemove);
+						CRef ref = m_Solver.GetClauseRefFromUid(nIcForRemove);
 						if (ref != CRef_Undef) {  // ref == CRef_Undef when it was removed by removesatisfied
 							Clause& cls = m_Solver.GetClause(ref);
 							cls.mark(3);
-							vec<uint32_t> C; // root clauses not used in proof
-							emptyClauseCone.clear();
-							m_Solver.GetUnsatCore(vecUids, emptyClauseCone); // now vecuids includes the core. 											
-							sort(vecUids);
+							vec<uint32_t> C; // root clauses not used in proof							
+							m_Solver.GetUnsatCore(core, emptyClauseCone); // now core includes the core. 											
+							sort(core);
 
 							vec<uint32_t> tmp_vecUnknown;  // because we do not want to sort vecUnkown
 							vecUnknown.copyTo(tmp_vecUnknown);
 							sort(tmp_vecUnknown);					
-							Diff(tmp_vecUnknown, vecUids, C);							
+							Diff(tmp_vecUnknown, core, C);							
 							sort(m_Solver.pf_assump_used_in_proof);
 							for (int j= 0; j < C.size(); ++j) {
 								double before_time = cpuTime();
@@ -545,7 +519,7 @@ namespace Minisat
 									if (Contains(m_Solver.LiteralsFromPathFalsification, m_Solver.pf_assump_used_in_proof)) {
 										m_Solver.LiteralsFromPathFalsification.copyTo(m_Solver.pf_lits_in_all_cones);
 										vecUidsToRemove.push(C[j]);
-										CRef ref = m_Solver.GetClauseIndFromUid(C[j]);
+										CRef ref = m_Solver.GetClauseRefFromUid(C[j]);
 										if (ref == CRef_Undef) continue; //
 										Clause& cls = m_Solver.GetClause(ref);
 										cls.mark(3);
@@ -571,7 +545,7 @@ namespace Minisat
 					else 
 						m_Solver.RemoveClauses(vecUidsToRemove);    		
 									
-					m_Solver.test_now = true;
+					m_Solver.test_now = false;
 					if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
 						test(vecUnknown, setMuc, "unsat by assumptions");
 					m_Solver.test_now = false;					

@@ -52,7 +52,6 @@ static IntOption     opt_restart_first     (_cat, "rfirst",      "The base resta
 static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 2, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 static BoolOption    opt_ic_simplify       (_cat, "ic-simplify", "perform conflict simplification using other ic\n", false);
-static IntOption     opt_bind_as_orig      (_cat, "bind-as-orig", "Bind ic clauses that are in muc as originals 0 - no, 1 - only original 2 - all cone\n", 2, IntRange(0,2));
 static BoolOption    opt_post_ic_imp       (_cat, "post-ic-imp", "Postpone ic implications\n", true);
 static BoolOption    opt_ic_as_dec         (_cat, "ic-as-dec",  "Treat ics as decisions during conflict analysis\n", false);
 static BoolOption    opt_full_bck          (_cat, "full-bck",  "If backtrack to the end of original confl or new\n", true);
@@ -1555,7 +1554,8 @@ void Solver::CreateParentsOfEmptyClause(CRef ref)
 
 void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 {
-    core.clear();
+    emptyClauseCone.clear();
+	core.clear();
     for (int nInd = 0; nInd < icParents.size(); ++nInd)
     {
         if (emptyClauseCone.insert(icParents[nInd])) {
@@ -1571,7 +1571,7 @@ void Solver::Remark(vec<uint32_t>& cone)
 {	
 	LOG("");
 	resol.GetClausesCones(cone, 3, ca); // !! 
-	//printf("cone_Size remark= %d, learnts = %d\n", cone.size(), learnts.size());
+	printf("cone_Size remark= %d, learnts = %d\n", cone.size(), learnts.size());
 	for (int i = 0; i < cone.size(); ++i)
 	{
 		CRef cr = resol.GetInd(cone[i]);
@@ -1579,7 +1579,7 @@ void Solver::Remark(vec<uint32_t>& cone)
 		if (cr == CRef_Undef) continue;
 		assert(ca[cr].mark() == 4 || ca[cr].mark() == 3);
 		ca[cr].mark(3);
-	//	resol.DecreaseReference_mark3(ca[cr].uid(), ca); // !!
+		resol.DecreaseReference_mark3(ca[cr].uid(), ca); // !!
 		
 	}
 }
@@ -1735,15 +1735,14 @@ void Solver::UnbindClauses_force(vec<uint32_t>& cone, bool temporary)
 void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)  // called when SAT. 
 {
 	LOG("");
-    if (opt_bind_as_orig == 2)
-    {
-        vec<uint32_t> init(1);
-        init[0] = startUid;
-		//setGood is not cleared deliberately. This set is monotone: everything good stays good. It saves time in GetAllIcUids.
-        resol.GetAllIcUids(setGood, init);  // setGood = all clauses in cone that their roots are in (startUid + remainder). Only those can be made remainder. 
-    }
-	    
-    cancelUntil(0);  // after this line we are at decision level 0
+
+	vec<uint32_t> init(1);
+	init[0] = startUid;
+	//setGood is not cleared deliberately. This set is monotone: everything good stays good. It saves time in GetAllIcUids.
+	resol.GetAllIcUids(setGood, init);  // setGood = all clauses in cone that their roots are in (startUid + remainder). Only those can be made remainder. 
+
+
+	cancelUntil(0);  // after this line we are at decision level 0
 	    
     for (int i = 0; i < cone.size(); ++i)
     {
@@ -1754,8 +1753,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)  // called when
             Clause& c = ca[cr];
 			assert(!retain_proof || c.mark() == 4); // because cone is not supposed to include '3' clauses (this is guaranteed by unbindClauses, which computes the cone that eventually get here as a parameter)
             c.mark(0);
-            if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) == 0) ||  // uid is a parent and we chose to add parents as remainder
-                (opt_bind_as_orig == 2 && setGood.has(uid)))  // uid is in the cone of startUid (?) and we chose to add all clauses in that cone as remainder
+            if (setGood.has(uid))  // uid is in the cone of startUid (?); we add all clauses in that cone as remainder.
             {
                 if (resol.GetParentsNumber(uid) == 0)  // original clauses
                 {
@@ -1822,17 +1820,13 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)  // called when
 void Solver::GroupBindClauses(vec<uint32_t>& cone)
 {
 	LOG("");
-    if (opt_bind_as_orig == 0) return;    
-
-    if (opt_bind_as_orig == 2)
-    {		
-        resol.GetAllIcUids(setGood, cone);
-		LOG("after GetAllIcUids");
-        resol.GetClausesCones(cone, 3, ca); // !!
-		LOG("after getclausecones");
-    }
 	
-    // cone contains all the clauses we want to remove
+	resol.GetAllIcUids(setGood, cone);
+	LOG("after GetAllIcUids");
+	resol.GetClausesCones(cone, 3, ca); // !!
+	LOG("after getclausecones");
+	
+	// cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
         uint32_t uid = cone[i];
@@ -1848,11 +1842,8 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
             
 			c.mark(0);
 
-            if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) > 0) ||
-                (opt_bind_as_orig == 2 && !setGood.has(uid)))
-            {
-                continue;
-            }
+            if (!setGood.has(uid))            
+                continue;            
 
             if (resol.GetParentsNumber(uid) == 0)
             {
