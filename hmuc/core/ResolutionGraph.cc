@@ -64,8 +64,8 @@ void CResolutionGraph::DecreaseReference_mark3(uint32_t nUid, ClauseAllocator& c
 		}
 		CRef cr = m_UidToData[nUid].m_ClauseRef;
 		if (cr != CRef_Undef)
-			{
-				ca[cr].mark(3);				
+		{
+			ca[cr].mark(3);				
 		}
 		//m_RA.free(ref);
 		//ref = CRef_Undef;
@@ -138,10 +138,10 @@ void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone, int stopAtMark, Clau
 			CRef cr = GetInd(nInd);
 			if (cr != CRef_Undef) {
 				Clause& c = ca[cr];				
-				printf("%d (%d), ", nUid, c.mark());
+				//printf("%d (%d), ", nUid, c.mark());
 			}
-			else printf("%d!, ", nUid);
-			if (!(nUid % 20)) printf("\n");
+			//else printf("%d!, ", nUid);
+			//if (!(nUid % 20)) printf("\n");
 		//}
 
 		CRef ref = m_UidToData[nUid].m_ResolRef;

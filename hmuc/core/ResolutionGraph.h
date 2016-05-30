@@ -174,7 +174,7 @@ public:
 
     void CheckGarbage()
     {
-		printf("in resol/CheckGarabage\n");
+		//printf("in resol/CheckGarabage\n");
         if (m_RA.wasted() > m_RA.size() * 0.3)
             Shrink();
     }
