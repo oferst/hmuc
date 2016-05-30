@@ -1,0 +1,27 @@
+hmuc/Release/
+hmuc/Debug/
+hmuc/aim/aim-100-1_6-no-2.cnf
+hmuc/aim/
+hmuc/_win/
+hmuc/releaseWithAssert/
+hmuc/x64/
+*.vsp
+x64/
+*.psess
+hmuc/core - revision 4.3.15/
+hmuc/core/
+hmuc/doc/
+hmuc/simp - revision 4.3.15/
+hmuc/win - revision 4.3.15/
+Debug/
+Remote_hmuc.sh
+hmuc.sdf
+hmuc/README
+hmuc/_minisat2.2.vcxproj
+hmuc/ca256.shuffled.cnf.gz
+hmuc/debug.sh
+hmuc/release.sh
+hmuc/res_full.xlsx
+readme.hmuc.txt
+results.xlsx
+run.bat
