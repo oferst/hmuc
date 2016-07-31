@@ -1782,12 +1782,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
             }
         }
     }
-	//LiteralsFromPathFalsification.removeDuplicated_(); // !!ofer. removed for comparing to the original version. 
 	
-	/*printf("falsified clause = ");
-	for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
-	printf("\n");*/
-
 	if (verbosity == 1) printfVec(LiteralsFromPathFalsification,"literals from pf");
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
@@ -1827,8 +1822,9 @@ int current_id,m;
 		current_id = q.front();
 		q.pop();
 		CRef curr_ref = resol.GetResolId(current_id);
+		assert(curr_ref != CRef_Undef);
 		const Resol& r = resol.GetResol(curr_ref);
-		
+
 		for (m = 0 ; m < r.m_Children.size() ; m++)
 		{
 			CRef childUid = r.m_Children[m];
@@ -2081,12 +2077,14 @@ void Solver::LPF_get_assumptions(
 	{
 		uint32_t curr_id = queue.front();
 		queue.pop();		
-		Resol& res = resol.GetResol(resol.GetResolId(curr_id));
+		CRef cref = resol.GetResolId(curr_id);
+		assert(cref != CRef_Undef); 
+		Resol& res = resol.GetResol(cref);
 		int children_num = res.m_Children.size();
 		if (children_num == 0)  continue;
 		peakQueueSize = std::max((int)queue.size(),  peakQueueSize);
-//		printfVec(ca[curr_id], "curr_id");
-		//bool has_valid_sibling = false;
+		//	printfVec(ca[curr_id], "curr_id");
+		
 		for(int i = 0; i < children_num; ++i)
 		{				
 			CRef childUid = res.m_Children[i];

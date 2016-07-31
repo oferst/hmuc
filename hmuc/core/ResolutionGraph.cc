@@ -40,6 +40,7 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
         }
 
         m_RA.free(ref);
+		// printf("removing ref to %d\n", nUid);
         ref = CRef_Undef;
     }
 }

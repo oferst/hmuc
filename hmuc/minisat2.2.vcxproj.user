@@ -1,27 +1,32 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>3pipe_1_ooo.cnf.mus  -no-muc-print-sol -no-pre -pf-mode=0</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>FISCHER4-2-fair.smt.CNF</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\minimal</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>hardware-verification\c6bidw_s.cnf -no-muc-print-sol -no-pre  -pf-mode=4</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>FISCHER4-2-fair.smt.CNF</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT11\mus\marques-silva</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|Win32'">
-    <LocalDebuggerCommandArguments>c:\temp\barrel6.cnf  -no-muc-print-sol</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>FISCHER4-2-fair.smt.CNF</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerWorkingDirectory>C:\temp\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>c:\temp\temp.cnf -pf-mode=4  -test  &gt; c:\temp\tmp.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>c:\temp\FISCHER4-2-fair.smt.cnf </LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\goldberg\rand_net</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\goldberg\rand_net</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>rand_net40-30-5.shuffled.cnf -pf-mode=4 -pf_force</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>c:\temp\FISCHER4-2-fair.smt.cnf </LocalDebuggerCommandArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|x64'">
+    <LocalDebuggerCommandArguments>c:\temp\FISCHER4-2-fair.smt.cnf </LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

@@ -694,7 +694,7 @@ namespace Minisat
 			}
 			
 			// we now remove clauses that are trivially satisfied by units in the remainder, and their decendants. 
-			if (m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)
+			if (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess)
 				m_Solver.RemoveClauses_withoutICparents(vecUidsToRemove); // we need to maintain clauses from IC's to the empty clause with these optimizations. 
 			else m_Solver.RemoveClauses(vecUidsToRemove); // remove all their cones. 
 			vecUidsToRemove.clear();
