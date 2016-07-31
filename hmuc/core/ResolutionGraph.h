@@ -140,11 +140,11 @@ public:
 
 
     void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<uint32_t>& parents);
-		
-	void UpdateInd(uint32_t nUid, CRef newRef)
+
+    void UpdateInd(uint32_t nUid, CRef newRef)
     {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
-        assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);		
+        assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
         m_UidToData[nUid].m_ClauseRef = newRef;
     }
 
@@ -160,7 +160,7 @@ public:
 
     void DeleteClause(uint32_t nUid)
     {
-        DecreaseReference(nUid); // if the subtree under this node does not contain clause references, it will be freed. This will propagate up the resolution tree.
+        DecreaseReference(nUid);
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
 
@@ -170,11 +170,10 @@ public:
 
     //void DestroyBackwardResolution();
 
-    void GetClausesCones(vec<uint32_t>& cone, int stopAtMark, ClauseAllocator& ca);
+    void GetClausesCones(vec<uint32_t>& cone);
 
     void CheckGarbage()
     {
-		//printf("in resol/CheckGarabage\n");
         if (m_RA.wasted() > m_RA.size() * 0.3)
             Shrink();
     }
@@ -199,17 +198,15 @@ public:
     }
 
     Set<uint32_t> m_EmptyClauseParents;
-	void DecreaseReference_mark3(uint32_t nUid, ClauseAllocator& ca);
 
 private:
     void DecreaseReference(uint32_t nUid);
-	
 
     void Shrink();
 
-    struct Pair // every node in the resolution graph is a pair of a reference to clause and a reference to resolution. From the latter we can reach the children of this clause. 
+    struct Pair 
     {
-        CRef m_ClauseRef;  
+        CRef m_ClauseRef;
         CRef m_ResolRef;
 
         Pair() : m_ClauseRef(CRef_Undef) , m_ResolRef(CRef_Undef)

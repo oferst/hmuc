@@ -11,8 +11,8 @@ class CMinimalCore
 {
 public:
     CMinimalCore(SimpSolver& solver);
-	
-	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "", vec<Lit>* assump  = NULL); 
+
+	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "" ); 
     lbool Solve(bool pre);
 
     inline SimpSolver& GetSolver() { return m_Solver; }
@@ -21,15 +21,13 @@ public:
 
     bool m_bIcInConfl;
 private:
-   void PrintData(int unknownSize, int mucSize, int iter);
+   void PrintData(int unknownSize, int mucSize, int iter, bool last = false);
 
    uint32_t GetMaxIc(Map<uint32_t, uint32_t>& mapIcToScore);
    uint32_t GetMinIc(Map<uint32_t, uint32_t>& mapIcToScore);
 
    void Rotate_it(uint32_t clsUid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet); // iterative version
    void Rotate(uint32_t clsUid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet);
-   void updateOccurListForRotate(vec<uint32_t>& core); 
-   void updateHeap(vec<uint32_t>& core);
 
     SimpSolver& m_Solver;
     uint32_t m_nICSize;
@@ -43,10 +41,10 @@ private:
         const Solver& solver;
         int m_RemoveOrder;
         bool operator () (unsigned x, unsigned y) const { 
-            CRef refX = solver.GetClauseRefFromUid(x);
+            CRef refX = solver.GetClauseIndFromUid(x);
             if (refX == CRef_Undef)
                 return false;
-            CRef refY = solver.GetClauseRefFromUid(y);
+            CRef refY = solver.GetClauseIndFromUid(y);
             if (refY == CRef_Undef)
                 return true;
             if (m_RemoveOrder == 0)

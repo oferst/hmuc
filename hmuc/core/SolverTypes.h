@@ -123,13 +123,15 @@ typedef RegionAllocator<uint32_t>::Ref CRef;
 
 class Clause {
     struct {
-        unsigned mark      : 3;		
+		// mark(0): default
+		// mark(1): can be deleted next time we garbage collect.  
+		// mark(2): remove, but do not remove from resolution graph (usually after mark(2) we update the reference to the clause in the resolution graph). 
+        unsigned mark      : 2;
         unsigned learnt    : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned ic        : 1;
-        unsigned size      : 25; }   header;
-
+        unsigned size      : 26; }                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
 
     static uint32_t icUid;
@@ -184,7 +186,7 @@ public:
     }
     void         pop         ()              { shrink(1); }
     bool         learnt      ()      const   { return header.learnt; }
-    bool         ic          ()      const   { return header.ic; }
+    bool         ic        ()      const   { return header.ic; }
     bool         has_extra   ()      const   { return header.has_extra; }
     uint32_t     mark        ()      const   { return header.mark; }
     void         mark        (uint32_t m)    { header.mark = m; }
@@ -287,7 +289,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 
 
 //=================================================================================================
-// OccLists -- a class for maintaining occurrence lists with lazy deletion:
+// OccLists -- a class for maintaining occurence lists with lazy deletion:
 
 template<class Idx, class Vec, class Deleted>
 class OccLists
@@ -334,13 +336,13 @@ void OccLists<Idx,Vec,Deleted>::cleanAll()
 
 
 template<class Idx, class Vec, class Deleted>
-void OccLists<Idx,Vec,Deleted>::clean(const Idx& idx)   // removes from the occlist all the clauses that satisfy mark() == removed
+void OccLists<Idx,Vec,Deleted>::clean(const Idx& idx)
 {
     Vec& vec = occs[toInt(idx)];
     int  i, j;
     for (i = j = 0; i < vec.size(); i++)
         if (!deleted(vec[i]))
-            vec[j++] = vec[i];  
+            vec[j++] = vec[i];
     vec.shrink(i - j);
     dirty[toInt(idx)] = 0;
 }
