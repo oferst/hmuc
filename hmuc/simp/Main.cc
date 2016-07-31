@@ -130,8 +130,10 @@ int main(int argc, char** argv)
             } }
 #endif
 		
-		if (argc == 1)
-            printf("c Reading from standard input... Use '--help' for help.\n");
+		if (argc == 1) {
+			printf("c please provide an input (cnf) file name ... Use '--help' for help.\n");
+			exit(1);
+		}
 
         //gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
 		FILE* in = (argc == 1) ? fopen(0, "rb") : fopen(argv[1], "rb");
