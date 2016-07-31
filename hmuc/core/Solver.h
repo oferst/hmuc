@@ -56,10 +56,11 @@ enum get_assump_mode {  // modes in operating pf_get_assumptions
 class Solver {
 public:
     
-	void GeticUnits(vec<int>&);
+	//void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
-    void RemoveClauses(vec<uint32_t>& cone, bool leaveMark3 = false);
+	void RemoveClauses_withoutICparents(vec<uint32_t>& cone, bool leaveMark3);
+	void RemoveClauses(vec<uint32_t>& cone, bool leaveMark3 = false);
 	void Remark(vec<uint32_t>& cone);	
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
     void GroupBindClauses(vec<uint32_t>& initUids);

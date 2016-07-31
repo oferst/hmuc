@@ -742,7 +742,7 @@ namespace Minisat
 				}
 				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration. Note that lpf_inprocess is not activated if !m_bConeRelevant		
 			}
-			//!! check if necessary: m_Solver.RemoveClauses(vecUidsToRemove, true);  // note that here we only remove clauses that were removed by removesatisfied.
+			m_Solver.RemoveClauses_withoutICparents(vecUidsToRemove, true);  // note that here we only remove clauses that were removed by removesatisfied.
 			vecUidsToRemove.clear();
 			vecUidsToRemove.push(nIcForRemove);			
 			if (m_Solver.retain_proof) m_Solver.UnbindClauses_force(vecUidsToRemove, true); // removes watches from cone(nIcForRemove). Updates vecUidsToRemove to (cone(nIcForRemove)\setminus mark(3)-clauses); 

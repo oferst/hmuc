@@ -15,7 +15,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>rand_net40-30-5.shuffled.cnf  -pf_force -pf-mode=4   &gt; c:\temp\tmpf</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>c:\temp\temp.cnf -pf-mode=4  -test  &gt; c:\temp\tmp.txt</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>C:\temp\muc_test\SAT02\sat-2002-beta\submitted\goldberg\rand_net</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>

@@ -1584,6 +1584,27 @@ void Solver::Remark(vec<uint32_t>& cone)
 	}
 }
 
+// used for removing subsumed IC clauses. We want to remove them and their descendants, but if a 
+// descendant has yet another IC parent, we do not want to remove it, because we rely on a path
+// from ICs to the empty clause when using optimization pf-mode=3/pf-mode=4.
+
+void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone, bool leaveMark3) {
+	resol.GetAllIcUids(setGood, cone);  // setGood = clauses that all their parents are not IC
+	resol.GetClausesCones(cone, -1, ca); // find all cones of the roots we started from
+	cancelUntil(0);
+	// cone contains all the clauses we want to remove
+	for (int i = 0; i < cone.size(); ++i)
+	{
+		CRef cr = resol.GetInd(cone[i]);
+		if (cr != CRef_Undef && setGood.has(cone[i]))
+		{
+			if (leaveMark3 && ca[cr].mark() == 3) continue;  // we need this because cone can contain roots of clauses from rotation. Their cone as computed by getclausescone above can contain mark3 clauses and we do not want to remove those.
+			ca[cr].mark(0);
+			removeClause(cr);
+		}
+	}
+}
+
 void Solver::RemoveClauses(vec<uint32_t>& cone, bool leaveMark3)
 {
 	LOG("");
