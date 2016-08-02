@@ -136,7 +136,7 @@ int main(int argc, char** argv)
 		}
 
         //gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
-		FILE* in = (argc == 1) ? fopen(0, "rb") : fopen(argv[1], "rb");
+		FILE* in = fopen(argv[1], "rb");
 		printf("input: %s\n", argv[1]);
         if (in == NULL)
             printf("c ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);

@@ -168,6 +168,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* parents)
     if (!ok) return false;
 
     // Check if clause is satisfied and remove false/duplicate literals:
+	//printf("a ");
     sort(ps);
     Lit p; int i, j;
     for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
@@ -1399,7 +1400,9 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 // from ICs to the empty clause when using optimization pf-mode=3/pf-mode=4.
 
 void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {
+	//printf("%s ", __FUNCTION__);
 	resol.GetAllIcUids(setGood, cone);  // setGood = clauses that all their parents are not IC
+	//printf("setGood = %d, cone = %d\n", setGood.elems(), cone.size());
 	resol.GetClausesCones(cone); // find all cones of the roots we started from
 	cancelUntil(0);
 	// cone contains all the clauses we want to remove
@@ -1513,6 +1516,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
     {
         vec<uint32_t> init(1);
         init[0] = startUid;
+		//printf("%s ", __FUNCTION__);
         resol.GetAllIcUids(setGood, init);
     }
 
@@ -1599,7 +1603,9 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
 
     if (opt_bind_as_orig == 2)
     {
+		//printf("%s ", __FUNCTION__);
         resol.GetAllIcUids(setGood, cone);
+		//printf("setGood = %d, cone = %d\n", setGood.elems(), cone.size());
         resol.GetClausesCones(cone);
     }
 

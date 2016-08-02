@@ -202,7 +202,8 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
         }
 
         firstTime = false;
-        vecToCheck.removeDuplicated_();
+		//printf("getallIcUids (no removeduplicate)");
+        // vecToCheck.removeDuplicated_(); // !! test
         vecToCheck.swap(vecCurrChecked);
         vecToCheck.clear();
     }

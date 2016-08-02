@@ -87,8 +87,10 @@ template <class T> static inline void sort(T* array, int size) {
 
 
 template <class T, class LessThan> void sort(vec<T>& v, LessThan lt) {
+//	if (v.size() > 1000) printf("sort-lt: %d \n", v.size()); fflush(stdout);
     sort((T*)v, v.size(), lt); }
 template <class T> void sort(vec<T>& v) {
+//	if (v.size() > 1000) printf("sort: %d \n", v.size()); fflush(stdout);
     sort(v, LessThan_default<T>()); }
 
 

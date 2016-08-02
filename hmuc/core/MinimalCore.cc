@@ -438,7 +438,7 @@ namespace Minisat
 							}
 						}
 					}
-					vecUnknown.removeDuplicated_();
+					//vecUnknown.removeDuplicated_(); // !! test only
 
 					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 
@@ -591,8 +591,8 @@ namespace Minisat
 						result = l_False;
 						break;
 					}
-
-					sort(vecUidsToRemove);
+					//printf("s1 ");
+					//sort(vecUidsToRemove); // for test
 					m_Solver.GroupBindClauses(vecUidsToRemove);
 				}
 #pragma endregion
@@ -694,10 +694,12 @@ namespace Minisat
 			}
 			
 			// we now remove clauses that are trivially satisfied by units in the remainder, and their decendants. 
-			if (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess)
-				m_Solver.RemoveClauses_withoutICparents(vecUidsToRemove); // we need to maintain clauses from IC's to the empty clause with these optimizations. 
-			else m_Solver.RemoveClauses(vecUidsToRemove); // remove all their cones. 
-			vecUidsToRemove.clear();
+			if (vecUidsToRemove.size() > 0) {
+				if (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess)
+					m_Solver.RemoveClauses_withoutICparents(vecUidsToRemove); // we need to maintain clauses from IC's to the empty clause with these optimizations. 
+				else m_Solver.RemoveClauses(vecUidsToRemove); // remove all their cones. 
+				vecUidsToRemove.clear();
+			}
 
 			vecUidsToRemove.push(nIcForRemove);
 			m_Solver.UnbindClauses(vecUidsToRemove); // removes cone(nIcForRemove);
