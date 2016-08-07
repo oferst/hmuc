@@ -29,6 +29,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/SolverTypes.h"
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
+#include <vector>
 
 namespace Minisat {
 
@@ -277,11 +278,18 @@ protected:
         VarOrderLt(const vec<double>&  act) : activity(act) { }
     };
 
+// define 'learnts' as a vector, which enables using nth_element in reduce_db
+#define LEARNT
+
     // Solver state:
     //
     bool                ok;               // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
-    vec<CRef>           clauses;          // List of problem clauses.
-    vec<CRef>           learnts;          // List of learnt clauses.
+    vec<CRef>           clauses;          // List of problem clauses.    
+#ifdef LEARNT
+	std::vector<CRef>   learnts;		  // List of learnt clauses. Using std::vector (rather than vec) gives us iterators, which then allows us to use nth_element in reduceDB.
+#else
+	vec<CRef>           learnts;          // List of learnt clauses.
+#endif
     double              cla_inc;          // Amount to bump next clause with.
     vec<double>         activity;         // A heuristic measurement of the activity of a variable.
     double              var_inc;          // Amount to bump next variable with.
@@ -337,6 +345,7 @@ protected:
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
     void     removeSatisfied  (vec<CRef>& cs);                                         // Shrink 'cs' to contain only non-satisfied clauses.
+	void     removeSatisfied_vector(std::vector<CRef>& cs);
     void     rebuildOrderHeap ();
 
     // Maintaining Variable/Clause activity:

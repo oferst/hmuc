@@ -368,6 +368,7 @@ namespace Minisat
 		m_Solver.nUnsatByPF = 0;
 		m_Solver.pf_zombie_iter = 0;		
 		m_Solver.test_mode = false;
+		m_Solver.test_now = false;
 		// run preprocessing
 		double before_time = cpuTime();
 		if (!m_bIcInConfl)
@@ -411,7 +412,7 @@ namespace Minisat
 					emptyClauseCone.clear();
 					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
 					// vecUids.removeDuplicated_();
-					// for each clause in vecUids check if its ic
+					// for each clause in vecUids check if it is ic
 					// and mark it as unknown. 
 					for (int nInd = 0; nInd < vecUids.size(); ++nInd)
 					{
@@ -438,7 +439,8 @@ namespace Minisat
 							}
 						}
 					}
-					//vecUnknown.removeDuplicated_(); // !! test only
+					
+					vecUnknown.removeDuplicated_(); // see why we need it sorted and without duplicates below. 
 
 					PrintData(vecUnknown.size(), setMuc.elems(), nIteration);
 
@@ -451,13 +453,12 @@ namespace Minisat
 						break;
 					}
 
-					// now lets remove all unused ics and all their clauses
-					// for the first iteration all ics are inside so this need
-					// a different treatment, for all others we will check 
-					// the previous vector
+					// Removing unused ics and their clauses.
+														
+					// Both vecUnknown and vecPrevUnknown are sorted (via removeDuplicated_). For nIteration > 0, we go over those clauses in 
+					// vecPrevUnknown, and check if they are also in vecUnknown. If not, then we enter them to vecUidsToRemove.
+					// vecunknown is reset to 0 in the end of the big loop, and then populated with clauses in the core. 
 
-					// build backward resolution relation so it will be much
-					// easier to remove cones
 					assert(vecUnknown.size() != vecPrevUnknown.size());
 					int nIndUnknown = 0;
 					int nSize = nIteration == 0 ? m_nICSize : vecPrevUnknown.size();
@@ -466,12 +467,9 @@ namespace Minisat
 					{
 						uint32_t nIcId = nIteration == 0 ? nInd : vecPrevUnknown[nInd];
 						if (nIcId != vecUnknown[nIndUnknown])
-						{
-							// remove from sat solver
-							// get all the clauses that are related to this ic
+						{							
 							assert(vecUidsToRemove.size() == 0 || vecUidsToRemove.last() < nIcId);
-							vecUidsToRemove.push(nIcId);
-							//                    setNotMuc.insert(nIcId);
+							vecUidsToRemove.push(nIcId);							
 						}
 						else
 						{
@@ -590,9 +588,8 @@ namespace Minisat
 					{
 						result = l_False;
 						break;
-					}
-					//printf("s1 ");
-					//sort(vecUidsToRemove); // for test
+					}					
+					// sort(vecUidsToRemove); // does not seem necessary
 					m_Solver.GroupBindClauses(vecUidsToRemove);
 				}
 #pragma endregion

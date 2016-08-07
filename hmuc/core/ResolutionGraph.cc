@@ -1,7 +1,8 @@
 #include "ResolutionGraph.h"
 
 #include "mtl/Sort.h"
-
+#include <vector>
+#include <algorithm>
 #include <stdint.h>
 
 namespace Minisat
@@ -155,7 +156,80 @@ void CResolutionGraph::Shrink()
     m_RA.FinishReloc();
 }
 
+// using vector rather than vec, which enables us to use std::sort, which does not stack-overflow at least for now. 
+#define SORT
+#ifdef SORT
 
+void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
+{
+	std::vector<uint32_t> vecToCheck;
+	std::vector<uint32_t> vecCurrChecked;
+	bool firstTime = true;
+
+	// add children of all sets to be checked
+
+	setGood.add(start);
+	for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
+	
+	while (vecCurrChecked.size() > 0)
+	{
+		for (int i = 0; i < vecCurrChecked.size(); ++i)
+		{
+			int nUid = vecCurrChecked[i];
+			if (!firstTime && setGood.has(nUid))
+				continue;
+
+			CRef ref = m_UidToData[nUid].m_ResolRef;
+
+			if (ref == CRef_Undef)
+				continue;
+
+			Resol& resol = m_RA[ref];
+			int nParents = resol.ParentsSize();
+			int j = 0;
+			uint32_t* parents = resol.Parents();
+			for (; j < nParents; ++j)
+			{
+				if (!setGood.has(parents[j]))
+					break;
+			}
+
+			if (j == nParents) // all parents are 'good',i.e., not ics.
+			{
+				if (!firstTime)
+					setGood.insert(nUid);
+				// pass over all children and add them to be checked
+				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
+				{
+					vecToCheck.push_back(resol.m_Children[nChild]);
+				}
+			}
+		}
+
+		firstTime = false;
+
+		// this implements removeduplicated_ for a std:vector
+		if (vecToCheck.size() == 0) return;
+
+		std::sort(vecToCheck.begin(), vecToCheck.end());
+		int nNewInd = 0;
+		int nOldInd = 1;
+		for (; nOldInd < vecToCheck.size(); ++nOldInd)
+		{
+			if (vecToCheck[nNewInd] != vecToCheck[nOldInd])
+			{
+				vecToCheck[++nNewInd] = vecToCheck[nOldInd];
+			}
+		}
+		vecToCheck.resize(nNewInd + 1);
+		
+		vecToCheck.swap(vecCurrChecked);
+		vecToCheck.clear();
+	}
+// print:	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
+}
+
+#else
 void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
 {
     vec<uint32_t> vecToCheck;
@@ -189,7 +263,7 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
                     break;
             }
 
-            if (j == nParents)
+            if (j == nParents) // all parents are 'good',i.e., not ics.
             {
                 if (!firstTime)
                     setGood.insert(nUid);
@@ -203,10 +277,12 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
 
         firstTime = false;
 		//printf("getallIcUids (no removeduplicate)");
-        // vecToCheck.removeDuplicated_(); // !! test
-        vecToCheck.swap(vecCurrChecked);
+        vecToCheck.removeDuplicated_(); // This is the problem that made us define SORT above, for a version using std::sort.
+		vecToCheck.swap(vecCurrChecked);
         vecToCheck.clear();
     }
+//	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
 }
+#endif
 
 }

@@ -658,27 +658,88 @@ struct reduceDB_lt {
 
         return ca[x].size() < ca[y].size();
     }};
-    
+
+// a slightly optimized version of the minisat version. 
 void Solver::reduceDB()
 {
-    int     i, j;
-    double  extra_lim = cla_inc / learnts.size();    // Remove any clause below this activity
+	int     i, j;
+	double  extra_lim = cla_inc / learnts.size();    // Remove any clause below this activity
 
-    sort(learnts, reduceDB_lt(ca));
-    // Don't delete binary or locked clauses. From the rest, delete clauses from the first half
-    // and clauses with activity smaller than 'extra_lim':
-    for (i = j = 0; i < learnts.size(); i++){
-        Clause& c = ca[learnts[i]];
-        if (c.mark() == 0 && c.size() > 2 && !locked(c) && (i < learnts.size() / 2 || c.activity() < extra_lim))
-            removeClause(learnts[i]);
-        else
-            if (c.mark() != 1)
-                learnts[j++] = learnts[i];
-    }
-    learnts.shrink(i - j);
+#ifdef LEARNT
+	std::nth_element(learnts.begin(), learnts.begin() + (learnts.size() / 2), learnts.end(), reduceDB_lt(ca)); // ceil(learnts.size() / 2)
+#else
+	sort(learnts, reduceDB_lt(ca));
+#endif
+	
+	// We do not delete binary or locked clauses. From the rest, we delete clauses from the first half
+	// and clauses with activity smaller than 'extra_lim'.
+	
+	int middle = learnts.size() / 2;
+	for (i = j = 0; i < middle; i++) {
+		Clause& c = ca[learnts[i]];
+		if (c.mark() == 0 && c.size() > 2 && !locked(c))
+			removeClause(learnts[i]);
+		else
+			if (c.mark() != 1)
+				learnts[j++] = learnts[i];
+	}
+
+	// now the 2nd half (with higher activity). Note that we do not reset i,j.
+	// Optimization: We choose one of two loops, depending on the activity value of the middle clause in the list. 
+	// Recall that all clauses in the 2nd half (that have size > 2) have activity at least as high as this middle clause (ca[learnts[i]]), 
+	// owing to nth_element (or sort) above, and will therefor falsify the condition "c.activity() < extra_lim" below.
+	// Hence no point checking this condition if the following if statement is false. 
+	if (ca[learnts[i]].activity() < extra_lim) { // if this condition holds, we will check the activity of the other clauses.
+		for (; i < learnts.size(); i++) { // now the 2nd half (with higher activity)
+			Clause& c = ca[learnts[i]];
+			if (c.mark() == 0 && c.size() > 2 && !locked(c) && c.activity() < extra_lim) 
+			{
+				removeClause(learnts[i]);				
+			}
+			else
+				if (c.mark() != 1)
+					learnts[j++] = learnts[i];
+		}
+	}
+	else // note that the code below is the same as the above 'else'. We get here if we know that this else will always be taken.
+		for (; i < learnts.size(); i++) { // now the 2nd half (with higher activity)
+			Clause& c = ca[learnts[i]];			
+			if (c.mark() != 1)
+				learnts[j++] = learnts[i];
+		}
+
+#ifdef LEARNT
+	{
+		int nelems = i - j;
+		assert(nelems <= learnts.size()); for (int i = 0; i < nelems; i++) learnts.pop_back();//sz--, data[sz].~T(); }
+	}
+#else
+	learnts.shrink(i - j);
+#endif
     checkGarbage();
     resol.CheckGarbage();
 }
+
+#ifdef LEARNT
+void Solver::removeSatisfied_vector(std::vector<CRef>& cs)
+{
+	int i, j;
+	for (i = j = 0; i < cs.size(); i++) {
+		Clause& c = ca[cs[i]];
+		if (c.mark() == 1)
+			continue;
+		if (c.mark() != 2 && satisfied(c))
+		{
+			c.mark(0);
+			removeClause(cs[i]);
+		}
+		else
+			cs[j++] = cs[i];
+	}
+	int nelems = i - j;
+	assert(nelems <= cs.size()); for (int i = 0; i < nelems; i++) cs.pop_back();//sz--, data[sz].~T(); }
+}
+#endif
 
 void Solver::removeSatisfied(vec<CRef>& cs)
 {
@@ -726,8 +787,11 @@ bool Solver::simplify()
         return true;
 
     // Remove satisfied clauses:
-
+#ifdef LEARNT
+	removeSatisfied_vector(learnts);
+#else
     removeSatisfied(learnts);
+#endif
     if (remove_satisfied)        // Can be turned off.    
       removeSatisfied(clauses);
     removeSatisfied(icUnitClauses);
@@ -902,7 +966,11 @@ lbool Solver::search(int nof_conflicts)
                 int bckTrack = 0;
                 analyze(confl, learnt_clause, bckTrack, icParents);
                 CRef cr = ca.alloc(learnt_clause, true, false);
-                learnts.push(cr);
+#ifdef LEARNT
+				learnts.push_back(cr);
+#else
+				learnts.push(cr);
+#endif // LEARNT				
                 attachClause(cr);
                 if (!opt_glucose)
                     claBumpActivity(ca[cr]);
@@ -937,7 +1005,12 @@ lbool Solver::search(int nof_conflicts)
             {
                 cancelUntil(backtrack_level);
                 CRef cr = ca.alloc(learnt_clause, true, icParents.size() > 0);
-                learnts.push(cr);
+#ifdef LEARNT
+				learnts.push_back(cr);
+#else
+				learnts.push(cr);
+#endif // LEARNT				
+
                 attachClause(cr);
                 Clause& cl = ca[cr];
                 if (!opt_glucose)
@@ -999,7 +1072,7 @@ lbool Solver::search(int nof_conflicts)
                 return l_Undef; 
             }
 
-            if (learnts.size()-nAssigns() >= max_learnts)                  
+            if ((int)(learnts.size())-nAssigns() >= max_learnts)                  
 		 		reduceDB();  // Reduce the set of learnt clauses:
 
             Lit next = lit_Undef;
@@ -1445,7 +1518,7 @@ void Solver::RemoveClauses(vec<uint32_t>& cone)
 void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
 {
     uidsVec.clear();
-    sort(uidsVec);
+	//    sort(uidsVec); // what is this for ? 
     cone.copyTo(uidsVec);
     cancelUntil(0);
     sort(uidsVec);
@@ -1605,8 +1678,9 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
     {
 		//printf("%s ", __FUNCTION__);
         resol.GetAllIcUids(setGood, cone);
-		//printf("setGood = %d, cone = %d\n", setGood.elems(), cone.size());
+		//printf("setGood = %d, cone = %d ", setGood.elems(), cone.size());
         resol.GetClausesCones(cone);
+		//printf("cone = %d\n", cone.size());
     }
 
     // cone contains all the clauses we want to remove
@@ -2014,7 +2088,7 @@ void Solver::LPF_get_assumptions(
 		for (int i=0 ; i < prev_icParents.size() ; i++) { // prev_icParents holds the parents of the empty clause 
 			parents_of_empty_clause[i] = prev_icParents[i];
 		}	
-		sort(parents_of_empty_clause); // sorted because we run binary-search on it later
+		//sort(parents_of_empty_clause); // sorted because we run binary-search on it later
 	}		
 	
 	assert(parents_of_empty_clause.size()>0); // empty clause always has parents.
