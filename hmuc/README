@@ -1,0 +1,57 @@
+Haifa-MUC - Haifa's Minimal Unsatisfiable Core extractor.
+=========================================================
+Part of the Haifa solvers' suite (http://strichman.net.technion.ac.il/haifamuc-hmuc-a-minimal-unsatisfiable-core-muc-extractor-2/)
+
+Based on Minisat 2.2 (http://minisat.se/downloads/minisat-2.2.0.tar.gz)
+
+Written by Vadim Ryvchin and Ofer Strichman.
+
+
+Description:
+------------
+Alexander Ivrii, Vadim Ryvchin, Ofer Strichman
+Mining Backbone Literals in Incremental SAT – a new kind of incremental data
+Proc. of the 18th International conference on theory and applications of satisfiability testing (SAT’15), pages 88-103. 
+
+Alexander Nadel, Vadim Ryvchin, Ofer Strichman
+Accelerated Deletion-based Extraction of Minimal Unsatisfiable Cores
+Journal on Satisfiability, Boolean Modeling and Computation (JSAT) 9 (2014), pages 27-51.
+
+Alexander Nadel, Vadim Ryvchin, Ofer Strichman
+Efficient MUS extraction with Resolution
+Proc. of the 13th conference on Formal Methods in Computer Aided Design (FMCAD’13).
+
+
+Build from source files:
+------------------------
+
+Linux: 
+
+1. In release.sh, update MROOT with the absolute directory location 
+
+2. Make sure release.sh is executable (if not then 'chmod +x release.sh' will fix this)
+
+3. run release.sh
+
+
+Visual studio:
+
+The solution file is hmuc.sln
+
+
+Usage:
+------
+To run the solver simply type:
+
+haifa-muc <benchmark file> [additional flags]
+
+(type haifa-muc --help to see possible flags)
+
+The format of the file is cnf (Dimacs cnf format).
+
+
+
+Further information:
+--------------------
+
+Questions should be referred to: vadimryv@gmail.com or ofers@ie.technion.ac.il

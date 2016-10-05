@@ -16,11 +16,9 @@ hmuc/win - revision 4.3.15/
 Debug/
 Remote_hmuc.sh
 hmuc.sdf
-hmuc/README
 hmuc/_minisat2.2.vcxproj
 hmuc/ca256.shuffled.cnf.gz
 hmuc/debug.sh
-hmuc/release.sh
 hmuc/res_full.xlsx
 readme.hmuc.txt
 results.xlsx
