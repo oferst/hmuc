@@ -874,7 +874,7 @@ lbool Solver::search(int nof_conflicts)
                 return l_False;
             }
 
-			if (!test_mode && !pf_zombie && resol.GetInd(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
+			if (!test_mode && !pf_zombie && resol.GetClauseRef(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
 				if (verbosity == 1) printf("root removed by simplify. Early unsat\n");
 				if (pf_early_unsat_terminate()) return l_False;				
 			}
@@ -1165,7 +1165,7 @@ bool Solver::lpf_compute_inprocess() {
 				pf_prev_trail_size = trail.size();
 				double before_time = cpuTime();								
 				int old_falsified_literals = LiteralsFromPathFalsification.size();  // !! potential bug in statistics: if early-termination returns false, it resets this set. 
-				int addLiterals = PF_get_assumptions(nICtoRemove, resol.GetInd(nICtoRemove));
+				int addLiterals = PF_get_assumptions(nICtoRemove, resol.GetClauseRef(nICtoRemove));
 				//printfVec(LiteralsFromPathFalsification, "lpf literals = ");
 				time_for_pf += (cpuTime() - before_time);								
 				if (verbosity == 1) printf("*** in process lpf = %d\n", addLiterals);
@@ -1481,7 +1481,7 @@ void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {
 	// cone contains all the clauses we want to remove
 	for (int i = 0; i < cone.size(); ++i)
 	{
-		CRef cr = resol.GetInd(cone[i]);
+		CRef cr = resol.GetClauseRef(cone[i]);
 		if (cr != CRef_Undef && setGood.has(cone[i]))
 		{
 			ca[cr].mark(0);			
@@ -1498,7 +1498,7 @@ void Solver::RemoveClauses(vec<uint32_t>& cone)
     // cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
-        CRef cr = resol.GetInd(cone[i]);
+        CRef cr = resol.GetClauseRef(cone[i]);
         if (cr != CRef_Undef)
         {
             ca[cr].mark(0);
@@ -1509,8 +1509,8 @@ void Solver::RemoveClauses(vec<uint32_t>& cone)
     // check that all the clauses are actually removed
 /*    for (int i = 0; i < cone.size(); ++i)
     {
-        assert (resol.GetInd(cone[i]) == CRef_Undef);
-        assert(resol.GetResolId(cone[i]) == CRef_Undef);
+        assert (resol.GetClauseRef(cone[i]) == CRef_Undef);
+        assert(resol.GetResolRef(cone[i]) == CRef_Undef);
     }
 */
 }
@@ -1529,7 +1529,7 @@ void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
     {
         if (i != uidsVec[j] && !muc.has(i))
         {
-            CRef cr = resol.GetInd(i);
+            CRef cr = resol.GetClauseRef(i);
             if (cr != CRef_Undef)
             {
                 // check that clause is not original otherwise we won't delete it
@@ -1552,7 +1552,7 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
     // cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
-        CRef cr = resol.GetInd(cone[i]);
+        CRef cr = resol.GetClauseRef(cone[i]);
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
@@ -1573,7 +1573,7 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
 
     for (int i = 0; i < cone.size(); ++i)
     {
-        CRef cr = resol.GetInd(cone[i]);
+        CRef cr = resol.GetClauseRef(cone[i]);
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
@@ -1583,6 +1583,7 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
     }
 }
 
+
 void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
 {
     if (opt_bind_as_orig == 2)
@@ -1590,54 +1591,48 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
         vec<uint32_t> init(1);
         init[0] = startUid;
 		//printf("%s ", __FUNCTION__);
-        resol.GetAllIcUids(setGood, init);
+        resol.GetAllIcUids(setGood, init); // setGood will now contain clauses that all their parents are not IC
     }
 
     //resol.GetClausesCones(cone) - we don't need that because we pass the previous found set of nodes
     cancelUntil(0);
 
-    // cone contains all the clauses we want to remove
+    // cone contains all the clauses we want to bind
     for (int i = 0; i < cone.size(); ++i)
     {
         uint32_t uid = cone[i];
-        CRef cr = resol.GetInd(uid);
+        CRef cr = resol.GetClauseRef(uid);
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
             c.mark(0);
             if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) == 0) ||
                 (opt_bind_as_orig == 2 && setGood.has(uid)))
-            {
-                if (resol.GetParentsNumber(uid) == 0)
-                {
-                    c.mark(2); 
-                }
-                else
-                {
-                    removeClause(cr);
-                }
+            { // we now remove the clause and then rebuild and add it back as a remainder.
+                if (resol.GetParentsNumber(uid) == 0) c.mark(2);                 
+                else  removeClause(cr);                
 
-                analyze_stack.clear();
+                analyze_stack.clear(); // to be filled with c's literals that are not false. 
 
-                bool satClause = false;
+                bool isSatisfied = false; 
                 for (int litId = 0; litId < c.size(); ++litId)
                 {
-                    if (value(c[litId]) == l_True)
+                    if (value(c[litId]) == l_True)  // 'value' has information on level 0 only (because there was a 'cancelUntil(0)' after the run). 
                     {
-                        satClause = true;
+                        isSatisfied = true; // the clause is satisfied at dec. level 0, we can discard it
                         break;
                     }
-                    else if (value(c[litId]) == l_False)
+                    else if (value(c[litId]) == l_False) // false at dec. level 0
                     {
-                        continue;
+                        continue;  // skip false literal
                     }
-                    analyze_stack.push(c[litId]);
+                    analyze_stack.push(c[litId]); // keep
                 }
 
-                if (satClause)
-                    continue;
+                if (isSatisfied)
+                    continue;  // discard clause
 
-                if (analyze_stack.size() == 0)
+                if (analyze_stack.size() == 0)  // empty clause at dec. level 0 ?
                 {
                     ok = false;
                     return;
@@ -1645,11 +1640,11 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
 
                 if (analyze_stack.size() == 1)
                 {
-                    enqueue(analyze_stack[0]);
+                    enqueue(analyze_stack[0]); // unit clause
                 }
                 else
                 {
-                    CRef newCr = ca.alloc(analyze_stack, c.learnt(), false);
+                    CRef newCr = ca.alloc(analyze_stack, c.learnt(), false);  // normal clause, not IC. The literals are in analyze_stack.
                     clauses.push(newCr);
                     attachClause(newCr);
                     if (opt_use_clauses)
@@ -1667,27 +1662,23 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
     }
 }
 
+// 'cone' contains root clauses to be re-binded as normal (not IC) clauses (because of rotation). 
 void Solver::GroupBindClauses(vec<uint32_t>& cone)
 {
-    if (opt_bind_as_orig == 0)
-    {
-        return;
-    }
+    if (opt_bind_as_orig == 0) return;    
 
     if (opt_bind_as_orig == 2)
-    {
-		//printf("%s ", __FUNCTION__);
-        resol.GetAllIcUids(setGood, cone);
+    {		
+        resol.GetAllIcUids(setGood, cone); // setGood will now contain clauses that all their parents are not IC
 		//printf("setGood = %d, cone = %d ", setGood.elems(), cone.size());
-        resol.GetClausesCones(cone);
+        resol.GetClausesCones(cone);  // This adds to cone all its cones. 
 		//printf("cone = %d\n", cone.size());
     }
-
-    // cone contains all the clauses we want to remove
+	    
     for (int i = 0; i < cone.size(); ++i)
     {
         uint32_t uid = cone[i];
-        CRef cr = resol.GetInd(uid);
+        CRef cr = resol.GetClauseRef(uid);
         if (cr != CRef_Undef)
         {
 
@@ -1697,56 +1688,48 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
             if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) > 0) ||
                 (opt_bind_as_orig == 2 && !setGood.has(uid)))
             {
-                continue;
+                continue;  // not in setGood, hence it has to stay an IC clause; nothing to do. 
             }
-			// we remove the clause, and later we will re-add it as remainder, possible shrinked. 
+			// we remove the clause, and later we will re-add it as a remainder, possibly shrinked. 
             if (resol.GetParentsNumber(uid) == 0) // original clause
             {
-                if (c.size() > 1)
-                {
+                if (c.size() > 1)  {
                     detachClause(cr);
                     // so we will be able to use lazy watch removal
                     c.mark(1);  // delay removal of originals.
                 }
             }
-            else
-            {
-                removeClause(cr);
-            }
+            else removeClause(cr);            
                 
             analyze_stack.clear();
 
-            bool satClause = false;
-            for (int litId = 0; litId < c.size(); ++litId)// we generate a simpler clause (or eliminate it) based on what's known in level 0
+            bool isSatisfied = false;
+            for (int litId = 0; litId < c.size(); ++litId)// we generate a simpler clause (or eliminate it) based on what's known in dec. level 0
             {
                 if (value(c[litId]) == l_True)
                 {
-                    satClause = true;
+                    isSatisfied = true;
                     break;
                 }
                 else if (value(c[litId]) == l_False)
-                {
-                    continue;
-                }
+                    continue;  // skip a literal that is false at dec. level 0
+                
                 analyze_stack.push(c[litId]);
             }
 
-            if (satClause)
-                continue;
+            if (isSatisfied) continue;
 
-            if (analyze_stack.size() == 0)
-            {
+            if (analyze_stack.size() == 0) { // empty clause at dec. level 0            
                 ok = false;
                 return;
             }
 
-            if (analyze_stack.size() == 1)
-            {
+            if (analyze_stack.size() == 1) {
                 enqueue(analyze_stack[0]);
             }
             else
             {
-                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false);
+                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false); // normal clause, not IC. The literals are in analyze_stack.
                 clauses.push(newCr);
                 attachClause(newCr);
                 if (opt_use_clauses)
@@ -1761,10 +1744,10 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
         uint32_t uid = cone[i];
         if (resol.ValidUid(uid) && resol.GetParentsNumber(uid) == 0)
         {
-            CRef cr = resol.GetInd(uid);
+            CRef cr = resol.GetClauseRef(uid);
             assert (cr != CRef_Undef);
             Clause& c = ca[cr];
-            c.mark(2); // do not remove originals // originally the reason we needed them was for correctness checking in jhlmuc (code migration...), where the distinctionm between remainder and non remainder is important ('group 0' in hhlmuc).
+            c.mark(2); // do not remove originals from resolution graph // originally the reason we needed them was for correctness checking in hhlmuc (code migration...), where the distinction between remainder and non remainder is important ('group 0' in hhlmuc).
         }
     }
 }
@@ -1851,7 +1834,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 
         for (int i = 0; i < uidsVec.size(); ++i)
         {
-            CRef cr = resol.GetInd(uidsVec[i]);
+            CRef cr = resol.GetClauseRef(uidsVec[i]);
             if (cr != CRef_Undef)
             {    
                 Clause& c = ca[cr];
@@ -1901,7 +1884,7 @@ int current_id,m;
 		}
 		current_id = q.front();
 		q.pop();
-		CRef curr_ref = resol.GetResolId(current_id);
+		CRef curr_ref = resol.GetResolRef(current_id);
 		assert(curr_ref != CRef_Undef);
 		const Resol& r = resol.GetResol(curr_ref);
 
@@ -1909,7 +1892,7 @@ int current_id,m;
 		{
 			CRef childUid = r.m_Children[m];
 			if (!resol.ValidUid(childUid)) continue;
-			CRef childClauseRef = resol.GetInd(childUid);	
+			CRef childClauseRef = resol.GetClauseRef(childUid);	
 			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef])) continue;
 			if (first && opt_lpf_cutoff) {
 				++initialSpan;
@@ -1949,7 +1932,7 @@ int current_id,m;
 		else printf(" ");
 	
 		printf("id = %d (", current_id);
-		CRef c = resol.GetInd(current_id); // the clause reference of c
+		CRef c = resol.GetClauseRef(current_id); // the clause reference of c
 		if (c == CRef_Undef) {
 			printf("(deleted clause)");	
 		}
@@ -1961,7 +1944,7 @@ int current_id,m;
 		}		
 		q.pop();
 		
-		CRef curr_ref = resol.GetResolId(current_id);
+		CRef curr_ref = resol.GetResolRef(current_id);
 		const Resol& r = resol.GetResol(curr_ref);
 		if(r.m_Children.size()==0){  // no more children
 			printf(")\n");
@@ -2011,7 +1994,7 @@ void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause
 			else fprintf(dot,"color=black,");
 		
 		
-		CRef c = resol.GetInd(current_id); // the clause reference of c
+		CRef c = resol.GetClauseRef(current_id); // the clause reference of c
 		if (c == CRef_Undef) {
 			fprintf(dot,"label=\"D\"");
 		}
@@ -2027,7 +2010,7 @@ void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause
 		fprintf(dot,"]; n%d;\n",current_id);
 		q.pop();
 
-		CRef curr_ref = resol.GetResolId(current_id);
+		CRef curr_ref = resol.GetResolRef(current_id);
 		const Resol& r = resol.GetResol(curr_ref);
 		if(r.m_Children.size()==0){  // no more children		
 			continue;
@@ -2096,7 +2079,7 @@ void Solver::LPF_get_assumptions(
 #pragma region compute_Top_Tclause
 
 	vec<Lit>* Top_TClause = new vec<Lit>(); 
-    CRef c = resol.GetInd(uid_root);  // the clause reference of c
+    CRef c = resol.GetClauseRef(uid_root);  // the clause reference of c
     Clause& cc = ca[c];
 	// printfVec(cc, "removing (c) ");
 
@@ -2116,7 +2099,7 @@ void Solver::LPF_get_assumptions(
     uint32_t last_in_chain;
 	for (int i = 0; i < uidvec_prefix.size(); ++i)  // for each clause in the prefix
 	{
-		CRef cr = resol.GetInd(uidvec_prefix[i]);
+		CRef cr = resol.GetClauseRef(uidvec_prefix[i]);
 		if (cr != CRef_Undef)
 		{    
 			Clause& cl = ca[cr];
@@ -2136,7 +2119,7 @@ void Solver::LPF_get_assumptions(
 		uid_root = uidvec_prefix.last(); 
 	}
 	else {        
-        ca[resol.GetInd(uid_root)].copyTo(*Top_TClause);        
+        ca[resol.GetClauseRef(uid_root)].copyTo(*Top_TClause);        
 	}    	
 #pragma endregion
 
@@ -2157,7 +2140,7 @@ void Solver::LPF_get_assumptions(
 	{
 		uint32_t curr_id = queue.front();
 		queue.pop();		
-		CRef cref = resol.GetResolId(curr_id);
+		CRef cref = resol.GetResolRef(curr_id);
 		assert(cref != CRef_Undef); 
 		Resol& res = resol.GetResol(cref);
 		int children_num = res.m_Children.size();
@@ -2169,7 +2152,7 @@ void Solver::LPF_get_assumptions(
 		{				
 			CRef childUid = res.m_Children[i];
 			if (!resol.ValidUid(childUid)) continue;
-			CRef childClauseRef = resol.GetInd(childUid);			
+			CRef childClauseRef = resol.GetClauseRef(childUid);			
 			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef]))					
 			{				
 //				printfVec(ca[childClauseRef], "removed by lpf_inprocess");				
@@ -2219,7 +2202,7 @@ void Solver::LPF_get_assumptions(
 		if (map_cls_to_Tclause.find(parents_of_empty_clause[i])== map_cls_to_Tclause.end()) continue; // only those that have T-clause are actual parents of the empty clause in cone(c). 		
 		int idx = parents_of_empty_clause[i];
 		//printf("parent index %d\n", idx);
-		//printfVec(ca[resol.GetInd(idx)], "parent of empty clause");
+		//printfVec(ca[resol.GetClauseRef(idx)], "parent of empty clause");
 		//printfVec(*map_cls_to_Tclause[idx], "Tclause of a parent of empty clause");
 		if (first) {
 			(*map_cls_to_Tclause[parents_of_empty_clause[i]]).swap(res);			

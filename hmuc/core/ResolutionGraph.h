@@ -20,11 +20,7 @@ public:
         uint32_t parent;
     } m_Parents[0];
 
-    uint32_t GetParent(int nParentId)
-    {
-        assert((uint32_t)nParentId > m_Parents[0].size);
-        return m_Parents[nParentId + 1].parent;
-    }
+  
 
     uint32_t* Parents()
     {
@@ -148,12 +144,12 @@ public:
         m_UidToData[nUid].m_ClauseRef = newRef;
     }
 
-    CRef GetInd(uint32_t nUid) const
+    CRef GetClauseRef(uint32_t nUid) const // formerly 'GetInd'
     {
         return m_UidToData[nUid].m_ClauseRef;
     }
 
-    CRef GetResolId(uint32_t nUid) 
+    CRef GetResolRef(uint32_t nUid) // Formerly 'GetResolId'
     { 
         return m_UidToData[nUid].m_ResolRef;
     }
