@@ -466,17 +466,12 @@ namespace Minisat
 					for (int nInd = 0; nInd < nSize; ++nInd)
 					{
 						uint32_t nIcId = nIteration == 0 ? nInd : vecCurrentUnknown[nInd];
-						if (nIcId != vecNextUnknown[nIndUnknown])
-						{							
+						if (nIcId != vecNextUnknown[nIndUnknown]) {							
 							assert(vecUidsToRemove.size() == 0 || vecUidsToRemove.last() < nIcId);
 							vecUidsToRemove.push(nIcId);							
 						}
-						else
-						{
-							if (nIndUnknown + 1 < vecNextUnknown.size())
-							{
-								++nIndUnknown;
-							}
+						else {
+							if (nIndUnknown + 1 < vecNextUnknown.size()) ++nIndUnknown;							
 						}
 					}
 
@@ -674,12 +669,18 @@ namespace Minisat
 			
 			if (m_Solver.verbosity == 1) printf("nictoremove = %d\n", nIcForRemove);
 			if (m_Solver.pf_mode != none) {
-				bool ClauseOnly = (m_Solver.pf_mode == clause_only ) || !m_Solver.m_bConeRelevant;	// we will only add a clause in pf_get_assumptions 
-				if (!ClauseOnly && (result == l_False) && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
+#ifndef NewParents				
+				if ((result == l_False) && m_Solver.m_bConeRelevant && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
 					m_Solver.icParents.copyTo(m_Solver.prev_icParents);
+					// m_Solver.resol.m_EmptyClauseParents.copyTo()
 					if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);
 				}
-				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)  // note that we do not use ClauseOnly, because in mode lpf_inprocess, even if !m_bConeRelevant, we do not want to apply it here, because of the option to delay it via lpf_block
+#endif
+
+				// now we mine for backbone literals, via PF_get_assumptions.
+				// We activate it in all modes except lpf_inprocess because of the option to 
+				// delay activation of lpf_inprocess via lpf_block
+				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)  
 				{				
 					double before_time = cpuTime();
 					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
