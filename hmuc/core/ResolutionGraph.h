@@ -147,12 +147,12 @@ public:
         m_UidToData[nUid].m_ClauseRef = newRef;
     }
 
-    CRef GetInd(uint32_t nUid) const
+    CRef GetClauseRef(uint32_t nUid) const // formerly 'GetInd'
     {
         return m_UidToData[nUid].m_ClauseRef;
     }
 
-    CRef GetResolId(uint32_t nUid) 
+    CRef GetResolRef(uint32_t nUid) // Formerly 'GetResolId'
     { 
         return m_UidToData[nUid].m_ResolRef;
     }

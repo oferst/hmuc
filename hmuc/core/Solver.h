@@ -58,7 +58,7 @@ public:
     void UnbindClauses(vec<uint32_t>& cone);
     CRef GetClauseIndFromUid(uint32_t uid) const
     {
-        return resol.GetInd(uid);
+        return resol.GetClauseRef(uid);
     }
 
     Clause& GetClause(CRef ind) 
@@ -248,7 +248,7 @@ protected:
     vec<CRef> icUnitClauses;
 	
     vec<Map<Lit, CRef>::Pair> icImpl;
-    Set<uint32_t> setGood;
+    Set<uint32_t> setGood; // setGood = clauses that all their parents are not IC
     vec<uint32_t> uidsVec;
     
 
