@@ -24,7 +24,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <assert.h>
 #include <new>
 #include <stdio.h>
-
+#include <iterator>
 #include "mtl/IntTypes.h"
 #include "mtl/XAlloc.h"
 
@@ -34,12 +34,16 @@ namespace Minisat {
 // Automatically resizable arrays
 //
 // NOTE! Don't use this vector on datatypes that cannot be re-located in memory (with realloc)
+template<class T>
+	class Iter;
 
 template<class T>
 class vec {
     T*  data;
     int sz;
     int cap;
+	typedef Iter<T>  iterator;
+	typedef Iter<const T>  const_iterator;
 
     // Helpers for calculating next capacity:
     static inline int  imax   (int x, int y) { int mask = (y-x) >> (sizeof(int)*8-1); return (x&mask) + (y&(~mask)); }
@@ -55,6 +59,12 @@ public:
 
     // Pointer to first element:
     operator T*       (void)           { return data; }
+
+	//oferg: Iter operations
+	iterator begin() { return iterator(&data[0]); }
+	const_iterator begin() const { return const_iterator(&data[0]); }
+	iterator end() { return iterator(&data[sz - 1]); };
+	const_iterator end() const { return const_iterator(&data[sz - 1]); }
 
     // Size operations:
     int      size     (void) const     { return sz; }
@@ -255,9 +265,44 @@ void vec<T>::clear(bool dealloc) {
     if (data != NULL){
         for (int i = 0; i < sz; i++) data[i].~T();
         sz = 0;
-        if (dealloc) free(data), data = NULL, cap = 0; } }
+        if (dealloc) free(data), data = NULL, cap = 0; } 
+}
 
 //=================================================================================================
+
+
+template<typename T>
+class Iter : public std::iterator<std::random_access_iterator_tag,T,ptrdiff_t,T*,T&>{
+public:
+	Iter(T* ptr = nullptr) { m_ptr = ptr; }
+	Iter(const Iter<T>& rawIterator) = default;
+	~Iter() {};
+	Iter<T>& operator=(const Iter<T>& rawIterator) = default;
+	Iter<T>& operator=(T* ptr) { m_ptr = ptr; return (*this); }
+	operator bool() const {return (m_ptr!=Null);}
+	bool operator==(const Iter<T>& rawIterator)const { return (m_ptr == rawIterator.getConstPtr()); }
+	bool operator!=(const Iter<T>& rawIterator)const { return (m_ptr != rawIterator.getConstPtr()); }
+	Iter<T>& operator+=(const ptrdiff_t& movement) { m_ptr += movement; return (*this); }
+	Iter<T>& operator-=(const ptrdiff_t& movement) { m_ptr -= movement; return (*this); }
+	Iter<T>& operator++() { ++m_ptr; return (*this); }
+	Iter<T>& operator--() { --m_ptr; return (*this); }
+	Iter<T> operator++(ptrdiff_t) { auto temp(*this); ++m_ptr; return temp; }
+	Iter<T> operator--(ptrdiff_t) { auto temp(*this); --m_ptr; return temp; }
+	Iter<T> operator+(const ptrdiff_t& movement) { auto oldPtr = m_ptr; m_ptr += movement; auto temp(*this); m_ptr = oldPtr; return temp; }
+	Iter<T> operator-(const ptrdiff_t& movement) { auto oldPtr = m_ptr; m_ptr -= movement; auto temp(*this); m_ptr = oldPtr; return temp; }
+	ptrdiff_t operator-(const Iter<T>& rawIterator) { return std::distance(rawIterator.getPtr(), this->getPtr()); };
+	T&  operator*() { return *m_ptr; }
+	const T& operator*()const { return *m_ptr; }
+	T* operator->() { return m_ptr; }
+	T* getPtr()const { return m_ptr; }
+	const T* getConstPtr()const { return m_ptr; }
+
+protected:
+	T* m_ptr;
+};
+
+
 }
 
 #endif
+

@@ -99,28 +99,39 @@ void CResolutionGraph::BuildBackwardResolution()
     }
 }
 */
-void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
-{
-    Set<uint32_t> set;
-    set.add(cone);
-    for (int nInd = 0; nInd < cone.size(); ++nInd)
-    {
-        uint32_t nUid = cone[nInd];
-        CRef ref = m_UidToData[nUid].m_ResolRef;
-        if (ref == CRef_Undef)
-            continue;
-        Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
-        if (resol.m_Children.size() > 0)
-        {
-            const vec<uint32_t>& children = resol.m_Children;
-            for (int nChild = 0; nChild < children.size(); ++nChild)
-            {
-                uint32_t nChildId = children[nChild];
-                if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId))
-                    cone.push(nChildId);
-            }
-        }
-    }
+//void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
+//{
+//    Set<uint32_t> set;
+//    set.add(cone);
+//    for (int nInd = 0; nInd < cone.size(); ++nInd)
+//    {
+//        uint32_t nUid = cone[nInd];
+//        CRef ref = m_UidToData[nUid].m_ResolRef;
+//        if (ref == CRef_Undef)
+//            continue;
+//		Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
+//		if (resol.m_Children.size() > 0)
+//		{
+//    const vec<uint32_t>& children = resol.m_Children;
+//    for (int nChild = 0; nChild < children.size(); ++nChild)
+//    {
+//        uint32_t nChildId = children[nChild];
+//        if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId))
+//            cone.push(nChildId);
+//    }
+//}
+
+void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone){
+	Set<uint32_t> set;
+	set.add(cone);
+	for (uint32_t nUid : cone){
+		if (CRef_Undef == m_UidToData[nUid].m_ResolRef)
+			continue;
+		const vec<uint32_t>& children = m_RA[m_UidToData[nUid].m_ResolRef].m_Children;
+		for (uint32_t nChildId : children)
+			if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId))
+				cone.push(nChildId);
+	}
 }
 
 void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath)
