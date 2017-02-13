@@ -202,7 +202,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* parents)
 
     if (ic)
     {
-        resol.AddNewResolution(ca[cr].uid(), cr, (parents == NULL) ? icParents : *parents);
+        resol.AddNewResolution(ca[cr].uid(), cr, (parents == NULL) ? m_icParents : *parents);
     }
 
     return true;
@@ -411,7 +411,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 }
 
 
-// Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
+// Check if 'data' can be removed. 'abstract_levels' is used to abort early if the algorithm is
 // visiting literals at levels that cannot be removed later.
 bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents)
 {
@@ -459,11 +459,11 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
 
 /*_________________________________________________________________________________________________
 |
-|  analyzeFinal : (p : Lit)  ->  [void]
+|  analyzeFinal : (data : Lit)  ->  [void]
 |  
 |  Description:
 |    Specialized analysis procedure to express the final conflict in terms of assumptions.
-|    Calculates the (possibly empty) set of assumptions that led to the assignment of 'p', and
+|    Calculates the (possibly empty) set of assumptions that led to the assignment of 'data', and
 |    stores the result in 'out_conflict'.
 |________________________________________________________________________________________________@*/
 void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
@@ -527,7 +527,7 @@ CRef Solver::propagate()
     for (;;) 
     {
         while (qhead < trail.size()){
-            Lit            p   = trail[qhead++];     // 'p' is enqueued fact to propagate.
+            Lit            p   = trail[qhead++];     // 'data' is enqueued fact to propagate.
             vec<Watcher>&  ws  = watches[p];
             Watcher        *i, *j, *end;
             num_props++;
@@ -855,7 +855,7 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
     CRef confl = CRef_Undef;
-    icParents.clear();
+    m_icParents.clear();
 	int prev_trail_size = 0;	
 	int old_falsified_literals;
 	
@@ -942,56 +942,56 @@ lbool Solver::search(int nof_conflicts)
             }
 
             learnt_clause.clear();
-            analyze(confl, learnt_clause, backtrack_level, icParents);
+            analyze(confl, learnt_clause, backtrack_level, m_icParents);
 
-            if (opt_ic_as_dec && learnt_clause.size() > 1 && icParents.size() > 0 && !ca[confl].ic())
-            {
-                int index = trail.size() - 1;
-                Lit l = trail[index];
-                int dLevel = decisionLevel() + 1;
-                // create a new decision level till ic clause
-                while(!ca[reason(var(l))].ic())
-                {
-                    // now we are going to learn a new 
-                    vardata[var(l)].level = dLevel;
-                    l = trail[--index];
-                }
-
-                vardata[var(l)].level = dLevel;
-                vardata[var(l)].reason = CRef_Undef;
-                trail_lim.push(index);
-                vecConfl.push(conflictC);
-                l = learnt_clause[0];
-                learnt_clause.clear();
-                int bckTrack = 0;
-                analyze(confl, learnt_clause, bckTrack, icParents);
-                CRef cr = ca.alloc(learnt_clause, true, false);
-#ifdef LEARNT
-				learnts.push_back(cr);
-#else
-				learnts.push(cr);
-#endif // LEARNT				
-                attachClause(cr);
-                if (!opt_glucose)
-                    claBumpActivity(ca[cr]);
-                else
-                    ca[cr].activity() = calculateDecisionLevels(learnt_clause);
-                cancelUntil(opt_full_bck ? backtrack_level : dLevel-2);
-                newDecisionLevel(conflictC);
-                uncheckedEnqueue(opt_dec_l1 ? l : learnt_clause[0]);
-            }
-            else
-            {
+//            if (opt_ic_as_dec && learnt_clause.size() > 1 && m_icParents.size() > 0 && !ca[confl].ic())
+//            {
+//                int index = trail.size() - 1;
+//                Lit l = trail[index];
+//                int dLevel = decisionLevel() + 1;
+//                // create a new decision level till ic clause
+//                while(!ca[reason(var(l))].ic())
+//                {
+//                    // now we are going to learn a new 
+//                    vardata[var(l)].level = dLevel;
+//                    l = trail[--index];
+//                }
+//
+//                vardata[var(l)].level = dLevel;
+//                vardata[var(l)].reason = CRef_Undef;
+//                trail_lim.push(index);
+//                vecConfl.push(conflictC);
+//                l = learnt_clause[0];
+//                learnt_clause.clear();
+//                int bckTrack = 0;
+//                analyze(confl, learnt_clause, bckTrack, m_icParents);
+//                CRef cr = ca.alloc(learnt_clause, true, false);
+//#ifdef LEARNT
+//				learnts.push_back(cr);
+//#else
+//				learnts.push(cr);
+//#endif // LEARNT				
+//                attachClause(cr);
+//                if (!opt_glucose)
+//                    claBumpActivity(ca[cr]);
+//                else
+//                    ca[cr].activity() = calculateDecisionLevels(learnt_clause);
+//                cancelUntil(opt_full_bck ? backtrack_level : dLevel-2);
+//                newDecisionLevel(conflictC);
+//                uncheckedEnqueue(opt_dec_l1 ? l : learnt_clause[0]);
+//            }
+            //else
+            //{
             if (learnt_clause.size() == 1)
             {
 //                fprintf(flog, "b - %d : %d", backtrack_level, var(learnt_clause[0]) + 1);
 
-                if (icParents.size() > 0)
+                if (m_icParents.size() > 0)
                 {
                     cancelUntil(1);
                     CRef cr = ca.alloc(learnt_clause, false, true);
                     icUnitClauses.push(cr);
-                    resol.AddNewResolution(ca[cr].uid(), cr, icParents);
+                    resol.AddNewResolution(ca[cr].uid(), cr, m_icParents);
                     uncheckedEnqueue(learnt_clause[0], cr);
                  }
                 else
@@ -1004,7 +1004,7 @@ lbool Solver::search(int nof_conflicts)
             else
             {
                 cancelUntil(backtrack_level);
-                CRef cr = ca.alloc(learnt_clause, true, icParents.size() > 0);
+                CRef cr = ca.alloc(learnt_clause, true, m_icParents.size() > 0);
 #ifdef LEARNT
 				learnts.push_back(cr);
 #else
@@ -1019,14 +1019,14 @@ lbool Solver::search(int nof_conflicts)
                     ca[cr].activity() = calculateDecisionLevels(learnt_clause);
                 if (cl.ic())
                 {
-                    resol.AddNewResolution(cl.uid(), cr, icParents);
+                    resol.AddNewResolution(cl.uid(), cr, m_icParents);
                 }
 
                 uncheckedEnqueue(learnt_clause[0], cr);
 //                fprintf(flog, "b - %d :", backtrack_level);
 //                printClause(flog, ca[cr]);
             }
-            }
+            //}
 
             varDecayActivity();
             if (!opt_glucose)
@@ -1044,7 +1044,7 @@ lbool Solver::search(int nof_conflicts)
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
 
-            icParents.clear();
+            m_icParents.clear();
             confl = CRef_Undef;
         }
 #pragma endregion
@@ -1354,7 +1354,7 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int v = 0; v < nVars(); v++)
         for (int s = 0; s < 2; s++){
             Lit p = mkLit(v, s);
-            // printf(" >>> RELOCING: %s%d\n", sign(p)?"-":"", var(p)+1);
+            // printf(" >>> RELOCING: %s%d\n", sign(data)?"-":"", var(data)+1);
             vec<Watcher>& ws = watches[p];
             for (int j = 0; j < ws.size(); j++)
                 ca.reloc(ws[j].cref, to);
@@ -1430,7 +1430,7 @@ void Solver::CreateUnsatCore(CRef ref)
 
         if (c.ic())
         {
-            icParents.push(c.uid());
+            m_icParents.push(c.uid());
             resol.m_EmptyClauseParents.insert(c.uid());
         }
 
@@ -1461,10 +1461,10 @@ void Solver::CreateUnsatCore(CRef ref)
 void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 {
     core.clear();
-    for (int nInd = 0; nInd < icParents.size(); ++nInd)
+    for (int nInd = 0; nInd < m_icParents.size(); ++nInd)
     {
-        if (emptyClauseCone.insert(icParents[nInd]))
-            resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone);
+        if (emptyClauseCone.insert(m_icParents[nInd]))
+            resol.GetOriginalParentsUids(m_icParents[nInd], core, emptyClauseCone);
     }
 }
 
@@ -1778,14 +1778,14 @@ void Solver::printClause(FILE* f, Clause& c)
 
 void Solver::CreateResolVertex(uint32_t uid)
 {
-    assert(icParents.size() == 0);
-    resol.AddNewResolution(uid, CRef_Undef, icParents);
+    assert(m_icParents.size() == 0);
+    resol.AddNewResolution(uid, CRef_Undef, m_icParents);
 }
 
 void Solver::AddConflictingIc(uint32_t uid)
 {
-    assert(icParents.size() == 0);
-    icParents.push(uid);
+    assert(m_icParents.size() == 0);
+    m_icParents.push(uid);
     ok = true;
 }
 
@@ -2066,7 +2066,7 @@ void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause
  * With clause "uid_root": unsat
  * Before removing it, we find literals that can be added as assumptions. 
  * A literal l can be added if -l appears on all paths from uid_root to (). 
- * we find such literals based on the equivalence: S(c) = \cap_{p \in parents(c)} S(p) \cup c, where S(c) is a set of literals that we attach to a clause c. 
+ * we find such literals based on the equivalence: S(c) = \cap_{data \in parents(c)} S(data) \cup c, where S(c) is a set of literals that we attach to a clause c. 
  * For the root clause c (defined by the parameter "uid_root"), S(c) = c;
 */
 /************************************************************************/
@@ -2075,6 +2075,7 @@ void Solver::LPF_get_assumptions(
 	vec<Lit>& assump_literals /**< to be filled with literals */
 	)
 {
+	//oferg: can the maps be replaced by vecs?
 	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
 	std::queue<uint32_t> queue;		
 	Map<uint32_t,uint32_t> map_cls_parentsCount;  // maps from uid of clause, to the number of parents on the relevant cone of c, i.e., parents on paths from c to the empty clause.

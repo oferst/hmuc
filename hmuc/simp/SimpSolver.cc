@@ -346,15 +346,15 @@ bool SimpSolver::implied(const vec<Lit>& c)
     trail_lim.push(trail.size());
     for (int i = 0; i < c.size(); i++)
         if (value(c[i]) == l_True){
-            cancelUntil(0);
-            return false;
+            cancelUntil(0); //oferg: restart?
+            return false; //oferg: return that there is an implication
         }else if (value(c[i]) != l_False){
             assert(value(c[i]) == l_Undef);
             uncheckedEnqueue(~c[i]);
         }
 
-    bool result = propagate() != CRef_Undef;
-    cancelUntil(0);
+    bool result = propagate() != CRef_Undef; //oferg: result is whether there is a conflict during propagation
+    cancelUntil(0); //oferg: restart?
     return result;
 }
 
@@ -385,7 +385,7 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
         CRef    cr = subsumption_queue.peek(); subsumption_queue.pop();
         Clause& c  = ca[cr];
 
-        if (c.mark()) 
+        if (c.mark()) //oferg: what deos mark means here?
             continue;
 
         if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
@@ -406,8 +406,8 @@ bool SimpSolver::backwardSubsumptionCheck(bool verbose)
 
         for (int j = 0; j < _cs.size(); j++)
             if (c.mark())
-                break;
-            else if (!ca[cs[j]].mark() &&  cs[j] != cr && (subsumption_lim == -1 || ca[cs[j]].size() < subsumption_lim)){
+                break;//oferg: before, in line 389, we did 'continue' when the clause c wes marked, why should we check it again here?
+            else if (!ca[cs[j]].mark() &&  cs[j] != cr && (subsumption_lim == -1 || ca[cs[j]].size() < subsumption_lim)){ //oferg: what does this limit do?
                 Lit l = c.subsumes(ca[cs[j]]);
 
                 if (l == lit_Undef)
@@ -561,19 +561,19 @@ bool SimpSolver::eliminateVar(Var v)
 
     // Produce clauses in cross product:
     vec<Lit>& resolvent = add_tmp;
-    assert(icParents.size() == 0);
+    assert(m_icParents.size() == 0);
 
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
         {
             Clause& c1 = ca[pos[i]];
             Clause& c2 = ca[neg[j]];
-            icParents.clear();
+            m_icParents.clear();
             if (c1.ic())
-                icParents.push(c1.uid());
+                m_icParents.push(c1.uid());
             if (c2.ic())
-                icParents.push(c2.uid());
-            if (merge(c1, c2, v, resolvent) && !addClause_(resolvent, icParents.size() > 0, &icParents))
+                m_icParents.push(c2.uid());
+            if (merge(c1, c2, v, resolvent) && !addClause_(resolvent, m_icParents.size() > 0, &m_icParents))
             {
                 return false;
             }
@@ -582,7 +582,7 @@ bool SimpSolver::eliminateVar(Var v)
     for (int i = 0; i < cls.size(); i++)
         removeClause(cls[i]); 
 
-    icParents.clear();
+    m_icParents.clear();
     // Free occurs list for this variable:
     occurs[v].clear(true);
     

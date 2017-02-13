@@ -51,7 +51,7 @@ struct Lit {
 
     bool operator == (Lit p) const { return x == p.x; }
     bool operator != (Lit p) const { return x != p.x; }
-    bool operator <  (Lit p) const { return x < p.x;  } // '<' makes p, ~p adjacent in the ordering.
+    bool operator <  (Lit p) const { return x < p.x;  } // '<' makes data, ~data adjacent in the ordering.
 };
 
 
@@ -401,7 +401,7 @@ class CMap
 |    Result:
 |       lit_Error  - No subsumption or simplification
 |       lit_Undef  - Clause subsumes 'other'
-|       p          - The literal p can be deleted from 'other'
+|       data          - The literal data can be deleted from 'other'
 |________________________________________________________________________________________________@*/
 inline Lit Clause::subsumes(const Clause& other) const
 {

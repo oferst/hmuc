@@ -98,7 +98,7 @@ public:
 	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).	
     int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
-    vec<uint32_t> icParents;
+    vec<uint32_t> m_icParents; //oferg: formerly 'icParents' the set of interesting clauses who are parents of a learned conflic clause (genrated during analyze())
     bool m_bUnsatByPathFalsification;
 	int nUnsatByPF;
 	int pf_prev_trail_size;
@@ -335,7 +335,7 @@ protected:
     Lit      pickBranchLit    ();                                                      // Return the next decision variable.
     void     newDecisionLevel (int conflictC);                                         // Begins a new decision level.
     void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef);                         // Enqueue a literal. Assumes value of literal is undefined.
-    bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
+    bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'data' contradicts current state, enqueue otherwise.
     CRef     propagate        ();                                                      // Perform unit propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents);    // (bt = backtrack)

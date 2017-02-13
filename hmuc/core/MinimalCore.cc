@@ -28,7 +28,7 @@ namespace Minisat
 	CMinimalCore::CMinimalCore(SimpSolver& solver): 
 		m_bIcInConfl(false)
 		, m_Solver(solver)
-		, m_nICSize(0)
+		, m_nICSize(0) //number of interesting clauses?
 		, m_nRotationCalled(0)
 		, m_nRotationFirstCalls(0)
 		, m_nRotationClausesAdded(0)
@@ -371,8 +371,8 @@ namespace Minisat
 		m_Solver.test_now = false;
 		// run preprocessing
 		double before_time = cpuTime();
-		if (!m_bIcInConfl)
-			m_bIcInConfl = !m_Solver.eliminate(pre);
+		if (!m_bIcInConfl) //oferg: if no currently conflicting, try and eliminate variables. 
+			m_bIcInConfl = !m_Solver.eliminate(pre); // oferg: might discover conflicts after simplification
 		double simplified_time = cpuTime();
 		if (m_Solver.verbosity > 1)
 		{
@@ -676,8 +676,8 @@ namespace Minisat
 			if (m_Solver.pf_mode != none) {
 				bool ClauseOnly = (m_Solver.pf_mode == clause_only ) || !m_Solver.m_bConeRelevant;	// we will only add a clause in pf_get_assumptions 
 				if (!ClauseOnly && (result == l_False) && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
-					m_Solver.icParents.copyTo(m_Solver.prev_icParents);
-					if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);
+					m_Solver.m_icParents.copyTo(m_Solver.prev_icParents);
+					if (nIteration == 0) m_Solver.m_icParents.copyTo(m_Solver.parents_of_empty_clause);
 				}
 				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)  // note that we do not use ClauseOnly, because in mode lpf_inprocess, even if !m_bConeRelevant, we do not want to apply it here, because of the option to delay it via lpf_block
 				{				

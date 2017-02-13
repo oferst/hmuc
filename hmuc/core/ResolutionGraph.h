@@ -10,21 +10,16 @@
 namespace Minisat
 {
 
-class Resol
+class Resol //oferg: The nodes in the resultion graph (probably)
 {
 public:
     vec<uint32_t> m_Children;
     uint32_t m_nRefCount;
-    union {
-        uint32_t size;
-        uint32_t parent;
-    } m_Parents[0];
-
-    uint32_t GetParent(int nParentId)
-    {
-        assert((uint32_t)nParentId > m_Parents[0].size);
-        return m_Parents[nParentId + 1].parent;
-    }
+    //uint32_t GetParent(int nParentId) //oferg: unused
+    //{
+    //    assert((uint32_t)nParentId > m_Parents[0].size);
+    //    return m_Parents[nParentId + 1].parent;
+    //}
 
     uint32_t* Parents()
     {
@@ -43,7 +38,11 @@ public:
 
     friend class ResolAllocator;
 private:
-    static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
+	union {
+		uint32_t size;
+		uint32_t parent;
+	} m_Parents[0];
+    static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2; //oferg: why does size of a node has an extry 5U empty places?
 
     Resol(const vec<uint32_t>& parents) :
        m_Children(), m_nRefCount(1)
