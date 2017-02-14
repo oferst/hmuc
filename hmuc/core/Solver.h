@@ -31,6 +31,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <stdint.h>
 #include <vector>
 
+// temporary, for testing a simplification of the code. 
+#define NewParents
+
 namespace Minisat {
 
 //=================================================================================================
@@ -89,7 +92,9 @@ public:
 	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
 			
+#ifndef NewParents	
 	vec<uint32_t> prev_icParents;
+#endif
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
 	bool pf_active;

@@ -50,7 +50,7 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
     int nParentsSize = resol.ParentsSize();
-
+ 
      if (nParentsSize == 0)
      {
          allParents.push(nUid);

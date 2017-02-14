@@ -238,11 +238,10 @@ void Solver::removeClause(CRef cr) {
         detachClause(cr);
     // Don't leave pointers to freed memory!
     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
-    if (c.ic() && c.mark() != 2)
+    if (c.ic() && c.mark() != 2)  // mark(2) means that we want to keep it on the resolution graph. 
         resol.DeleteClause(c.uid());
     c.mark(1); 
     ca.free(cr);
-
 }
 
 bool Solver::satisfied(const Clause& c) const {
@@ -253,7 +252,6 @@ bool Solver::satisfied(const Clause& c) const {
 
 
 // Revert to the state at the given level (keeping all assignment at 'level' but not beyond).
-//
 void Solver::cancelUntil(int level) {
     if (decisionLevel() > level){
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
@@ -327,10 +325,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
         if (c.learnt() && !opt_glucose)
             claBumpActivity(c);
 
-        if (c.ic())
-        {
-            icParents.push(c.uid());
-        }
+        if (c.ic())  icParents.push(c.uid());        
 
         for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
             Lit q = c[j];
@@ -1422,6 +1417,9 @@ void Solver::CreateUnsatCore(CRef ref)
     Var v = var_Undef;
     int nSeen = 0;
     resol.m_EmptyClauseParents.clear();
+#ifdef NewParents	
+	parents_of_empty_clause.clear();
+#endif
 
     for (;;) 
     {
@@ -1431,7 +1429,11 @@ void Solver::CreateUnsatCore(CRef ref)
         if (c.ic())
         {
             m_icParents.push(c.uid());
-            resol.m_EmptyClauseParents.insert(c.uid());
+#ifdef NewParents
+			parents_of_empty_clause.push(c.uid());
+#endif
+			resol.m_EmptyClauseParents.insert(c.uid()); // duplicate to parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
+
         }
 
         for (int j = (v == var_Undef) ? 0 : 1 ; j < c.size(); j++)
@@ -2066,7 +2068,11 @@ void Solver::LPF_get_assumptions(
 	int peakQueueSize = 0;
 	vec<int> icUnits;	
 
-	if (prev_icParents.size() > 0) {  // if the result was unsat, this condition is true and we need to clear the previous list; otherwise this condition is false, and we use the parents_of_empty_clause form the last run that it was unsat.
+#ifndef NewParents
+	// if the result was unsat (detected below by prev_icParents.size() > 0) we need to 
+	// update parents_of_empty_clause. 
+	// otherwise we just use parents_of_empty_clause form the last run that it was unsat.
+	if (prev_icParents.size() > 0) {  
 		parents_of_empty_clause.clear();
 		parents_of_empty_clause.growTo(prev_icParents.size());
 		for (int i=0 ; i < prev_icParents.size() ; i++) { // prev_icParents holds the parents of the empty clause 
@@ -2074,7 +2080,7 @@ void Solver::LPF_get_assumptions(
 		}	
 		//sort(parents_of_empty_clause); // sorted because we run binary-search on it later
 	}		
-	
+#endif	
 	assert(parents_of_empty_clause.size()>0); // empty clause always has parents.
 	
 #pragma region compute_Top_Tclause
