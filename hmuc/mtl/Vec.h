@@ -270,7 +270,7 @@ void vec<T>::clear(bool dealloc) {
 
 //=================================================================================================
 
-
+//=============================Iter=================================================================
 template<typename T>
 class Iter : public std::iterator<std::random_access_iterator_tag,T,ptrdiff_t,T*,T&>{
 public:
@@ -279,7 +279,7 @@ public:
 	~Iter() {};
 	Iter<T>& operator=(const Iter<T>& rawIterator) = default;
 	Iter<T>& operator=(T* ptr) { m_ptr = ptr; return (*this); }
-	operator bool() const {return (m_ptr!=Null);}
+	operator bool() const {return (m_ptr!=NULL);}
 	bool operator==(const Iter<T>& rawIterator)const { return (m_ptr == rawIterator.getConstPtr()); }
 	bool operator!=(const Iter<T>& rawIterator)const { return (m_ptr != rawIterator.getConstPtr()); }
 	Iter<T>& operator+=(const ptrdiff_t& movement) { m_ptr += movement; return (*this); }

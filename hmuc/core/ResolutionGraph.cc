@@ -15,12 +15,18 @@ void CResolutionGraph::AddNewResolution
     CRef refResol = m_RA.alloc(parents);
 
     // increase reference count for all the parents
-    for (int nInd = 0; nInd < parents.size(); ++nInd)
-    {
-        Resol& res = m_RA[m_UidToData[parents[nInd]].m_ResolRef];
-        ++res.m_nRefCount;
-        res.m_Children.push(nNewClauseId);
-    }
+
+	for (uint32_t pUid : parents) {
+		Resol& res = m_RA[m_UidToData[pUid].m_ResolRef];
+		++res.m_nRefCount;
+		res.m_Children.push(nNewClauseId);
+	}
+    //for (int nInd = 0; nInd < parents.size(); ++nInd)
+    //{
+    //    Resol& res = m_RA[m_UidToData[parents[nInd]].m_ResolRef];
+    //    ++res.m_nRefCount;
+    //    res.m_Children.push(nNewClauseId);
+    //}
 
     m_UidToData[nNewClauseId].m_ClauseRef = ref;
     m_UidToData[nNewClauseId].m_ResolRef = refResol;
@@ -160,10 +166,14 @@ void CResolutionGraph::Shrink()
 {
     int nSize = m_UidToData.size();
     m_RA.StartReloc();
-    for (int nId = 0; nId < nSize; ++nId)
-    {
-        m_RA.Reloc(m_UidToData[nId].m_ResolRef);
-    }
+
+	for (auto pair :  m_UidToData )
+		m_RA.Reloc(pair.m_ResolRef);
+
+    //for (int nId = 0; nId < nSize; ++nId)
+    //{
+    //    m_RA.Reloc(m_UidToData[nId].m_ResolRef);
+    //}
     m_RA.FinishReloc();
 }
 
@@ -182,13 +192,16 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
 	// add children of all sets to be checked
 
 	setGood.add(start);
-	for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
+	for(uint32_t cUid: start)
+		vecCurrChecked.push_back(cUid);
+	//for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
 	
 	while (vecCurrChecked.size() > 0)
 	{
-		for (int i = 0; i < vecCurrChecked.size(); ++i)
-		{
-			int nUid = vecCurrChecked[i];
+		for (uint32_t nUid : vecCurrChecked) {
+		//for (int i = 0; i < vecCurrChecked.size(); ++i)
+		//{
+			//int nUid = vecCurrChecked[i];
 			if (!firstTime && setGood.has(nUid))
 				continue;
 
@@ -212,10 +225,12 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
 				if (!firstTime)
 					setGood.insert(nUid);
 				// pass over all children and add them to be checked
-				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
-				{
-					vecToCheck.push_back(resol.m_Children[nChild]);
-				}
+				for (uint32_t cUid: resol.m_Children)
+					vecToCheck.push_back(cUid);
+				//for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
+				//{
+				//	vecToCheck.push_back(resol.m_Children[nChild]);*/
+				//}
 			}
 		}
 

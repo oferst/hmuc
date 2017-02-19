@@ -977,7 +977,7 @@ lbool Solver::search(int nof_conflicts)
 //            }
             //else
             //{
-            if (learnt_clause.size() == 1)
+            if (learnt_clause.size() == 1) //oferg: learnt a unit clause
             {
 //                fprintf(flog, "b - %d : %d", backtrack_level, var(learnt_clause[0]) + 1);
 
@@ -1433,7 +1433,7 @@ void Solver::CreateUnsatCore(CRef ref)
 			parents_of_empty_clause.push(c.uid());
 #endif
 			resol.m_EmptyClauseParents.insert(c.uid()); // duplicate to parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
-
+			// oferg: maybe use some 'seen' hack instead
         }
 
         for (int j = (v == var_Undef) ? 0 : 1 ; j < c.size(); j++)
