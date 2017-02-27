@@ -165,7 +165,12 @@ int main(int argc, char** argv)
         signal(SIGXCPU,SIGINT_interrupt);
 #endif
 
-        lbool ret = coreManager.Solve(pre);
+
+		// !!test
+		coreManager.testsat();
+		
+		
+		lbool ret = coreManager.Solve(pre);
 		printf("### decisions %d\n", solver->decisions);
 		printf("### pf_time %g\n", solver->time_for_pf);
         if (S.verbosity > 0){

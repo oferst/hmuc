@@ -15,6 +15,8 @@ public:
 	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "" ); 
     lbool Solve(bool pre);
 
+	void testsat(); // !!
+
     inline SimpSolver& GetSolver() { return m_Solver; }
 
     void SetICNum(uint32_t nIcNum);

@@ -164,6 +164,7 @@ void CResolutionGraph::Shrink()
 #define SORT
 #ifdef SORT
 
+
 // assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals, after 'SAT' case), 
 // then NewRemainders will be filled with all their descendants that now do not have an IC ancestor. 
 void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start)

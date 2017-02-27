@@ -30,7 +30,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
 #include <vector>
-
+#include <string>
 // temporary, for testing a simplification of the code. 
 #define NewParents
 
@@ -235,8 +235,11 @@ public:
 	
 	//________________________________________________________________________________________________
 	
+	int todimacsLit(Lit l);
 
     void printClause(FILE* f, Clause& c);
+		
+	void printClause(FILE * f, vec<Lit>& v, std::string text="");	
 
     template<class T>
     void printLits(FILE* f, const T& c)
@@ -506,3 +509,5 @@ inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ ve
 }
 
 #endif
+
+

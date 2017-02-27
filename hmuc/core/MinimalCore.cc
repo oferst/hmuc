@@ -345,6 +345,7 @@ namespace Minisat
 	}
 
 
+	
 	lbool CMinimalCore::Solve(bool pre)
 	{
 		vec<uint32_t> vecNextUnknown;
@@ -755,4 +756,25 @@ end:	PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, true);
 
 		return result;
 	}
+
+	void CMinimalCore::testsat() {
+		vec<Lit> dummy;
+		int var = abs(1) - 1; // var = 1				
+		Lit as = mkLit(var); // as = -1		
+		m_Solver.nICtoRemove = 1;
+		m_Solver.test_mode = false;
+		m_Solver.LiteralsFromPathFalsification.push(as); // reminder: enter the negated assumption.
+		lbool res = ((Solver*)&m_Solver)->solveLimited(dummy);
+		printf("vars = %d\n", m_Solver.nVars());
+		if (res == l_True) printf("SAT\n");
+		else if (res == l_False) printf("UNSAT\n");
+		else printf("unknown\n");
+
+		exit(0);
+	}
+
+
 }
+
+
+

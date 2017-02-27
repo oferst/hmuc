@@ -474,6 +474,8 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
     for (int i = trail.size()-1; i >= trail_lim[0]; i--){
         Var x = var(trail[i]);
         if (seen[x]){
+			printf("reason = ");
+			printClause(stdout,ca[reason(x)]);
             if (reason(x) == CRef_Undef){
                 assert(level(x) > 0);
                 out_conflict.push(~trail[i]);
@@ -919,11 +921,13 @@ lbool Solver::search(int nof_conflicts)
 #pragma endregion
         if (confl == CRef_Undef)
             confl = propagate();
-
+		
+		
 
 #pragma region conflict_case
 		if (confl != CRef_Undef){
             // CONFLICT
+			
             conflicts++; conflictC++;
             if (decisionLevel() == 1) // a core based on interesting constraints. 
             {
@@ -938,6 +942,9 @@ lbool Solver::search(int nof_conflicts)
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level, icParents);
+
+			printClause(stdout, learnt_clause, "learnt clause = "); // !!
+			printf("backtrack to %d\n", backtrack_level);
 
             if (opt_ic_as_dec && learnt_clause.size() > 1 && icParents.size() > 0 && !ca[confl].ic())
             {
@@ -1082,6 +1089,11 @@ lbool Solver::search(int nof_conflicts)
 						count_true_assump++;
 					}
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves                                                                     
+						vec<Lit> conflictingAssumptions;
+						analyzeFinal(p, conflictingAssumptions);
+						printf("conflictingAssumptions = ");
+						for (int i = 0; i < conflictingAssumptions.size(); ++i) printf("%d,", todimacsLit(conflictingAssumptions[i]));
+						printf("\n");
 						if (pf_early_unsat_terminate()) return l_False;
 						else break; //LiteralsFromPathFalsification.clear();
 					}
@@ -1756,12 +1768,27 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
     }
 }
 
+
+int Solver::todimacsLit(Lit l) {
+	int res = var(l) + 1;
+	return sign(l) ? -res : res; 
+}
+
 void Solver::printClause(FILE* f, Clause& c)
 {
     for (int i = 0; i < c.size(); i++)
-       fprintf(f, "%s%d ", sign(c[i]) ? "-" : "", var(c[i])+1);
+       fprintf(f, "%d ", todimacsLit(c[i]));
     fprintf(f, "0\n");
 }
+
+void Solver::printClause(FILE* f, vec<Lit>& v, std::string text)
+{
+	printf("%s\n", text);
+	for (int i = 0; i < v.size(); i++)
+		fprintf(f, "%d ", todimacsLit(v[i]));
+	fprintf(f, "0\n");
+}
+
 
 void Solver::CreateResolVertex(uint32_t uid)
 {
@@ -1864,10 +1891,6 @@ void Solver::GeticUnits(vec<int>& v) {	// ofer
 		v.push(c[0].x);
 	}	
 }
-
-
-
-
 
 
 ///  But it uses class Map which is multimap, which complicates it. Should be replaced with ordinary map.
