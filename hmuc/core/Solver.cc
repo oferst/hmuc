@@ -1473,11 +1473,8 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 // used for removing subsumed IC clauses. We want to remove them and their descendants, but if a 
 // descendant has yet another IC parent, we do not want to remove it, because we rely on a path
 // from ICs to the empty clause when using optimization pf-mode=3/pf-mode=4.
-
-void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {
-	//printf("%s ", __FUNCTION__);
-	resol.GetAllIcUids(setGood, cone);  // setGood = clauses that all their parents are not IC
-	//printf("setGood = %d, cone = %d\n", setGood.elems(), cone.size());
+void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {	
+	resol.GetNewRemaindersInCone(setGood, cone);  // setGood = clauses that all their parents are not IC	
 	resol.GetClausesCones(cone); // find all cones of the roots we started from
 	cancelUntil(0);
 	// cone contains all the clauses we want to remove
@@ -1586,6 +1583,10 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
 }
 
 
+// Attaches back all clauses in 'cone' (where the root is 'startUid'); 
+// Clauess that have no ic ancestors left, will be attached as remainder. 
+// All clauses are first removed (via removeClause) and then recreated, after possibly shrinking them based on info 
+// from dec. level 0. 
 void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
 {
     if (opt_bind_as_orig == 2)
@@ -1593,7 +1594,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
         vec<uint32_t> init(1);
         init[0] = startUid;
 		//printf("%s ", __FUNCTION__);
-        resol.GetAllIcUids(setGood, init); // setGood will now contain clauses that all their parents are not IC
+        resol.GetNewRemaindersInCone(setGood, init); // setGood will now contain clauses that all their parents are not IC
     }
 
     //resol.GetClausesCones(cone) - we don't need that because we pass the previous found set of nodes
@@ -1619,7 +1620,8 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
                 bool isSatisfied = false; 
                 for (int litId = 0; litId < c.size(); ++litId)
                 {
-                    if (value(c[litId]) == l_True)  // 'value' has information on level 0 only (because there was a 'cancelUntil(0)' after the run). 
+                    if (value(c[litId]) == l_True)  // 'value' has information on level 0 only (because there was 
+													// a 'cancelUntil(0)' after the run). 
                     {
                         isSatisfied = true; // the clause is satisfied at dec. level 0, we can discard it
                         break;
@@ -1671,7 +1673,7 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
 
     if (opt_bind_as_orig == 2)
     {		
-        resol.GetAllIcUids(setGood, cone); // setGood will now contain clauses that all their parents are not IC
+        resol.GetNewRemaindersInCone(setGood, cone); // setGood will now contain clauses that all their parents are not IC
 		//printf("setGood = %d, cone = %d ", setGood.elems(), cone.size());
         resol.GetClausesCones(cone);  // This adds to cone all its cones. 
 		//printf("cone = %d\n", cone.size());

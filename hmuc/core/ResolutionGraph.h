@@ -14,7 +14,7 @@ class Resol
 {
 public:
     vec<uint32_t> m_Children;
-    uint32_t m_nRefCount;
+    uint32_t m_nRefCount; // 1 + #children in the resolution graph. 
     union {
         uint32_t size;
         uint32_t parent;
@@ -179,7 +179,7 @@ public:
         return m_RA[m_UidToData[nUid].m_ResolRef].ParentsSize();
     }
 
-    void GetAllIcUids(Set<uint32_t>& good, vec<uint32_t>& start);
+    void GetNewRemaindersInCone(Set<uint32_t>& good, vec<uint32_t>& start);
 
     void GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath);
 
