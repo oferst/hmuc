@@ -759,11 +759,18 @@ end:	PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, true);
 
 	void CMinimalCore::testsat() {
 		vec<Lit> dummy;
-		int var = abs(1) - 1; // var = 1				
-		Lit as = mkLit(var); // as = -1		
+		int var1 = abs(1) - 1; // var = 1	
+		int var2 = abs(2) - 1; // var = 2	
+		int var8 = abs(8) - 1; // var = 8	
+		Lit BLM1 = mkLit(var1); // BLM 1 means assumption = -1		
+		Lit BLM2 = mkLit(var2); // BLM 2 means assumption = -2	
+		Lit BLM8 = mkLit(var8); // BLM 8 means assumption = -8	
 		m_Solver.nICtoRemove = 1;
 		m_Solver.test_mode = false;
-		m_Solver.LiteralsFromPathFalsification.push(as); // reminder: enter the negated assumption.
+		m_Solver.pf_zombie = false;
+		m_Solver.LiteralsFromPathFalsification.push(BLM1); // reminder: enter the negated assumption.
+		m_Solver.LiteralsFromPathFalsification.push(BLM2); // reminder: enter the negated assumption.
+		m_Solver.LiteralsFromPathFalsification.push(BLM8); // reminder: enter the negated assumption.
 		lbool res = ((Solver*)&m_Solver)->solveLimited(dummy);
 		printf("vars = %d\n", m_Solver.nVars());
 		if (res == l_True) printf("SAT\n");
