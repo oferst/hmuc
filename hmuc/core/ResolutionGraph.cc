@@ -50,14 +50,14 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
     }
 }
 
-void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
+void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& core, Set<uint32_t>& rombus)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
     int nParentsSize = resol.ParentsSize();
  
      if (nParentsSize == 0)
      {
-         allParents.push(nUid);
+         core.push(nUid);
          return;
      }
 
@@ -65,8 +65,8 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
 
      for (int nParentId = 0; nParentId < nParentsSize; ++nParentId)
      {
-         if (checked.insert(parents[nParentId]))
-            GetOriginalParentsUids(parents[nParentId], allParents, checked);
+         if (rombus.insert(parents[nParentId]))
+            GetOriginalParentsUids(parents[nParentId], core, rombus);
      }
  }
 
@@ -173,7 +173,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 	std::vector<uint32_t> vecCurrChecked;
 	bool firstTime = true;
 
-	// add children of all sets to be checked
+	// add children of all sets to be rombus
 
 	NewRemainders.add(start);
 	for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
@@ -205,7 +205,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 			{
 				if (!firstTime)
 					NewRemainders.insert(nUid);
-				// pass over all children and add them to be checked
+				// pass over all children and add them to be rombus
 				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
 				{
 					vecToCheck.push_back(resol.m_Children[nChild]);
@@ -243,7 +243,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
     vec<uint32_t> vecCurrChecked;
     bool firstTime = true;
 
-    // add children of all sets to be checked
+    // add children of all sets to be rombus
 
     NewRemainders.add(start);
     start.copyTo(vecCurrChecked);
@@ -274,7 +274,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
             {
                 if (!firstTime)
                     NewRemainders.insert(nUid);
-                // pass over all children and add them to be checked
+                // pass over all children and add them to be rombus
                 for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
                 {
                     vecToCheck.push(resol.m_Children[nChild]);

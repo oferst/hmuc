@@ -357,7 +357,7 @@ namespace Minisat
 		lbool result = l_Undef;
 		Set<uint32_t> setMuc;  // set of ICs that must be in the core
 		Set<uint32_t> moreMucClauses;
-		Set<uint32_t> emptyClauseCone;
+		Set<uint32_t> rombus; // the set of clauses on the path from the removed clause c, to the empty clause. 
 		vec<uint32_t> moreMucVec;
 		double time_after_initial_run;
 		double longestcall = 0;
@@ -410,8 +410,8 @@ namespace Minisat
 				{
 					// First get all the clauses in unsat core
 					if (m_Solver.verbosity == 1) printf("UNSAT (normal)\n");
-					emptyClauseCone.clear();
-					m_Solver.GetUnsatCore(vecUids, emptyClauseCone);
+					rombus.clear();
+					m_Solver.GetUnsatCore(vecUids, rombus);
 					// vecUids.removeDuplicated_();
 					// for each clause in vecUids check if it is ic
 					// and mark it as unknown. 
@@ -481,7 +481,7 @@ namespace Minisat
 					if (!opt_only_cone)
 						m_Solver.RemoveClauses(vecUidsToRemove);
 					else
-						m_Solver.RemoveEverythingNotInCone(emptyClauseCone, setMuc);
+						m_Solver.RemoveEverythingNotInCone(rombus, setMuc);
 
 				}
 				else {  // unsat, but contradiction was discovered when the assumptions were added.
