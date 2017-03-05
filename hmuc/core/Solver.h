@@ -237,9 +237,11 @@ public:
 	
 	int todimacsLit(Lit l);
 
-    void printClause(FILE* f, Clause& c);
-		
-	void printClause(FILE * f, vec<Lit>& v, std::string text="");	
+	void printClause(Clause & c, std::string text);
+	void printClause(vec<Lit>& v, std::string text);
+ //   void printClause(FILE* f, Clause& c);
+	//	
+	//void printClause(FILE * f, vec<Lit>& v, std::string text="");	
 
     template<class T>
     void printLits(FILE* f, const T& c)

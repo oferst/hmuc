@@ -28,6 +28,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <vector>
 #include <sstream>
 #include <algorithm> 
+#include<iostream>
+#include<string>
 using namespace Minisat;
 
 
@@ -470,19 +472,26 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
         return;
 
     seen[var(p)] = 1;
-
-    for (int i = trail.size()-1; i >= trail_lim[0]; i--){
+	std::cout << "+++++++++++++" << std::endl;
+    for (int i = trail.size()-1; i >= trail_lim[1]; i--){
         Var x = var(trail[i]);
+
+
         if (seen[x]){
-			printf("reason = ");
-			printClause(stdout,ca[reason(x)]);
+			std::cout << "----------" << std::endl << "curr var in trail: " << ((value(x) == l_False) ? "-" : "" )<< x + 1 << std::endl;
+			std::cout << "assign: " << ((value(x)==l_True) ) << std::endl;
+			std::cout << "level: " << level(x) << std::endl;
             if (reason(x) == CRef_Undef){
-                assert(level(x) > 0);
+				std::cout << "no known reason clause" << std::endl;
+                assert(level(x) > 1);
                 out_conflict.push(~trail[i]);
             }else{
+				printClause(ca[reason(x)], "reason");
+				if (ca[reason(x)].learnt())
+					std::cout << "LEARNT" << std::endl;
                 Clause& c = ca[reason(x)];
                 for (int j = 1; j < c.size(); j++)
-                    if (level(var(c[j])) > 0)
+                    if (level(var(c[j])) > 1)
                         seen[var(c[j])] = 1;
             }
             seen[x] = 0;
@@ -593,6 +602,12 @@ CRef Solver::propagate()
                         }
                         else
                         {
+							std::cout << "propagate " << todimacsLit(first) <<std::endl;
+							if (CRef_Undef != cr) {
+								printClause(ca[cr], "reason ");
+								//std::cout << "learnt " << ca[cr].learnt() << std::endl;
+							}
+
                             uncheckedEnqueue(first, cr);
                         }
                     }
@@ -626,7 +641,8 @@ CRef Solver::propagate()
 
     propagations += num_props;
     simpDB_props -= num_props;
-
+	if (CRef_Undef != confl)
+		printClause(ca[confl], "conflicting clause");
     return confl;
 }
 
@@ -846,6 +862,10 @@ bool Solver::pf_early_unsat_terminate() { // default is true
 |________________________________________________________________________________________________@*/
 lbool Solver::search(int nof_conflicts)
 {
+	std::cout << "All Assumptions: ";
+	for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i)
+		std::cout << todimacsLit(~LiteralsFromPathFalsification[i]) << " ";
+	std::cout << std:: endl;
     assert(ok);
     int         backtrack_level;
     int         conflictC = 0;
@@ -943,7 +963,7 @@ lbool Solver::search(int nof_conflicts)
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level, icParents);
 
-			printClause(stdout, learnt_clause, "learnt clause = "); // !!
+			printClause(learnt_clause, "learnt clause = "); // !!
 			printf("backtrack to %d\n", backtrack_level);
 
             if (opt_ic_as_dec && learnt_clause.size() > 1 && icParents.size() > 0 && !ca[confl].ic())
@@ -1023,7 +1043,7 @@ lbool Solver::search(int nof_conflicts)
                 {
                     resol.AddNewResolution(cl.uid(), cr, icParents);
                 }
-
+				std::cout << "asserting " << todimacsLit(learnt_clause[0]) << std::endl;
                 uncheckedEnqueue(learnt_clause[0], cr);
 //                fprintf(flog, "b - %d :", backtrack_level);
 //                printClause(flog, ca[cr]);
@@ -1090,7 +1110,7 @@ lbool Solver::search(int nof_conflicts)
 					}
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves                                                                     
 						vec<Lit> conflictingAssumptions;
-						analyzeFinal(p, conflictingAssumptions);
+						analyzeFinal(~p, conflictingAssumptions);
 						printf("conflictingAssumptions = ");
 						for (int i = 0; i < conflictingAssumptions.size(); ++i) printf("%d,", todimacsLit(conflictingAssumptions[i]));
 						printf("\n");
@@ -1112,6 +1132,7 @@ lbool Solver::search(int nof_conflicts)
 //			printf("next = %d\n", next);
             // Increase decision level and enqueue 'next'
             newDecisionLevel(conflictC);
+			std::cout << "decision "<< todimacsLit(next) << std::endl;
             uncheckedEnqueue(next);
         }
 #pragma endregion
@@ -1774,19 +1795,20 @@ int Solver::todimacsLit(Lit l) {
 	return sign(l) ? -res : res; 
 }
 
-void Solver::printClause(FILE* f, Clause& c)
+void Solver::printClause( Clause& c, std::string text)
 {
-    for (int i = 0; i < c.size(); i++)
-       fprintf(f, "%d ", todimacsLit(c[i]));
-    fprintf(f, "0\n");
+	std::cout << text << std::endl;
+	for (int i = 0; i < c.size(); i++)
+		std::cout << (todimacsLit(c[i])) << " ";
+	std::cout << "0" << std::endl;
 }
 
-void Solver::printClause(FILE* f, vec<Lit>& v, std::string text)
+void Solver::printClause( vec<Lit>& v, std::string text)
 {
-	printf("%s\n", text);
+	std::cout <<  text << std::endl;
 	for (int i = 0; i < v.size(); i++)
-		fprintf(f, "%d ", todimacsLit(v[i]));
-	fprintf(f, "0\n");
+		std::cout << (todimacsLit(v[i])) << " ";
+	std::cout << "0" << std::endl;
 }
 
 
