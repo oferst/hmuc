@@ -383,7 +383,7 @@ namespace Minisat
 		m_Occurs.growTo(m_Solver.nVars() << 1);
 		int nIteration = 0;		
 		for (; true; ++nIteration)
-		{		
+		{				
 			if (!m_bIcInConfl) {			
 				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	

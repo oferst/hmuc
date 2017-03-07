@@ -866,6 +866,10 @@ lbool Solver::search(int nof_conflicts)
             // Simplify the set of problem clauses:
             if (!simplify())  
             {
+				// if we got here, it means that we found a contradiction regarless of the ICs, 
+				// which means it's over. We clear parents_of_empty_clause because there is 
+				// one more call to getUnsatcore which uses it.
+				parents_of_empty_clause.clear(); // hack. 
                 return l_False;
             }
 
@@ -1408,18 +1412,15 @@ void Solver::garbageCollect()
 
 void Solver::CreateUnsatCore(CRef ref)
 {
-    assert (decisionLevel() == 1);
-        // if (decisionLevel() == 0) return;
-
+    assert (decisionLevel() == 1);	
+	
     m_bConeRelevant = true;
     CRef confl = ref;
     int index   = trail.size() - 1;
     Var v = var_Undef;
     int nSeen = 0;
-    resol.m_EmptyClauseParents.clear();
-#ifdef NewParents	
 	parents_of_empty_clause.clear();
-#endif
+	resol.m_EmptyClauseParents.clear();
 
     for (;;) 
     {
@@ -1427,8 +1428,7 @@ void Solver::CreateUnsatCore(CRef ref)
         Clause& c = ca[confl];
 
         if (c.ic())
-        {
-            icParents.push(c.uid());
+        {            
 #ifdef NewParents
 			parents_of_empty_clause.push(c.uid());
 #endif
@@ -1463,10 +1463,10 @@ void Solver::CreateUnsatCore(CRef ref)
 void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 {
     core.clear();
-    for (int nInd = 0; nInd < icParents.size(); ++nInd)
+    for (int nInd = 0; nInd < parents_of_empty_clause.size(); ++nInd)
     {
-        if (emptyClauseCone.insert(icParents[nInd]))
-            resol.GetOriginalParentsUids(icParents[nInd], core, emptyClauseCone);
+        if (emptyClauseCone.insert(parents_of_empty_clause[nInd]))
+            resol.GetOriginalParentsUids(parents_of_empty_clause[nInd], core, emptyClauseCone);
     }
 }
 
