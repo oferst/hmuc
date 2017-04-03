@@ -598,8 +598,6 @@ namespace Minisat
 			else
 			{
 				// interrupt
-				printf("interrupt");
-				// the following is necessary for the statistics that are printed after interrupt. 
 				if (nIteration != 0)
 					vecCurrentUnknown.swap(vecNextUnknown);
 				else
@@ -611,7 +609,7 @@ namespace Minisat
 					}
 				}
 
-				break; // same as goto end:
+				break;
 			}
 #pragma endregion
 
@@ -657,7 +655,7 @@ namespace Minisat
 				}
 
 				cr = m_Solver.resol.GetClauseRef(nIcForRemove);
-				if (cr != CRef_Undef) break;  // if == Cref_Undef, then this clause was removed from the resolution graph (by simplification). 
+				if (cr != CRef_Undef) break;  // if == Cref_Undef, then this clause was removed from the resolution graph (by rotation?). 
 
 				// the clause we selected is trivially satisfied (i.e., there is a remainder unit clause that subsumes it)				
 				vecUidsToRemove.push(nIcForRemove);
@@ -694,16 +692,13 @@ namespace Minisat
 				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration. Note that lpf_inprocess is not activated if !m_bConeRelevant		
 			}
 			
-			// we now remove learnt clauses that are descendants of clauses that were removed by simplify() because they 
-			// were trivially satisfied by units in the remainder. Hence, the descendant clauses are still implied by the 
-			// formula, which means that the removal here is not important for correctness; perhaps it impacts performance. 
-			// TODO: test if this is changing anything performance-wise. 
-			if (vecUidsToRemove.size() > 0) {				
+			// we now remove clauses that are trivially satisfied by units in the remainder, and their decendants. 
+			if (vecUidsToRemove.size() > 0) {
 				if (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess)
 					m_Solver.RemoveClauses_withoutICparents(vecUidsToRemove); // we need to maintain clauses from IC's to the empty clause with these optimizations. 
 				else m_Solver.RemoveClauses(vecUidsToRemove); // remove all their cones. 
 				vecUidsToRemove.clear();
-			}			
+			}
 
 			vecUidsToRemove.push(nIcForRemove);
 			m_Solver.UnbindClauses(vecUidsToRemove); // removes cone(nIcForRemove);

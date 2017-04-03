@@ -26,16 +26,12 @@ void CResolutionGraph::AddNewResolution
     m_UidToData[nNewClauseId].m_ResolRef = refResol;
 }
 
-// subtracts 1 from reference of nUid. If ref = 0, it means that both nUid and its children 
-// were removed from the resolution graph, so we notify the parents of nUid that this child is now removed, 
-// by calling this function recursively. If this was the last child of the parent, then this will continue to propagate. 
-// So Decreasereference may propagate upwards.
 void CResolutionGraph::DecreaseReference(uint32_t nUid)
 {
     CRef& ref = m_UidToData[nUid].m_ResolRef;
     Resol& res = m_RA[ref];
     --res.m_nRefCount;
-    if (res.m_nRefCount == 0) // no more children
+    if (res.m_nRefCount == 0)
     {
         // first decrease reference count for all the parents
         uint32_t* parents = res.Parents();
@@ -50,14 +46,14 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid)
     }
 }
 
-void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& core, Set<uint32_t>& rombus)
+void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
     int nParentsSize = resol.ParentsSize();
  
      if (nParentsSize == 0)
      {
-         core.push(nUid);
+         allParents.push(nUid);
          return;
      }
 
@@ -65,8 +61,8 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& core
 
      for (int nParentId = 0; nParentId < nParentsSize; ++nParentId)
      {
-         if (rombus.insert(parents[nParentId]))
-            GetOriginalParentsUids(parents[nParentId], core, rombus);
+         if (checked.insert(parents[nParentId]))
+            GetOriginalParentsUids(parents[nParentId], allParents, checked);
      }
  }
 
@@ -164,18 +160,17 @@ void CResolutionGraph::Shrink()
 #define SORT
 #ifdef SORT
 
-
 // assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals, after 'SAT' case), 
-// then NewRemainders will be filled with all their descendants that now do not have an IC ancestor. 
-void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start)
+// then setGood will be filled with all their descendants that now do not have an IC ancestor. 
+void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
 {
 	std::vector<uint32_t> vecToCheck;
 	std::vector<uint32_t> vecCurrChecked;
 	bool firstTime = true;
 
-	// add children of all sets to be rombus
+	// add children of all sets to be checked
 
-	NewRemainders.add(start);
+	setGood.add(start);
 	for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
 	
 	while (vecCurrChecked.size() > 0)
@@ -183,7 +178,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 		for (int i = 0; i < vecCurrChecked.size(); ++i)
 		{
 			int nUid = vecCurrChecked[i];
-			if (!firstTime && NewRemainders.has(nUid))
+			if (!firstTime && setGood.has(nUid))
 				continue;
 
 			CRef ref = m_UidToData[nUid].m_ResolRef;
@@ -197,15 +192,15 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 			uint32_t* parents = resol.Parents();
 			for (; j < nParents; ++j)
 			{
-				if (!NewRemainders.has(parents[j]))
+				if (!setGood.has(parents[j]))
 					break;
 			}
 
 			if (j == nParents) // all parents are 'good',i.e., not ics.
 			{
 				if (!firstTime)
-					NewRemainders.insert(nUid);
-				// pass over all children and add them to be rombus
+					setGood.insert(nUid);
+				// pass over all children and add them to be checked
 				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
 				{
 					vecToCheck.push_back(resol.m_Children[nChild]);
@@ -233,26 +228,26 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 		vecToCheck.swap(vecCurrChecked);
 		vecToCheck.clear();
 	}
-// print:	printf("setgood.size = %d, start.size = %d\n", NewRemainders.elems(), start.size());
+// print:	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
 }
 
 #else
-void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start)
+void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
 {
     vec<uint32_t> vecToCheck;
     vec<uint32_t> vecCurrChecked;
     bool firstTime = true;
 
-    // add children of all sets to be rombus
+    // add children of all sets to be checked
 
-    NewRemainders.add(start);
+    setGood.add(start);
     start.copyTo(vecCurrChecked);
     while (vecCurrChecked.size() > 0)
     {
         for (int i = 0; i < vecCurrChecked.size(); ++i)
         {
             int nUid = vecCurrChecked[i];
-            if (!firstTime && NewRemainders.has(nUid))
+            if (!firstTime && setGood.has(nUid))
                 continue;
 
             CRef ref = m_UidToData[nUid].m_ResolRef;
@@ -266,15 +261,15 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
             uint32_t* parents = resol.Parents();
             for (; j < nParents; ++j)
             {
-                if (!NewRemainders.has(parents[j]))
+                if (!setGood.has(parents[j]))
                     break;
             }
 
             if (j == nParents) // all parents are 'good',i.e., not ics.
             {
                 if (!firstTime)
-                    NewRemainders.insert(nUid);
-                // pass over all children and add them to be rombus
+                    setGood.insert(nUid);
+                // pass over all children and add them to be checked
                 for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
                 {
                     vecToCheck.push(resol.m_Children[nChild]);
@@ -288,7 +283,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 		vecToCheck.swap(vecCurrChecked);
         vecToCheck.clear();
     }
-//	printf("setgood.size = %d, start.size = %d\n", NewRemainders.elems(), start.size());
+//	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
 }
 #endif
 
