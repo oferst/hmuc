@@ -621,14 +621,11 @@ namespace Minisat
 			// searching for the next clause c to attempt removing			
 			vecUidsToRemove.clear(); 
 			CRef cr;
-			while (true)  
-			{
-				switch ((unsigned)opt_remove_order)
-				{
+			while (true) {
+				switch ((unsigned)opt_remove_order) {
 				case 4: // here we first try to remove a clause that interrupted rotation (when we have two unsat clauses instead of 1)
 					nIcForRemove = CRef_Undef;
-					while (nIcForRemove == CRef_Undef && m_ClausesForRemoval.size() > 0)
-					{
+					while (nIcForRemove == CRef_Undef && m_ClausesForRemoval.size() > 0) {
 						nIcForRemove = m_ClausesForRemoval.last();
 						m_ClausesForRemoval.pop();
 						if (!find(vecNextUnknown, nIcForRemove))
@@ -636,9 +633,7 @@ namespace Minisat
 					}
 
 					if (nIcForRemove != CRef_Undef)
-					{
 						break;  // note the conditional break. If we did not find such a clause (marked by rotation as interrupting), we continue to the '2' strategy below. 
-					}
 				case 2:
 					nIcForRemove = vecNextUnknown.last();
 					break;
@@ -648,10 +643,8 @@ namespace Minisat
 				case 0:
 				case 1:
 					nIcForRemove = CRef_Undef;
-					while (nIcForRemove == CRef_Undef)
-					{
+					while (nIcForRemove == CRef_Undef) {
 						nIcForRemove = m_ClauseHeap.removeMin();
-
 						if (setMuc.has(nIcForRemove) || !find(vecNextUnknown, nIcForRemove))
 							nIcForRemove = CRef_Undef;
 					}
@@ -685,8 +678,7 @@ namespace Minisat
 				// now we mine for backbone literals, via PF_get_assumptions.
 				// We activate it in all modes except lpf_inprocess because of the option to 
 				// delay activation of lpf_inprocess via lpf_block
-				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)  
-				{				
+				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf) {				
 					double before_time = cpuTime();
 					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
 					if (m_Solver.verbosity == 1) printf("(between iterations) assumption literals = %d\n", addLiterals);

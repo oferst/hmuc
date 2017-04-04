@@ -1081,6 +1081,14 @@ lbool Solver::search(int nof_conflicts)
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves                                                                     
 						vec<Lit> conflictingAssumptions;
 						analyzeFinal(~p, conflictingAssumptions);
+						//oferg: at this point, we have an assignment in conflict with one or more assumption (which, recall, are LPF literals that are inferred from the original formula.
+						//oferg: parents_of_empty_clause shoould contain the ic clauses that were used to resolve the empty clause in a previous iteration. From it we should extract all 
+						//the clauses that are reacable from c (the nIcToRemove from the previous LPF extraction, where LiteralsFromPathFalsification was updated - maybe do it while running LPF extraction? 
+						//Maybe someone did it before?)
+
+
+
+
 
 
 
@@ -1871,40 +1879,39 @@ void Solver::GeticUnits(vec<int>& v) {	// ofer
 
 
 ///  But it uses class Map which is multimap, which complicates it. Should be replaced with ordinary map.
-bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) // uid is either c itself, or the clause at the bottom of a chain
-{
-int current_id,m;
+bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) { // uid is either c itself, or the clause at the bottom of a chain
+	int currUid,m;
 	std::queue<uint32_t> q; // compute number of parents in the cone of c
 	int maxQ = 0;
 	int initialSpan = 0;
 	q.push(uid);	 
 	bool first = true;
 
-	while (!q.empty())
-	{	
+	while (!q.empty()) {	
 		if (opt_lpf_cutoff) {	
 			maxQ = std::max((int)q.size(), maxQ);
-			if (maxQ > 500) return false;  // magic cutoff number
+			if (maxQ > 500) 
+				return false;  // magic cutoff number
 		}
-		current_id = q.front();
+		currUid = q.front();
 		q.pop();
-		CRef curr_ref = resolGraph.GetResolRef(current_id);
-		assert(curr_ref != CRef_Undef);
-		const Resol& r = resolGraph.GetResol(curr_ref);
+		CRef currResRef = resolGraph.GetResolRef(currUid);
+		assert(currResRef != CRef_Undef);
+		const Resol& r = resolGraph.GetResol(currResRef);
 
-		for (m = 0 ; m < r.m_Children.size() ; m++)
-		{
+		for (m = 0 ; m < r.m_Children.size() ; m++) {
 			CRef childUid = r.m_Children[m];
-			if (!resolGraph.ValidUid(childUid)) continue;
+			if (!resolGraph.ValidUid(childUid)) 
+				continue;
 			CRef childClauseRef = resolGraph.GetClauseRef(childUid);	
-			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef])) continue;
-			if (first && opt_lpf_cutoff) {
-				++initialSpan;
-				if (initialSpan > 400) return false;  // magic cutoff number			
-			}
-			if (mapRealParents.has(r.m_Children[m])) ++mapRealParents[r.m_Children[m]];	
-			else
-			{
+			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  
+				satisfied(ca[childClauseRef])) 
+				continue;
+			if (first && opt_lpf_cutoff && ++initialSpan > 400) 
+				return false;  // magic cutoff number			
+			if (mapRealParents.has(r.m_Children[m])) 
+				++mapRealParents[r.m_Children[m]];	
+			else {
 				q.push(r.m_Children[m]);  
 				mapRealParents.insert(r.m_Children[m], 1);
 			}			
@@ -2095,11 +2102,8 @@ void Solver::LPF_get_assumptions(
 	assert(parents_of_empty_clause.size()>0); // empty clause always has parents.
 	
 #pragma region compute_Top_Tclause
-
-	vec<Lit>* Top_TClause = new vec<Lit>(); 
     CRef c = resolGraph.GetClauseRef(uid_root);  // the clause reference of c
-    Clause& cc = ca[c];
-	// printfVec(cc, "removing (c) ");
+    Clause& cc = ca[c];							//  c itself
 
 	if ((pf_mode == lpf_inprocess) && satisfied(cc)) {
 		if (verbosity == 1) printf("root is satisfied\n");
@@ -2107,26 +2111,21 @@ void Solver::LPF_get_assumptions(
 	}
 	
 	// adding root to Top_TClause. 
-	
-	for (int i = 0; i < cc.size(); ++i)	
-		(*Top_TClause).push(cc[i]);
+	vec<Lit>* Top_TClause = new vec<Lit>(); 
+	for (int i = 0; i < cc.size(); ++i)	 //we can skip this code if 'uid_root' will be also added to 'uidvec_prefix'
+		(*Top_TClause).push(cc[i]); 
 
     // adding clauses in the unit-chain to Top_Tclause. 
 	vec<uint32_t> uidvec_prefix; 	
 	resolGraph.GetTillMultiChild(uid_root, uidvec_prefix);
-    uint32_t last_in_chain;
-	for (int i = 0; i < uidvec_prefix.size(); ++i)  // for each clause in the prefix
-	{
+	for (int i = 0; i < uidvec_prefix.size(); ++i) { // for each clause in the prefix, add it's literals to Top_TClause
 		CRef cr = resolGraph.GetClauseRef(uidvec_prefix[i]);
-		if (cr != CRef_Undef)
-		{    
+		if (cr != CRef_Undef) {    
 			Clause& cl = ca[cr];
-			for (int i = 0; i < cl.size(); ++i)
-			{
+			for (int i = 0; i < cl.size(); ++i) {
 				Lit l = cl[i];				
-				if (pf_mode == lpf_inprocess) {
-					if (value(l) == l_True) return;
-				}
+				if (pf_mode == lpf_inprocess && value(l) == l_True)
+					return;
 				(*Top_TClause).push(l);
 			}	
 		}
@@ -2137,50 +2136,47 @@ void Solver::LPF_get_assumptions(
 		uid_root = uidvec_prefix.last(); 
 	}
 	else {        
-        ca[resolGraph.GetClauseRef(uid_root)].copyTo(*Top_TClause);        
+        ca[resolGraph.GetClauseRef(uid_root)].copyTo(*Top_TClause); //oferg: It seems that we are adding the original root clause's literals here again.
 	}    	
 #pragma endregion
 
-    bool proceed = CountParents(map_cls_parentsCount , uid_root);
+    bool proceed = CountParents(map_cls_parentsCount , uid_root); //counts the parents in c's rhombus
     if (opt_lpf_cutoff && !proceed) { // add counter of parents in the cone. Returns false if we predict there is no point to spend too much time on it. 
 		Top_TClause->copyTo(assump_literals);
 		if (verbosity == 1) printf("cutoff\n");
 		return;
 	}
-	
 	sort(*Top_TClause);
 	// from hereon uid_root is the bottom clause in the unit-chain, and its Tclause is the union of the clauses in the chain.
 	// printfVec(*Top_TClause, "Top clause");
 	map_cls_to_Tclause[uid_root] = new vec<Lit>();
 	
 	queue.push(uid_root);
-	while (!queue.empty())
-	{
+	while (!queue.empty()) {
 		uint32_t curr_id = queue.front();
 		queue.pop();		
 		CRef cref = resolGraph.GetResolRef(curr_id);
 		assert(cref != CRef_Undef); 
 		Resol& res = resolGraph.GetResol(cref);
 		int children_num = res.m_Children.size();
-		if (children_num == 0)  continue;
+		if (children_num == 0)  //oferg: a parent of empty clause //oferg: seems to be redundent, the loop won't be performed if the number of children is 0, and it's the last thing done in that iteration anyway
+			continue;	//oferg: we can mark these parents of empty clause here, so that if we 
+						//reconstruct a future proof using this proof (in the case we proved unsat using 
+						//backbone literal\s), we could start an upwards rhombus traversal from these clauses only
 		peakQueueSize = std::max((int)queue.size(),  peakQueueSize);
-		//	printfVec(ca[curr_id], "curr_id");
 		
-		for(int i = 0; i < children_num; ++i)
-		{				
+		for(int i = 0; i < children_num; ++i) {				
 			CRef childUid = res.m_Children[i];
-			if (!resolGraph.ValidUid(childUid)) continue;
+			if (!resolGraph.ValidUid(childUid)) 
+				continue;
 			CRef childClauseRef = resolGraph.GetClauseRef(childUid);			
-			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef]))					
-			{				
-//				printfVec(ca[childClauseRef], "removed by lpf_inprocess");				
+			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef]))	{							
 				continue; // lpf_inprocess. satisfied refers to current assignment. So this is relevant only if we call this function after at least one propagation in search.
 			}					
 			--map_cls_parentsCount[childUid]; // reducing parents count	
 
 			// intersection with parents
-			if (map_cls_to_Tclause.find(childUid) == map_cls_to_Tclause.end()) // first time we visit the clause
-            {
+			if (map_cls_to_Tclause.find(childUid) == map_cls_to_Tclause.end()) {// first time we visit the clause
 				assert(map_cls_to_Tclause.count(curr_id)>0);
                 map_cls_to_Tclause[childUid] = new vec<Lit>();
 				map_cls_to_Tclause[curr_id]->copyTo(*map_cls_to_Tclause[childUid]);
@@ -2193,8 +2189,7 @@ void Solver::LPF_get_assumptions(
 
 
 			// done with parents. Now we should add the clause's literals to its Tclause. 
-			if(map_cls_parentsCount[childUid] == 0)  
-			{ 
+			if(map_cls_parentsCount[childUid] == 0) { 
 				vec<Lit> tmp_union;
 				vec<Lit> temp_lit;
 				if (childClauseRef != CRef_Undef) {  // in case that clause is erased, we do not have its literals to add to its Tclause. 
@@ -2209,8 +2204,6 @@ void Solver::LPF_get_assumptions(
 			}
 		}
 	}    
-	//printf(" %d", peakQueueSize);
-	//if (prefix) printf("Top_TClause: (all one chain)\n");
 	
 	// we now intersect the Tclause-s of the parents of the empty clause	
 	vec<Lit> tmp, res;

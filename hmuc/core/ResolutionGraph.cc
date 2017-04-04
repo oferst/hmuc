@@ -123,23 +123,14 @@ void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
     }
 }
 
-void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath)
-{
+void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath) {
     uint32_t nextUid = nStartUid;
-
-    while (nextUid != CRef_Undef)
-    {
+    while (nextUid != CRef_Undef) {
         if (m_UidToData[nextUid].m_ResolRef == CRef_Undef)
-        {
             return;
-        }
-        Resol& resol = m_RA[m_UidToData[nextUid].m_ResolRef];
-
+		Resol& resol = GetResol(GetResolRef(nextUid)); // m_RA[m_UidToData[nextUid].m_ResolRef];
         if (resol.m_Children.size() != 1 || m_EmptyClauseParents.has(nextUid))
-        {
-            return;
-        }        
-
+            return;    
         nextUid = resol.m_Children[0];
         uniquePath.push(nextUid);
     }
