@@ -31,9 +31,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <stdint.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
 // temporary, for testing a simplification of the code. 
 #define NewParents
-
 namespace Minisat {
 
 //=================================================================================================
@@ -61,7 +61,7 @@ public:
     void UnbindClauses(vec<uint32_t>& cone);
     CRef GetClauseIndFromUid(uint32_t uid) const
     {
-        return resol.GetClauseRef(uid);
+        return resolGraph.GetClauseRef(uid);
     }
 
     Clause& GetClause(CRef ind) 
@@ -97,6 +97,9 @@ public:
 #endif
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
+
+
+
 	bool pf_active;
 	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
 	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 
@@ -219,7 +222,7 @@ public:
     void CreateResolVertex(uint32_t uid);
     void ResetOk();
     int PF_get_assumptions(uint32_t uid, CRef cref);
-	vec<Lit>    LiteralsFromPathFalsification;
+	vec<Lit> LiteralsFromPathFalsification; //oferg: S(emptyClause) - from last LPF call, these are the literals found to be inferred from the formula
 	int count_true_assump;
 	int count_assump;
 	// LPF
@@ -231,7 +234,7 @@ public:
 	bool lpf_compute_inprocess();
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
-	void ResGraph2dotty(uint32_t, vec<uint32_t>&, vec<Lit>&  );
+	void ResGraph2dotty(vec<uint32_t>&, vec<uint32_t>&, vec<Lit>& , const char*);
 	
 	//________________________________________________________________________________________________
 	
@@ -250,10 +253,10 @@ public:
             fprintf(f, "%s%d ", sign(c[i]) ? "-" : "", var(c[i])+1);
     }
 
-	CResolutionGraph resol; 
+	CResolutionGraph resolGraph; 
 
 protected:
-    void CreateUnsatCore(CRef ref);
+    void findConflictICReasons(CRef ref);
     
     vec<CRef> icUnitClauses;
 	

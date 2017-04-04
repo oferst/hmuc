@@ -406,8 +406,8 @@ namespace Minisat
 #pragma region UNSAT_case
 
 			if (result == l_False) {
-				if(!m_Solver.m_bUnsatByPathFalsification) // not using backbones (assumptions)
-				{
+				if(!m_Solver.m_bUnsatByPathFalsification) { // not using backbones (assumptions)
+				
 					// First get all the clauses in unsat core
 					if (m_Solver.verbosity == 1) printf("UNSAT (normal)\n");
 					rombus.clear();
@@ -480,8 +480,12 @@ namespace Minisat
 					// remove their cones				
 					if (!opt_only_cone)
 						m_Solver.RemoveClauses(vecUidsToRemove);
-					else
+					else {
 						m_Solver.RemoveEverythingNotInCone(rombus, setMuc);
+						//printf("dotty iter %d\n", nIteration);
+						//m_Solver.ResGraph2dotty(vecUids, m_Solver.parents_of_empty_clause, assumptions, ("c:\\temp\\iter" + std::to_string(nIteration) + ".dot").c_str());
+
+					}
 
 				}
 				else {  // unsat, but contradiction was discovered when the assumptions were added.
@@ -654,7 +658,7 @@ namespace Minisat
 					break;
 				}
 
-				cr = m_Solver.resol.GetClauseRef(nIcForRemove);
+				cr = m_Solver.resolGraph.GetClauseRef(nIcForRemove);
 				if (cr != CRef_Undef) break;  // if == Cref_Undef, then this clause was removed from the resolution graph (by rotation?). 
 
 				// the clause we selected is trivially satisfied (i.e., there is a remainder unit clause that subsumes it)				
@@ -673,7 +677,7 @@ namespace Minisat
 #ifndef NewParents				
 				if ((result == l_False) && m_Solver.m_bConeRelevant && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
 					m_Solver.icParents.copyTo(m_Solver.prev_icParents);
-					// m_Solver.resol.m_EmptyClauseParents.copyTo()
+					// m_Solver.resolGraph.m_EmptyClauseParents.copyTo()
 					if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);
 				}
 #endif
@@ -752,28 +756,28 @@ end:	PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, true);
 		return result;
 	}
 
-	void CMinimalCore::testsat() {
-		vec<Lit> dummy;
-		int var1 = abs(1) - 1; // var = 1	
-		int var2 = abs(2) - 1; // var = 2	
-		int var8 = abs(8) - 1; // var = 8	
-		Lit BLM1 = mkLit(var1); // BLM 1 means assumption = -1		
-		Lit BLM2 = mkLit(var2); // BLM 2 means assumption = -2	
-		Lit BLM8 = mkLit(var8); // BLM 8 means assumption = -8	
-		m_Solver.nICtoRemove = 1;
-		m_Solver.test_mode = false;
-		m_Solver.pf_zombie = false;
-		m_Solver.LiteralsFromPathFalsification.push(BLM1); // reminder: enter the negated assumption.
-		m_Solver.LiteralsFromPathFalsification.push(BLM2); // reminder: enter the negated assumption.
-		m_Solver.LiteralsFromPathFalsification.push(BLM8); // reminder: enter the negated assumption.
-		lbool res = ((Solver*)&m_Solver)->solveLimited(dummy);
-		printf("vars = %d\n", m_Solver.nVars());
-		if (res == l_True) printf("SAT\n");
-		else if (res == l_False) printf("UNSAT\n");
-		else printf("unknown\n");
+	//void CMinimalCore::testsat() {
+	//	vec<Lit> dummy;
+	//	int var1 = abs(1) - 1; // var = 1	
+	//	int var2 = abs(2) - 1; // var = 2	
+	//	int var8 = abs(8) - 1; // var = 8	
+	//	Lit BLM1 = mkLit(var1); // BLM 1 means assumption = -1		
+	//	Lit BLM2 = mkLit(var2); // BLM 2 means assumption = -2	
+	//	Lit BLM8 = mkLit(var8); // BLM 8 means assumption = -8	
+	//	m_Solver.nICtoRemove = 1;
+	//	m_Solver.test_mode = false;
+	//	m_Solver.pf_zombie = false;
+	//	m_Solver.LiteralsFromPathFalsification.push(BLM1); // reminder: enter the negated assumption.
+	//	m_Solver.LiteralsFromPathFalsification.push(BLM2); // reminder: enter the negated assumption.
+	//	m_Solver.LiteralsFromPathFalsification.push(BLM8); // reminder: enter the negated assumption.
+	//	lbool res = ((Solver*)&m_Solver)->solveLimited(dummy);
+	//	printf("vars = %d\n", m_Solver.nVars());
+	//	if (res == l_True) printf("SAT\n");
+	//	else if (res == l_False) printf("UNSAT\n");
+	//	else printf("unknown\n");
 
-		exit(0);
-	}
+	//	exit(0);
+	//}
 
 
 }

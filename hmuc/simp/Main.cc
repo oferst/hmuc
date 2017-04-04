@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 
 
 		// !!test
-		coreManager.testsat();
+		//coreManager.testsat();
 		
 		
 		lbool ret = coreManager.Solve(pre);

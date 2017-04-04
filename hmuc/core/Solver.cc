@@ -204,7 +204,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* parents)
 
     if (ic)
     {
-        resol.AddNewResolution(ca[cr].uid(), cr, (parents == NULL) ? icParents : *parents);
+        resolGraph.AddNewResolution(ca[cr].uid(), cr, (parents == NULL) ? icParents : *parents);
     }
 
     return true;
@@ -241,7 +241,7 @@ void Solver::removeClause(CRef cr) {
     // Don't leave pointers to freed memory!
     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
     if (c.ic() && c.mark() != 2)  // mark(2) means that we want to keep it on the resolution graph. 
-        resol.DeleteClause(c.uid());
+        resolGraph.DeleteClause(c.uid());
     c.mark(1); 
     ca.free(cr);
 }
@@ -463,32 +463,20 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
 |    Calculates the (possibly empty) set of assumptions that led to the assignment of 'p', and
 |    stores the result in 'out_conflict'.
 |________________________________________________________________________________________________@*/
-void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
-{
+void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict) {
     out_conflict.clear();
     out_conflict.push(p);
-
     if (decisionLevel() == 0)
         return;
-
     seen[var(p)] = 1;
-	std::cout << "+++++++++++++" << std::endl;
-    for (int i = trail.size()-1; i >= trail_lim[1]; i--){
+    for (int i = trail.size()-1; i >= trail_lim[1]; i--) {
         Var x = var(trail[i]);
-
-
-        if (seen[x]){
-			std::cout << "----------" << std::endl << "curr var in trail: " << ((value(x) == l_False) ? "-" : "" )<< x + 1 << std::endl;
-			std::cout << "assign: " << ((value(x)==l_True) ) << std::endl;
-			std::cout << "level: " << level(x) << std::endl;
-            if (reason(x) == CRef_Undef){
-				std::cout << "no known reason clause" << std::endl;
+        if (seen[x]) {
+            if (reason(x) == CRef_Undef) {
                 assert(level(x) > 1);
                 out_conflict.push(~trail[i]);
-            }else{
-				printClause(ca[reason(x)], "reason");
-				if (ca[reason(x)].learnt())
-					std::cout << "LEARNT" << std::endl;
+            } 
+			else {
                 Clause& c = ca[reason(x)];
                 for (int j = 1; j < c.size(); j++)
                     if (level(var(c[j])) > 1)
@@ -588,7 +576,7 @@ CRef Solver::propagate()
                         ca[newCr].uid() = uid;
                         ca[cr].mark(2);
                         removeClause(cr);
-                        resol.UpdateInd(uid, newCr);
+                        resolGraph.UpdateInd(uid, newCr);
                         icUnitClauses.push(newCr);
                     }
                     else
@@ -601,15 +589,7 @@ CRef Solver::propagate()
                             pair.data = cr;
                         }
                         else
-                        {
-							std::cout << "propagate " << todimacsLit(first) <<std::endl;
-							if (CRef_Undef != cr) {
-								printClause(ca[cr], "reason ");
-								//std::cout << "learnt " << ca[cr].learnt() << std::endl;
-							}
-
                             uncheckedEnqueue(first, cr);
-                        }
                     }
                 }
 
@@ -641,8 +621,6 @@ CRef Solver::propagate()
 
     propagations += num_props;
     simpDB_props -= num_props;
-	if (CRef_Undef != confl)
-		printClause(ca[confl], "conflicting clause");
     return confl;
 }
 
@@ -730,7 +708,7 @@ void Solver::reduceDB()
 	learnts.shrink(i - j);
 #endif
     checkGarbage();
-    resol.CheckGarbage();
+    resolGraph.CheckGarbage();
 }
 
 #ifdef LEARNT
@@ -809,7 +787,7 @@ bool Solver::simplify()
       removeSatisfied(clauses);
     removeSatisfied(icUnitClauses);
     checkGarbage();
-    resol.CheckGarbage();
+    resolGraph.CheckGarbage();
     rebuildOrderHeap();
 
     simpDB_assigns = nAssigns();
@@ -862,10 +840,10 @@ bool Solver::pf_early_unsat_terminate() { // default is true
 |________________________________________________________________________________________________@*/
 lbool Solver::search(int nof_conflicts)
 {
-	std::cout << "All Assumptions: ";
-	for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i)
-		std::cout << todimacsLit(~LiteralsFromPathFalsification[i]) << " ";
-	std::cout << std:: endl;
+	//std::cout << "All Assumptions: ";
+	//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i)
+	//	std::cout << todimacsLit(~LiteralsFromPathFalsification[i]) << " ";
+	//std::cout << std:: endl;
     assert(ok);
     int         backtrack_level;
     int         conflictC = 0;
@@ -895,7 +873,7 @@ lbool Solver::search(int nof_conflicts)
                 return l_False;
             }
 
-			if (!test_mode && !pf_zombie && resol.GetClauseRef(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
+			if (!test_mode && !pf_zombie && resolGraph.GetClauseRef(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
 				if (verbosity == 1) printf("root removed by simplify. Early unsat\n");
 				if (pf_early_unsat_terminate()) return l_False;				
 			}
@@ -937,6 +915,7 @@ lbool Solver::search(int nof_conflicts)
 		   )			 
 		{
 			if (lpf_compute_inprocess() == false) return l_False; // early termination
+			//else printClause(LiteralsFromPathFalsification, "lpf computed");
 		}
 		
 
@@ -949,13 +928,13 @@ lbool Solver::search(int nof_conflicts)
 		
 
 #pragma region conflict_case
-		if (confl != CRef_Undef){
+		if (confl != CRef_Undef) {
             // CONFLICT
 			
             conflicts++; conflictC++;
-            if (decisionLevel() == 1) // a core based on interesting constraints. 
-            {
-                CreateUnsatCore(confl);
+            if (decisionLevel() == 1) { // a core based on interesting constraints. 
+            
+                findConflictICReasons(confl);
                 return l_False;
             }
 
@@ -966,9 +945,6 @@ lbool Solver::search(int nof_conflicts)
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level, icParents);
-
-			printClause(learnt_clause, "learnt clause = "); // !!
-			printf("backtrack to %d\n", backtrack_level);
 
             if (opt_ic_as_dec && learnt_clause.size() > 1 && icParents.size() > 0 && !ca[confl].ic())
             {
@@ -1006,52 +982,42 @@ lbool Solver::search(int nof_conflicts)
                 newDecisionLevel(conflictC);
                 uncheckedEnqueue(opt_dec_l1 ? l : learnt_clause[0]);
             }
-            else
-            {
-            if (learnt_clause.size() == 1)
-            {
-//                fprintf(flog, "b - %d : %d", backtrack_level, var(learnt_clause[0]) + 1);
-
-                if (icParents.size() > 0)
-                {
-                    cancelUntil(1);
-                    CRef cr = ca.alloc(learnt_clause, false, true);
-                    icUnitClauses.push(cr);
-                    resol.AddNewResolution(ca[cr].uid(), cr, icParents);
-                    uncheckedEnqueue(learnt_clause[0], cr);
-                 }
-                else
-                {
-                    assert(backtrack_level == 0);
-                    cancelUntil(0);
-                    uncheckedEnqueue(learnt_clause[0]);
-                }
-            }
-            else
-            {
-                cancelUntil(backtrack_level);
-                CRef cr = ca.alloc(learnt_clause, true, icParents.size() > 0);
+            else {
+				if (learnt_clause.size() == 1) {
+					if (icParents.size() > 0) {
+						cancelUntil(1);
+						CRef cr = ca.alloc(learnt_clause, false, true);
+						icUnitClauses.push(cr);
+						resolGraph.AddNewResolution(ca[cr].uid(), cr, icParents);
+						uncheckedEnqueue(learnt_clause[0], cr);
+					 }
+					else {
+						assert(backtrack_level == 0);
+						cancelUntil(0);
+						uncheckedEnqueue(learnt_clause[0]);
+					}
+				}
+				else {
+					cancelUntil(backtrack_level);
+					CRef cr = ca.alloc(learnt_clause, true, icParents.size() > 0);
 #ifdef LEARNT
-				learnts.push_back(cr);
+					learnts.push_back(cr);
 #else
-				learnts.push(cr);
+					learnts.push(cr);
 #endif // LEARNT				
 
-                attachClause(cr);
-                Clause& cl = ca[cr];
-                if (!opt_glucose)
-                    claBumpActivity(ca[cr]);
-                else
-                    ca[cr].activity() = calculateDecisionLevels(learnt_clause);
-                if (cl.ic())
-                {
-                    resol.AddNewResolution(cl.uid(), cr, icParents);
-                }
-				std::cout << "asserting " << todimacsLit(learnt_clause[0]) << std::endl;
-                uncheckedEnqueue(learnt_clause[0], cr);
-//                fprintf(flog, "b - %d :", backtrack_level);
-//                printClause(flog, ca[cr]);
-            }
+					attachClause(cr);
+					Clause& cl = ca[cr];
+					if (!opt_glucose)
+						claBumpActivity(ca[cr]);
+					else
+						ca[cr].activity() = calculateDecisionLevels(learnt_clause);
+					if (cl.ic()) {
+						resolGraph.AddNewResolution(cl.uid(), cr, icParents);
+					}
+					//std::cout << "asserting " << todimacsLit(learnt_clause[0]) << std::endl;
+					uncheckedEnqueue(learnt_clause[0], cr);
+				}
             }
 
             varDecayActivity();
@@ -1076,12 +1042,12 @@ lbool Solver::search(int nof_conflicts)
 #pragma endregion
 
 #pragma region no_conflict_case
-		else {   // NO CONFLICT          
+		else {   // NO CONFLICT  
+
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts &&
                 (!opt_local_restart || (conflictC - vecConfl[decisionLevel()]) >= nof_conflicts) || 
-                !withinBudget()) 
-            {
-                // Reached bound on number of conflicts:
+                !withinBudget()) { // Reached bound on number of conflicts:
+
 				if (pf_zombie) {
 					if (verbosity == 1) printf("Z ");
 					if (++pf_zombie_iter > opt_pf_z_budget) { // magic cutoff number. We spent too much time at trying to rebuild a proof; instead we'll declare it unsat and do not reuse the cone.
@@ -1091,6 +1057,7 @@ lbool Solver::search(int nof_conflicts)
 						return l_False;
 					}
 				}
+
 				else if (verbosity == 1) printf("R ");
                 progress_estimate = progressEstimate();				
                 cancelUntil(1);
@@ -1104,25 +1071,32 @@ lbool Solver::search(int nof_conflicts)
             Lit next = lit_Undef;
 
 			if (pf_active) {
-				while (decisionLevel() - 1 < LiteralsFromPathFalsification.size())  // literals in LiteralsFromPathFalsification are made assumptions
-				{
+				while (decisionLevel() - 1 < LiteralsFromPathFalsification.size()) { // literals in LiteralsFromPathFalsification are made assumptions
 					count_assump++;
 					Lit p = ~LiteralsFromPathFalsification[decisionLevel() - 1]; 
-					if (value(p) == l_True)  {// literal already implied by previous literals
+					if (value(p) == l_True)  { // literal already implied by previous literals
 						newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
 						count_true_assump++;
 					}
 					else if (value(p) == l_False) { // literals in LiteralsFromPathFalsification lead to a contradiction by themselves                                                                     
 						vec<Lit> conflictingAssumptions;
 						analyzeFinal(~p, conflictingAssumptions);
-						printf("conflictingAssumptions = ");
-						for (int i = 0; i < conflictingAssumptions.size(); ++i) printf("%d,", todimacsLit(conflictingAssumptions[i]));
-						printf("\n");
+
+
+
+						////!!
+						//printf("++++++++++++ conflicting assumptions ++++++++++++++++\n");
+						//printClause(conflictingAssumptions, "conflicting assumptions");
+						//printClause(LiteralsFromPathFalsification, "lpf lits");
+						//printClause(ca[resolGraph.GetClauseRef(nICtoRemove)], "nICtoRemove");
+						//printf("size of parents of empty: %d\n", parents_of_empty_clause.size());
+						////!!
+						//if (parents_of_empty_clause.size() < 50) exit(0);
+
 						if (pf_early_unsat_terminate()) return l_False;
 						else break; //LiteralsFromPathFalsification.clear();
 					}
-					else 
-					{
+					else {
 						next = p;  // this will become the assumption
 						break;
 					}
@@ -1136,7 +1110,7 @@ lbool Solver::search(int nof_conflicts)
 //			printf("next = %d\n", next);
             // Increase decision level and enqueue 'next'
             newDecisionLevel(conflictC);
-			std::cout << "decision "<< todimacsLit(next) << std::endl;
+			//std::cout << "decision "<< todimacsLit(next) << std::endl;
             uncheckedEnqueue(next);
         }
 #pragma endregion
@@ -1191,14 +1165,10 @@ static double luby(double y, int x){
 
 bool Solver::lpf_compute_inprocess() {
 	
-				/*printf("trail = ");
-				for (int i = 0 ; i < trail.size(); ++i) printf("%d,",trail[i].x);
-				printf("\n");*/
 				pf_prev_trail_size = trail.size();
 				double before_time = cpuTime();								
 				int old_falsified_literals = LiteralsFromPathFalsification.size();  // !! potential bug in statistics: if early-termination returns false, it resets this set. 
-				int addLiterals = PF_get_assumptions(nICtoRemove, resol.GetClauseRef(nICtoRemove));
-				//printfVec(LiteralsFromPathFalsification, "lpf literals = ");
+				int addLiterals = PF_get_assumptions(nICtoRemove, resolGraph.GetClauseRef(nICtoRemove));
 				time_for_pf += (cpuTime() - before_time);								
 				if (verbosity == 1) printf("*** in process lpf = %d\n", addLiterals);
 				if (addLiterals == 0) { // If no literals are added it means that all paths from root are satisfied (otherwise we would at least have the literals in root), and hence the result of the next iteration is bound to be UNSAT. 				
@@ -1408,7 +1378,7 @@ void Solver::relocAll(ClauseAllocator& to)
         ca.reloc(learnts[i], to);
         Clause& c = to[learnts[i]];
         if (c.ic())
-           resol.UpdateInd(c.uid(), learnts[i]);
+           resolGraph.UpdateInd(c.uid(), learnts[i]);
     }
 
     // All original:
@@ -1418,7 +1388,7 @@ void Solver::relocAll(ClauseAllocator& to)
         ca.reloc(clauses[i], to);
         Clause& c = to[clauses[i]];
         if (c.ic())
-            resol.UpdateInd(c.uid(), clauses[i]);
+            resolGraph.UpdateInd(c.uid(), clauses[i]);
     }
 
     for (int i = 0; i < icUnitClauses.size(); i++)
@@ -1426,7 +1396,7 @@ void Solver::relocAll(ClauseAllocator& to)
         ca.reloc(icUnitClauses[i], to);
         Clause& c = to[icUnitClauses[i]];
         assert(c.ic());
-        resol.UpdateInd(c.uid(), icUnitClauses[i]);
+        resolGraph.UpdateInd(c.uid(), icUnitClauses[i]);
     }
 }
 
@@ -1442,40 +1412,38 @@ void Solver::garbageCollect()
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 }
-
-void Solver::CreateUnsatCore(CRef ref)
-{
+//Given an origConfl clause that is currently conflicting (i.e. all it's literals are falsified in the trail), find all
+//the clauses that were used (were reasons) for such falsification (note that this is not necessarily a subset of the 
+//original formula, as it may contain learned clauses). The reason (retuned through 'parents_of_empty_clause') are filtered 
+//to contain only IC clause.
+void Solver::findConflictICReasons(CRef origConfl) {
     assert (decisionLevel() == 1);	
 	
     m_bConeRelevant = true;
-    CRef confl = ref;
+    CRef confl = origConfl;
     int index   = trail.size() - 1;
     Var v = var_Undef;
     int nSeen = 0;
 	parents_of_empty_clause.clear();
-	resol.m_EmptyClauseParents.clear();
+	resolGraph.m_EmptyClauseParents.clear();
 
-    for (;;) 
-    {
+    for (;;) {
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
 
-        if (c.ic())
-        {            
+        if (c.ic()) {            
 #ifdef NewParents
 			parents_of_empty_clause.push(c.uid());
 #endif
-			resol.m_EmptyClauseParents.insert(c.uid()); // duplicate to parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
+			resolGraph.m_EmptyClauseParents.insert(c.uid()); // duplicate to parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
 
         }
 
-        for (int j = (v == var_Undef) ? 0 : 1 ; j < c.size(); j++)
-        {
+        for (int j = (v == var_Undef) ? 0 : 1 ; j < c.size(); j++) {
             v = var(c[j]);
             assert(value(c[j]) == l_False);
 
-            if (!seen[v] && level(v) > 0)
-            {
+            if (!seen[v] && level(v) > 0) {
                 seen[v] = 1;
                 ++nSeen;
             }
@@ -1485,8 +1453,8 @@ void Solver::CreateUnsatCore(CRef ref)
             break;
         
         // Select next clause to look at:
-        while (!seen[var(trail[index--])]);
-        v     = var(trail[index+1]);
+        while (!seen[var(trail[index--])]); // walk backwards on trail and look for the first seen variable encountered
+        v     = var(trail[index+1]); // index+1 becuase we walked one step too much in the line above (index--)
         confl = reason(v);
         seen[v] = 0;
         --nSeen;
@@ -1499,7 +1467,7 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
     for (int nInd = 0; nInd < parents_of_empty_clause.size(); ++nInd)
     {
         if (emptyClauseCone.insert(parents_of_empty_clause[nInd]))
-            resol.GetOriginalParentsUids(parents_of_empty_clause[nInd], core, emptyClauseCone);
+            resolGraph.GetOriginalParentsUids(parents_of_empty_clause[nInd], core, emptyClauseCone);
     }
 }
 
@@ -1509,14 +1477,14 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 
 void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {
 	//printf("%s ", __FUNCTION__);
-	resol.GetAllIcUids(setGood, cone);  // setGood = clauses that all their parents are not IC
+	resolGraph.GetAllIcUids(setGood, cone);  // setGood = clauses that all their parents are not IC
 	//printf("setGood = %d, cone = %d\n", setGood.elems(), cone.size());
-	resol.GetClausesCones(cone); // find all cones of the roots we started from
+	resolGraph.GetClausesCones(cone); // find all cones of the roots we started from
 	cancelUntil(0);
 	// cone contains all the clauses we want to remove
 	for (int i = 0; i < cone.size(); ++i)
 	{
-		CRef cr = resol.GetClauseRef(cone[i]);
+		CRef cr = resolGraph.GetClauseRef(cone[i]);
 		if (cr != CRef_Undef && setGood.has(cone[i]))
 		{
 			ca[cr].mark(0);			
@@ -1527,13 +1495,13 @@ void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {
 
 void Solver::RemoveClauses(vec<uint32_t>& cone)
 {
-    resol.GetClausesCones(cone);
+    resolGraph.GetClausesCones(cone);
     cancelUntil(0);
 
     // cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
-        CRef cr = resol.GetClauseRef(cone[i]);
+        CRef cr = resolGraph.GetClauseRef(cone[i]);
         if (cr != CRef_Undef)
         {
             ca[cr].mark(0);
@@ -1544,8 +1512,8 @@ void Solver::RemoveClauses(vec<uint32_t>& cone)
     // check that all the clauses are actually removed
 /*    for (int i = 0; i < cone.size(); ++i)
     {
-        assert (resol.GetClauseRef(cone[i]) == CRef_Undef);
-        assert(resol.GetResolRef(cone[i]) == CRef_Undef);
+        assert (resolGraph.GetClauseRef(cone[i]) == CRef_Undef);
+        assert(resolGraph.GetResolRef(cone[i]) == CRef_Undef);
     }
 */
 }
@@ -1560,11 +1528,11 @@ void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
 
     // cone contains all the clauses we want to remove
     int j = 0;
-    for (uint32_t i = 0; i < resol.GetMaxUid(); ++i)
+    for (uint32_t i = 0; i < resolGraph.GetMaxUid(); ++i)
     {
         if (i != uidsVec[j] && !muc.has(i))
         {
-            CRef cr = resol.GetClauseRef(i);
+            CRef cr = resolGraph.GetClauseRef(i);
             if (cr != CRef_Undef)
             {
                 // check that clause is not original otherwise we won't delete it
@@ -1581,13 +1549,13 @@ void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc)
 
 void Solver::UnbindClauses(vec<uint32_t>& cone)
 {
-    resol.GetClausesCones(cone);
+    resolGraph.GetClausesCones(cone);
     cancelUntil(0);
 
     // cone contains all the clauses we want to remove
     for (int i = 0; i < cone.size(); ++i)
     {
-        CRef cr = resol.GetClauseRef(cone[i]);
+        CRef cr = resolGraph.GetClauseRef(cone[i]);
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
@@ -1608,7 +1576,7 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
 
     for (int i = 0; i < cone.size(); ++i)
     {
-        CRef cr = resol.GetClauseRef(cone[i]);
+        CRef cr = resolGraph.GetClauseRef(cone[i]);
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
@@ -1626,25 +1594,25 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
         vec<uint32_t> init(1);
         init[0] = startUid;
 		//printf("%s ", __FUNCTION__);
-        resol.GetAllIcUids(setGood, init); // setGood will now contain clauses that all their parents are not IC
+        resolGraph.GetAllIcUids(setGood, init); // setGood will now contain clauses that all their parents are not IC
     }
 
-    //resol.GetClausesCones(cone) - we don't need that because we pass the previous found set of nodes
+    //resolGraph.GetClausesCones(cone) - we don't need that because we pass the previous found set of nodes
     cancelUntil(0);
 
     // cone contains all the clauses we want to bind
     for (int i = 0; i < cone.size(); ++i)
     {
         uint32_t uid = cone[i];
-        CRef cr = resol.GetClauseRef(uid);
+        CRef cr = resolGraph.GetClauseRef(uid);
         if (cr != CRef_Undef)
         {
             Clause& c = ca[cr];
             c.mark(0);
-            if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) == 0) ||
+            if ((opt_bind_as_orig == 1 && resolGraph.GetParentsNumber(uid) == 0) ||
                 (opt_bind_as_orig == 2 && setGood.has(uid)))
             { // we now remove the clause and then rebuild and add it back as a remainder.
-                if (resol.GetParentsNumber(uid) == 0) c.mark(2);                 
+                if (resolGraph.GetParentsNumber(uid) == 0) c.mark(2);                 
                 else  removeClause(cr);                
 
                 analyze_stack.clear(); // to be filled with c's literals that are not false. 
@@ -1704,29 +1672,29 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
 
     if (opt_bind_as_orig == 2)
     {		
-        resol.GetAllIcUids(setGood, cone); // setGood will now contain clauses that all their parents are not IC
+        resolGraph.GetAllIcUids(setGood, cone); // setGood will now contain clauses that all their parents are not IC
 		//printf("setGood = %d, cone = %d ", setGood.elems(), cone.size());
-        resol.GetClausesCones(cone);  // This adds to cone all its cones. 
+        resolGraph.GetClausesCones(cone);  // This adds to cone all its cones. 
 		//printf("cone = %d\n", cone.size());
     }
 	    
     for (int i = 0; i < cone.size(); ++i)
     {
         uint32_t uid = cone[i];
-        CRef cr = resol.GetClauseRef(uid);
+        CRef cr = resolGraph.GetClauseRef(uid);
         if (cr != CRef_Undef)
         {
 
             Clause& c = ca[cr];
             c.mark(0);
 
-            if ((opt_bind_as_orig == 1 && resol.GetParentsNumber(uid) > 0) ||
+            if ((opt_bind_as_orig == 1 && resolGraph.GetParentsNumber(uid) > 0) ||
                 (opt_bind_as_orig == 2 && !setGood.has(uid)))
             {
                 continue;  // not in setGood, hence it has to stay an IC clause; nothing to do. 
             }
 			// we remove the clause, and later we will re-add it as a remainder, possibly shrinked. 
-            if (resol.GetParentsNumber(uid) == 0) // original clause
+            if (resolGraph.GetParentsNumber(uid) == 0) // original clause
             {
                 if (c.size() > 1)  {
                     detachClause(cr);
@@ -1777,9 +1745,9 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
     for (int i = 0; i < cone.size(); ++i)
     {
         uint32_t uid = cone[i];
-        if (resol.ValidUid(uid) && resol.GetParentsNumber(uid) == 0)
+        if (resolGraph.ValidUid(uid) && resolGraph.GetParentsNumber(uid) == 0)
         {
-            CRef cr = resol.GetClauseRef(uid);
+            CRef cr = resolGraph.GetClauseRef(uid);
             assert (cr != CRef_Undef);
             Clause& c = ca[cr];
             c.mark(2); // do not remove originals from resolution graph // originally the reason we needed them was for correctness checking in hhlmuc (code migration...), where the distinction between remainder and non remainder is important ('group 0' in hhlmuc).
@@ -1813,7 +1781,7 @@ void Solver::printClause( vec<Lit>& v, std::string text)
 void Solver::CreateResolVertex(uint32_t uid)
 {
     assert(icParents.size() == 0);
-    resol.AddNewResolution(uid, CRef_Undef, icParents);
+    resolGraph.AddNewResolution(uid, CRef_Undef, icParents);
 }
 
 void Solver::AddConflictingIc(uint32_t uid)
@@ -1849,27 +1817,16 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
 
 int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of literals in the falsified clause. 
 {	
-    //if (uid == CRef_Undef)  // ?? comparing uid and CRef_Undef
-        //return 0;
-   
 	LiteralsFromPathFalsification.clear();
-	
-	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay)
-	{			
-		//printClause(stdout, ca[cr]);
-		LPF_get_assumptions(uid, LiteralsFromPathFalsification); 
-		//printf("(%d) literals returned by get_assumption = (", ++count); 
-		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i) printf("%d ", LiteralsFromPathFalsification[i]); 
-		//printf(")\n");			
-		//printf("lpf found %d lits\n",LiteralsFromPathFalsification.size());
+	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay) {
+		LPF_get_assumptions(uid, LiteralsFromPathFalsification);
+		//printClause(LiteralsFromPathFalsification, "new S set");
 		return LiteralsFromPathFalsification.size();
 	}
-	else
-	{
+	else {
 		Clause& c = ca[cr];
 		LiteralsFromPathFalsification.growTo(c.size());
-		for (int i = 0; i < c.size(); ++i)
-		{
+		for (int i = 0; i < c.size(); ++i){
 			LiteralsFromPathFalsification[i] = c[i];
 			if (verbosity == 1) printf("%d ", c[i].x);
 		}
@@ -1881,11 +1838,11 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
     {
         uidsVec.clear();
-        resol.GetTillMultiChild(uid, uidsVec);
+        resolGraph.GetTillMultiChild(uid, uidsVec);
 
         for (int i = 0; i < uidsVec.size(); ++i)
         {
-            CRef cr = resol.GetClauseRef(uidsVec[i]);
+            CRef cr = resolGraph.GetClauseRef(uidsVec[i]);
             if (cr != CRef_Undef)
             {    
                 Clause& c = ca[cr];
@@ -1931,15 +1888,15 @@ int current_id,m;
 		}
 		current_id = q.front();
 		q.pop();
-		CRef curr_ref = resol.GetResolRef(current_id);
+		CRef curr_ref = resolGraph.GetResolRef(current_id);
 		assert(curr_ref != CRef_Undef);
-		const Resol& r = resol.GetResol(curr_ref);
+		const Resol& r = resolGraph.GetResol(curr_ref);
 
 		for (m = 0 ; m < r.m_Children.size() ; m++)
 		{
 			CRef childUid = r.m_Children[m];
-			if (!resol.ValidUid(childUid)) continue;
-			CRef childClauseRef = resol.GetClauseRef(childUid);	
+			if (!resolGraph.ValidUid(childUid)) continue;
+			CRef childClauseRef = resolGraph.GetClauseRef(childUid);	
 			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef])) continue;
 			if (first && opt_lpf_cutoff) {
 				++initialSpan;
@@ -1979,7 +1936,7 @@ int current_id,m;
 		else printf(" ");
 	
 		printf("id = %d (", current_id);
-		CRef c = resol.GetClauseRef(current_id); // the clause reference of c
+		CRef c = resolGraph.GetClauseRef(current_id); // the clause reference of c
 		if (c == CRef_Undef) {
 			printf("(deleted clause)");	
 		}
@@ -1991,8 +1948,8 @@ int current_id,m;
 		}		
 		q.pop();
 		
-		CRef curr_ref = resol.GetResolRef(current_id);
-		const Resol& r = resol.GetResol(curr_ref);
+		CRef curr_ref = resolGraph.GetResolRef(current_id);
+		const Resol& r = resolGraph.GetResol(curr_ref);
 		if(r.m_Children.size()==0){  // no more children
 			printf(")\n");
 			continue;
@@ -2000,7 +1957,7 @@ int current_id,m;
 		printf(") children = ");
 		for (m=0 ; m < r.m_Children.size() ; m++)
 		{
-			if (!resol.ValidUid(r.m_Children[m])) continue;
+			if (!resolGraph.ValidUid(r.m_Children[m])) continue;
 			printf("%d, ", r.m_Children[m]);		
 			if(!mapRealParents.has(r.m_Children[m]))
 			{				
@@ -2013,58 +1970,67 @@ int current_id,m;
 }
 
 
-void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions) // uid is either c itself, or the clause at the bottom of a chain
+void Solver::ResGraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions,const char* filename) // uid is either c itself, or the clause at the bottom of a chain
 {
 	int current_id,m;
+	vec<uint32_t> sorted_roots;
+	vec<uint32_t> sorted_parents;
+	vec<Lit> sorted_assumptions;
+	parents_of_empty_clause.copyTo(sorted_parents);
+	roots.copyTo(sorted_roots);
+	assumptions.copyTo(sorted_assumptions);
+	sort(sorted_parents);
+	sort(sorted_roots);
+	sort(sorted_assumptions);
+
 	std::queue<uint32_t> q; // compute number of parents in the cone of c
-	q.push(uid);	
 	Map<uint32_t,uint32_t> mapRealParents;
-	mapRealParents.insert(uid,0);	
+	for (int i = 0; i < sorted_roots.size(); ++i) {
+		uint32_t uid = roots[i];
+		q.push(uid);
+		mapRealParents.insert(uid, 0);
+	}
 	FILE *dot;
 	std::stringstream edges;
 	edges << " ";
 
-		dot = fopen("tclause.dot", "w");
+		dot = fopen(filename, "w");
 		fprintf(dot, "digraph tclause {\n");
 
-	while (!q.empty()) 
-	{
+	while (!q.empty()) {
 		current_id = q.front();
-		bool parent_of_empty; 
-		parent_of_empty = false;
-		if (parents_of_empty_clause.binary_search(current_id)) {
-			parent_of_empty =true;
-		}
-		
-			fprintf(dot, "node[");
-			if (parent_of_empty) fprintf(dot,"color=green,");			
-			else fprintf(dot,"color=black,");
-		
-		
-		CRef c = resol.GetClauseRef(current_id); // the clause reference of c
-		if (c == CRef_Undef) {
+		fprintf(dot, "node[");
+
+		if (sorted_parents.binary_search(current_id)) 
+			fprintf(dot,"color=green,");
+		else if(sorted_roots.binary_search(current_id))
+			fprintf(dot, "color=blue,");
+		else fprintf(dot,"color=black,");
+
+		CRef c = resolGraph.GetClauseRef(current_id); // the clause reference of c
+		if (c == CRef_Undef)
 			fprintf(dot,"label=\"D\"");
-		}
 		else {
 			const Clause& cls = ca[c]; // the actual clause
 			fprintf(dot,"label=\"");
 			for (int i=0 ; i < cls.size() ; i++){  // initially parent = c							
-					if (assumptions.binary_search(cls[i])) fprintf(dot,"*");
-					fprintf(dot,"%d ", cls[i]);				
+				if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(cls[i]))
+					fprintf(dot,"*");
+				fprintf(dot,"%d ", cls[i]);				
 			}
 			fprintf(dot,"\"");
 		}
 		fprintf(dot,"]; n%d;\n",current_id);
 		q.pop();
 
-		CRef curr_ref = resol.GetResolRef(current_id);
-		const Resol& r = resol.GetResol(curr_ref);
+		CRef curr_ref = resolGraph.GetResolRef(current_id);
+		const Resol& r = resolGraph.GetResol(curr_ref);
 		if(r.m_Children.size()==0){  // no more children		
 			continue;
 		}		
 		for (m=0 ; m < r.m_Children.size() ; m++)
 		{
-			if (!resol.ValidUid(r.m_Children[m])) continue;		
+			if (!resolGraph.ValidUid(r.m_Children[m])) continue;		
 			edges << "n" << current_id << " -> n" << r.m_Children[m] << ";" << std::endl;
 			
 			if(!mapRealParents.has(r.m_Children[m]))
@@ -2103,6 +2069,7 @@ void Solver::ResGraph2dotty(uint32_t uid, vec<uint32_t>& parents_of_empty_clause
 void Solver::LPF_get_assumptions(
 	uint32_t uid_root, /**< uid of a clause that we are about to remove */ // Doxygen-friendly comments. 
 	vec<Lit>& assump_literals /**< to be filled with literals */
+
 	)
 {
 	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
@@ -2130,7 +2097,7 @@ void Solver::LPF_get_assumptions(
 #pragma region compute_Top_Tclause
 
 	vec<Lit>* Top_TClause = new vec<Lit>(); 
-    CRef c = resol.GetClauseRef(uid_root);  // the clause reference of c
+    CRef c = resolGraph.GetClauseRef(uid_root);  // the clause reference of c
     Clause& cc = ca[c];
 	// printfVec(cc, "removing (c) ");
 
@@ -2146,11 +2113,11 @@ void Solver::LPF_get_assumptions(
 
     // adding clauses in the unit-chain to Top_Tclause. 
 	vec<uint32_t> uidvec_prefix; 	
-	resol.GetTillMultiChild(uid_root, uidvec_prefix);
+	resolGraph.GetTillMultiChild(uid_root, uidvec_prefix);
     uint32_t last_in_chain;
 	for (int i = 0; i < uidvec_prefix.size(); ++i)  // for each clause in the prefix
 	{
-		CRef cr = resol.GetClauseRef(uidvec_prefix[i]);
+		CRef cr = resolGraph.GetClauseRef(uidvec_prefix[i]);
 		if (cr != CRef_Undef)
 		{    
 			Clause& cl = ca[cr];
@@ -2170,7 +2137,7 @@ void Solver::LPF_get_assumptions(
 		uid_root = uidvec_prefix.last(); 
 	}
 	else {        
-        ca[resol.GetClauseRef(uid_root)].copyTo(*Top_TClause);        
+        ca[resolGraph.GetClauseRef(uid_root)].copyTo(*Top_TClause);        
 	}    	
 #pragma endregion
 
@@ -2191,9 +2158,9 @@ void Solver::LPF_get_assumptions(
 	{
 		uint32_t curr_id = queue.front();
 		queue.pop();		
-		CRef cref = resol.GetResolRef(curr_id);
+		CRef cref = resolGraph.GetResolRef(curr_id);
 		assert(cref != CRef_Undef); 
-		Resol& res = resol.GetResol(cref);
+		Resol& res = resolGraph.GetResol(cref);
 		int children_num = res.m_Children.size();
 		if (children_num == 0)  continue;
 		peakQueueSize = std::max((int)queue.size(),  peakQueueSize);
@@ -2202,8 +2169,8 @@ void Solver::LPF_get_assumptions(
 		for(int i = 0; i < children_num; ++i)
 		{				
 			CRef childUid = res.m_Children[i];
-			if (!resol.ValidUid(childUid)) continue;
-			CRef childClauseRef = resol.GetClauseRef(childUid);			
+			if (!resolGraph.ValidUid(childUid)) continue;
+			CRef childClauseRef = resolGraph.GetClauseRef(childUid);			
 			if ((pf_mode == lpf_inprocess) && (childClauseRef != CRef_Undef) &&  satisfied(ca[childClauseRef]))					
 			{				
 //				printfVec(ca[childClauseRef], "removed by lpf_inprocess");				
@@ -2218,13 +2185,12 @@ void Solver::LPF_get_assumptions(
                 map_cls_to_Tclause[childUid] = new vec<Lit>();
 				map_cls_to_Tclause[curr_id]->copyTo(*map_cls_to_Tclause[childUid]);
 			}
-			else {  // otherwise we intersect the current Tclause with the one owned by the Top_TClause. 				
-//				printfVec(*map_cls_to_Tclause[curr_id], "curr_id");
-//				printfVec(*map_cls_to_Tclause[res.m_Children[i]], "child[i]");
+			else {  // otherwise we intersect the current Tclause with the one owned by the Top_TClause. 
                 vec<Lit> intersection;
 				Intersection(*map_cls_to_Tclause[curr_id], *map_cls_to_Tclause[childUid], intersection);  // intersection between Tclause-s of child and Top_TClause.                   
 				map_cls_to_Tclause[childUid]->swap(intersection);
 			}			
+
 
 			// done with parents. Now we should add the clause's literals to its Tclause. 
 			if(map_cls_parentsCount[childUid] == 0)  
@@ -2252,35 +2218,28 @@ void Solver::LPF_get_assumptions(
 	for (int i = 0; i < parents_of_empty_clause.size(); ++i) {
 		if (map_cls_to_Tclause.find(parents_of_empty_clause[i])== map_cls_to_Tclause.end()) continue; // only those that have T-clause are actual parents of the empty clause in cone(c). 		
 		int idx = parents_of_empty_clause[i];
-		//printf("parent index %d\n", idx);
-		//printfVec(ca[resol.GetClauseRef(idx)], "parent of empty clause");
-		//printfVec(*map_cls_to_Tclause[idx], "Tclause of a parent of empty clause");
 		if (first) {
-			(*map_cls_to_Tclause[parents_of_empty_clause[i]]).swap(res);			
+			(*map_cls_to_Tclause[idx]).swap(res);
 			first = false;
 		}
 		else {				
 			tmp.swap(res);				
 			res.clear();
-			Intersection(*map_cls_to_Tclause[parents_of_empty_clause[i]], tmp, res);						
-		}		
-	}
+			Intersection(*map_cls_to_Tclause[idx], tmp, res);
+		}
 
+	}
 	if ((pf_mode == lpf_inprocess) && first) {
 		if (verbosity == 1) printf("no parent-of-empty-clause with a t-clause. should be unsat. \n");		
 		// we are not returning here because we want the memory cleanup in the end; 
 	}
-	//printf("\n");	
 	else union_vec(res, *Top_TClause, assump_literals); // adding the literals from the top chain 
-
 	if (opt_reverse_pf) {
 		int sz = assump_literals.size(); // reversing order just to test the effect. 
 		for (int i = 0; i < sz / 2; ++i) {Lit t = assump_literals[i]; assump_literals[i] = assump_literals[sz-1-i]; assump_literals[sz-1-i] = t;}
 	}
-		//printfVec(*Top_TClause, "Top_TClause (from chain)");
     // delete allocated vectors
-    for (auto iter = map_cls_to_Tclause.begin(); iter != map_cls_to_Tclause.end(); ++iter)
-    {
+    for (auto iter = map_cls_to_Tclause.begin(); iter != map_cls_to_Tclause.end(); ++iter){
         delete iter->second;
     }		 
 }
