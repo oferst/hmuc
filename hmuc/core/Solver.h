@@ -32,6 +32,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 // temporary, for testing a simplification of the code. 
 #define NewParents
 namespace Minisat {
@@ -91,10 +92,7 @@ public:
 	double time_for_pf;	
 	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
-			
-#ifndef NewParents	
-	vec<uint32_t> prev_icParents;
-#endif
+	
 	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
 	int pf_Literals;
 
@@ -107,6 +105,8 @@ public:
     int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
     vec<uint32_t> icParents;
+	vec<uint32_t> allParents;
+	vec<uint32_t> nonIcParents;
     bool m_bUnsatByPathFalsification;
 	int nUnsatByPF;
 	int pf_prev_trail_size;
@@ -182,7 +182,7 @@ public:
     virtual void garbageCollect();
     void    checkGarbage(double gf);
     void    checkGarbage();
-
+	
     // Extra results: (read-only member variable)
     //
     vec<lbool> model;             // If problem is satisfiable, this vector contains the model (if any).
@@ -235,13 +235,17 @@ public:
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	void ResGraph2dotty(vec<uint32_t>&, vec<uint32_t>&, vec<Lit>& , const char*);
-	
+	void ResSubgraph2dotty(vec<uint32_t>&, vec<uint32_t>&,Set<uint32_t>&, vec<Lit>&, const char*);
+	uint32_t dottyCalls = 0; //!!
+
+	//populates outRhombus with all uids that are 1) reachable from some root inRoots and 2) reach some leaf in inLeaves
+	void calcRhombus(vec<uint32_t>& inRoots, vec<uint32_t>& inLeaves, Set<uint32_t>& outRhombus);
 	//________________________________________________________________________________________________
 	
 	int todimacsLit(Lit l);
 
-	void printClause(Clause & c, std::string text);
-	void printClause(vec<Lit>& v, std::string text);
+	void printClause(const Clause & c, std::string text);
+	void printClause(const vec<Lit>& v, std::string text);
  //   void printClause(FILE* f, Clause& c);
 	//	
 	//void printClause(FILE * f, vec<Lit>& v, std::string text="");	
@@ -282,6 +286,7 @@ protected:
     {
         const ClauseAllocator& ca;
         WatcherDeleted(const ClauseAllocator& _ca) : ca(_ca) {}
+		//bool isDeleted(const Watcher& w) const { return ca[w.cref].mark() == 1; }
         bool operator()(const Watcher& w) const { return ca[w.cref].mark() == 1; }
     };
 
@@ -300,8 +305,7 @@ protected:
     vec<CRef>           clauses;          // List of problem clauses.    
 #ifdef LEARNT
 	std::vector<CRef>   learnts;		  // List of learnt clauses. Using std::vector (rather than vec) gives us iterators, which then allows us to use nth_element in reduceDB.
-#else
-	vec<CRef>           learnts;          // List of learnt clauses.
+	
 #endif
     double              cla_inc;          // Amount to bump next clause with.
     vec<double>         activity;         // A heuristic measurement of the activity of a variable.
@@ -351,16 +355,17 @@ protected:
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
     CRef     propagate        ();                                                      // Perform unit propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents);    // (bt = backtrack)
+    void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents); // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
-    void     removeSatisfied  (vec<CRef>& cs);                                         // Shrink 'cs' to contain only non-satisfied clauses.
-	void     removeSatisfied_vector(std::vector<CRef>& cs);
+    void     removeSatisfied  (vec<CRef>& cs);                                         // Called at decision level 0. Shrink 'cs' to contain only non-satisfied clauses.
+	void     removeSatisfied_vector(std::vector<CRef>& cs);							   // Called at decision level 0.
     void     rebuildOrderHeap ();
 
+	void updateResolutionGraph(Clause& cl, CRef cr);
     // Maintaining Variable/Clause activity:
     //
     void     varDecayActivity ();                      // Decay all variables with the specified factor. Implemented by increasing the 'bump' value instead.
@@ -443,10 +448,13 @@ inline void Solver::claBumpActivity (Clause& c) {
                 ca[learnts[i]].activity() *= 1e-20;
             cla_inc *= 1e-20; } }
 
-inline void Solver::checkGarbage(void){ return checkGarbage(garbage_frac); }
+inline void Solver::checkGarbage(void){ 
+	return checkGarbage(garbage_frac); 
+}
 inline void Solver::checkGarbage(double gf){
     if (ca.wasted() > ca.size() * gf)
-        garbageCollect(); }
+        garbageCollect(); 
+}
 
 // NOTE: enqueue does not set the ok flag! (only public methods do)
 inline bool     Solver::enqueue         (Lit p, CRef from)      { return value(p) != l_Undef ? value(p) != l_False : (uncheckedEnqueue(p, from), true); }
@@ -465,7 +473,7 @@ inline lbool    Solver::value         (Lit p) const   { return assigns[var(p)] ^
 inline lbool    Solver::modelValue    (Var x) const   { return model[x]; }
 inline lbool    Solver::modelValue    (Lit p) const   { return model[var(p)] ^ sign(p); }
 
-
+//current number of assignments, size of trail
 inline int      Solver::nAssigns      ()      const   { return trail.size(); }
 inline int      Solver::nClauses      ()      const   { return clauses.size(); }
 inline int      Solver::nLearnts      ()      const   { return learnts.size(); }

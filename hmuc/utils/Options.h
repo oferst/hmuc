@@ -45,6 +45,9 @@ extern void setHelpPrefixStr (const char* str);
 // Options is an abstract class that gives the interface for all types options:
 
 
+
+
+
 class Option
 {
  protected:
@@ -237,6 +240,11 @@ class IntOption : public Option
 };
 
 
+
+
+
+
+
 // Leave this out for visual C++ until Microsoft implements C99 and gets support for strtoll.
 #ifndef _MSC_VER
 
@@ -380,7 +388,17 @@ class BoolOption : public Option
     }
 };
 
+
+
+
+//Multi Module Options
+static const char* _mul = "MUL";
+static BoolOption	 opt_blm_rebuild_proof(_mul, "blm-rebuild-proof", "following backbone literal mining (BLM), will generate a resolution proof of unsat, whether or not assumptions were used to deduce unsat of the formula", false);
 //=================================================================================================
+
+
 }
 
 #endif
+
+

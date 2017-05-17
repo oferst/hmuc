@@ -29,7 +29,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Vec.h"
 #include "mtl/Map.h"
 #include "mtl/Alloc.h"
-
+#include "utils/Options.h"
 namespace Minisat {
 
 //=================================================================================================
@@ -131,7 +131,10 @@ class Clause {
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned ic        : 1;
-        unsigned size      : 26; }                            header;
+		unsigned parentToIc : 1;
+        unsigned size      : 25;
+		
+	}                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
 
     static uint32_t icUid;
@@ -143,6 +146,7 @@ class Clause {
         header.mark      = 0;
         header.learnt    = learnt;
         header.ic      = ic;
+		header.parentToIc = 0;
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
@@ -154,7 +158,8 @@ class Clause {
             if (header.learnt)
                 data[header.size].act = 0; 
             else 
-                calcAbstraction(); }
+                calcAbstraction(); 
+		}
 
         if (ic)
         {
@@ -166,7 +171,26 @@ public:
     static uint32_t GetLastUid() { return icUid-1; }
     static void DecreaseUid() { --icUid; }
     static uint32_t SetUid(uint32_t newUid) { return icUid = newUid; }
+	void setIsParentToIc(bool isParent) {
+		header.parentToIc = isParent;
+		if(!header.ic && isParent){
+			//printf("%d", header.size);
+			data[header.size + (int)header.has_extra].uid = icUid++;
+			//printf("headerSize = %d headerHasExtra = %d, newUid = %d, uidIdx = %d\n", header.size, (int)header.has_extra, icUid-1, header.size+ (int)header.has_extra);
+		}
+	}
 
+	void* getHeaderAddr() {
+		return &header;
+	}
+	void* getDataAddr() {
+		return data;
+	}
+
+
+	bool isParentToIc() {
+		return header.parentToIc;
+	}
     void calcAbstraction() {
         assert(header.has_extra);
         uint32_t abstraction = 0;
@@ -180,7 +204,7 @@ public:
         assert(i <= size()); 
         if (header.has_extra) 
             data[header.size-i] = data[header.size]; 
-        if (header.ic)
+        if (header.ic || header.parentToIc)
             data[header.size-i + (int)header.has_extra] = data[header.size + (int)header.has_extra];
         header.size -= i; 
     }
@@ -204,8 +228,10 @@ public:
 
     float&       activity    ()              { assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
-    uint32_t&    uid         ()              { assert(header.ic); return data[header.size + (int)header.has_extra].uid; }
-    uint32_t     uid         () const        { assert(header.ic); return data[header.size + (int)header.has_extra].uid; }
+    uint32_t&    uid         ()              { //assert(header.ic || header.parentToIc); 
+	return data[header.size + (int)header.has_extra].uid; }
+    uint32_t     uid         () const        { //assert(header.ic || header.parentToIc); 
+	return data[header.size + (int)header.has_extra].uid; }
     void         copyTo      (vec<Lit>& other) {
         other.growTo(size());
         for (int i = 0 ; i < size() ; i++) {  // initially parent = c
@@ -237,16 +263,14 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::moveTo(to); }
 
     template<class Lits>
-    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false)
-    {
+    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool has_extra = learnt | extra_clause_field;
-
-        CRef cid = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, ic));
-        new (lea(cid)) Clause(ps, has_extra, learnt, ic);
-
-        return cid;
+		bool has_uid =   opt_blm_rebuild_proof || ic;
+		CRef newCr = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, has_uid));
+        new (lea(newCr)) Clause(ps, has_extra, learnt, ic);
+        return newCr;
     }
 
     // Deref, Load Effective Address (LEA), Inverse of LEA (AEL):
@@ -304,8 +328,14 @@ class OccLists
     
     void  init      (const Idx& idx){ occs.growTo(toInt(idx)+1); dirty.growTo(toInt(idx)+1, 0); }
     // Vec&  operator[](const Idx& idx){ return occs[toInt(idx)]; }
-    Vec&  operator[](const Idx& idx){ return occs[toInt(idx)]; }
-    Vec&  lookup    (const Idx& idx){ if (dirty[toInt(idx)]) clean(idx); return occs[toInt(idx)]; }
+    Vec&  operator[](const Idx& idx){ 
+		return occs[toInt(idx)]; 
+	}
+    Vec&  lookup    (const Idx& idx){ 
+		if (dirty[toInt(idx)]) 
+			clean(idx); 
+		return occs[toInt(idx)]; 
+	}
 
     void  cleanAll  ();
     void  clean     (const Idx& idx);
@@ -340,9 +370,11 @@ void OccLists<Idx,Vec,Deleted>::clean(const Idx& idx)
 {
     Vec& vec = occs[toInt(idx)];
     int  i, j;
-    for (i = j = 0; i < vec.size(); i++)
-        if (!deleted(vec[i]))
+	for (i = j = 0; i < vec.size(); i++) {
+		bool isDeleted = deleted.operator()((vec[i]));
+        if (!isDeleted)
             vec[j++] = vec[i];
+	}
     vec.shrink(i - j);
     dirty[toInt(idx)] = 0;
 }

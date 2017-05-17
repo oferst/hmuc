@@ -4,7 +4,7 @@
 #include "mtl/Map.h"
 #include "mtl/Set.h"
 #include "core/SolverTypes.h"
-
+#include<unordered_map>
 #include <string.h>
 
 namespace Minisat
@@ -14,7 +14,11 @@ class Resol
 {
 public:
     vec<uint32_t> m_Children;
-    uint32_t m_nRefCount;
+	struct {
+		unsigned ic : 1;
+		unsigned m_nRefCount : 31;
+
+	} header;
     union {
         uint32_t size;
         uint32_t parent;
@@ -29,7 +33,10 @@ public:
 
     inline int ParentsSize() const
     {
-        return m_Parents[0].size;
+		uint32_t size = m_Parents[0].size;
+		//if (size > 700)
+		//	printf(" ParentsSize() = %d\n", size);
+        return size;
     }
 
     uint32_t Size() const
@@ -41,14 +48,15 @@ public:
 private:
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
-    Resol(const vec<uint32_t>& parents) :
-       m_Children(), m_nRefCount(1)
+    Resol(const vec<uint32_t>& parents, bool ic)
     {
+		header.ic = (int)ic;
+		header.m_nRefCount = 1;
         //new (&m_Children) vec<uint32_t>();
         m_Parents[0].size = parents.size();
-        for (int nParentId = 0; nParentId < parents.size(); ++nParentId)
+        for (int i = 0; i < parents.size(); ++i)
         {
-            m_Parents[nParentId + 1].parent = parents[nParentId];
+            m_Parents[i + 1].parent = parents[i];
         }
     }
 };
@@ -56,11 +64,11 @@ private:
 class ResolAllocator : public RegionAllocator<uint32_t>
 {
 public:
-    CRef alloc(const vec<uint32_t>& parents)
+    CRef alloc(const vec<uint32_t>& parents,bool ic)
     {
         CRef cid = RegionAllocator<uint32_t>::alloc(Resol::SIZE + parents.size());
         
-        new (lea(cid)) Resol(parents);
+        new (lea(cid)) Resol(parents,ic);
 
         return cid;
     } 
@@ -90,9 +98,7 @@ public:
             return;
         uint32_t size = operator[](from).Size();
 
-        if (from == m_LastRelocLoc)
-        {
-            // the same clause no need to copy
+        if (from == m_LastRelocLoc) {  // the same clause no need to copy
             m_LastRelocLoc += size;
             return;
         }
@@ -101,8 +107,7 @@ public:
         uint32_t* pFrom = RegionAllocator<uint32_t>::lea(from);
         uint32_t* pTo = RegionAllocator<uint32_t>::lea(m_LastRelocLoc);
         //memcpy(RegionAllocator<uint32_t>::lea(m_LastRelocLoc), , size);
-        for (uint32_t nPart = 0; nPart < size; ++nPart)
-        {
+        for (uint32_t nPart = 0; nPart < size; ++nPart) {
             *pTo = *pFrom;
             ++pTo;
             ++pFrom;
@@ -137,8 +142,10 @@ public:
 
     void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<uint32_t>& parents);
 
-    void UpdateInd(uint32_t nUid, CRef newRef)
-    {
+	void AddRemainderResolution(uint32_t nNewClauseId, CRef ref);
+	//Set<uint32_t> temp_ics;
+
+    void UpdateClauseRef(uint32_t nUid, CRef newRef) {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
         m_UidToData[nUid].m_ClauseRef = newRef;
@@ -154,10 +161,10 @@ public:
         return m_UidToData[nUid].m_ResolRef;
     }
 
-    void DeleteClause(uint32_t nUid)
-    {
+    void DeleteClause(uint32_t nUid) {
         DecreaseReference(nUid);
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
+		//printf("icDelayedRemoval size = %d\n", icDelayedRemoval.size());
     }
 
     void GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
@@ -176,7 +183,7 @@ public:
 
     int GetParentsNumber(uint32_t nUid)
     {
-        return m_RA[m_UidToData[nUid].m_ResolRef].ParentsSize();
+        return GetResol(GetResolRef(nUid)).ParentsSize();
     }
 
     void GetAllIcUids(Set<uint32_t>& good, vec<uint32_t>& start);
@@ -185,7 +192,7 @@ public:
 
     bool ValidUid(uint32_t uid)
     {
-        return m_UidToData[uid].m_ResolRef != CRef_Undef;
+        return GetResolRef(uid) != CRef_Undef;
     }
 
     uint32_t GetMaxUid() const
@@ -194,7 +201,7 @@ public:
     }
 
     Set<uint32_t> m_EmptyClauseParents;
-
+	//std::unordered_map<uint32_t, vec<Lit>*>  icDelayedRemoval;
 private:
     void DecreaseReference(uint32_t nUid);
 

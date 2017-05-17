@@ -115,10 +115,12 @@ class SimpSolver : public Solver {
         //     return c_x < c_y || c_x == c_y && x < y; }
     };
 
-    struct ClauseDeleted {
-        const ClauseAllocator& ca;
-        explicit ClauseDeleted(const ClauseAllocator& _ca) : ca(_ca) {}
-        bool operator()(const CRef& cr) const { return ca[cr].mark() == 1; } };
+	struct ClauseDeleted {
+		const ClauseAllocator& ca;
+		explicit ClauseDeleted(const ClauseAllocator& _ca) : ca(_ca) {}
+		//bool isDeleted(const CRef& cr) const { return ca[cr].mark() == 1; }
+        bool operator()(const CRef& cr) const { return ca[cr].mark() == 1; } 
+	};
 
     // Solver state:
     //

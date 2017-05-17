@@ -21,7 +21,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define Minisat_IntTypes_h
 
 #ifdef __sun
-    // Not sure if there are newer versions that support C99 headers. The
+    // Not sure if there are newer versions that support C99 
+s. The
     // needed features are implemented in the headers below though:
 
 #   include <sys/int_types.h>

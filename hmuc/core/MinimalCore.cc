@@ -383,21 +383,18 @@ namespace Minisat
 
 		m_Occurs.growTo(m_Solver.nVars() << 1);
 		int nIteration = 0;		
-		for (; true; ++nIteration)
-		{				
+		for (; true; ++nIteration) {				
 			if (!m_bIcInConfl) {			
 				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
-				if (nIteration)
-					{
+				if (nIteration){
 						double time = cpuTime() - before_time;
 						if (time > longestcall) longestcall = time;
 				}
 				if (nIteration == 0) time_after_initial_run = cpuTime();
 			}
 
-			else
-			{
+			else {
 				result = l_False;
 				m_bIcInConfl = false;
 				m_Solver.ResetOk();

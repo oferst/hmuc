@@ -9,41 +9,59 @@ namespace Minisat
 {
 
 void CResolutionGraph::AddNewResolution
-    (uint32_t nNewClauseId, CRef ref, const vec<uint32_t>& parents)
-{
-    m_UidToData.growTo(nNewClauseId + 1);
-    CRef refResol = m_RA.alloc(parents);
-
+    (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& parents){
+    m_UidToData.growTo(nNewClauseUid + 1);
+    CRef refResol = m_RA.alloc(parents, true);
     // increase reference count for all the parents
-    for (int nInd = 0; nInd < parents.size(); ++nInd)
-    {
-        Resol& res = m_RA[m_UidToData[parents[nInd]].m_ResolRef];
-        ++res.m_nRefCount;
-        res.m_Children.push(nNewClauseId);
+    for (int nInd = 0; nInd < parents.size(); ++nInd) {
+		CRef resRef = GetResolRef(parents[nInd]);
+		if (resRef == CRef_Undef)
+			continue;
+		Resol& res = GetResol(resRef);
+        ++res.header.m_nRefCount;
+        res.m_Children.push(nNewClauseUid);
     }
 
-    m_UidToData[nNewClauseId].m_ClauseRef = ref;
-    m_UidToData[nNewClauseId].m_ResolRef = refResol;
+    m_UidToData[nNewClauseUid].m_ClauseRef = ref;
+    m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 }
-
-void CResolutionGraph::DecreaseReference(uint32_t nUid)
-{
+void CResolutionGraph::AddRemainderResolution
+(uint32_t nNewClauseUid, CRef ref) {
+	m_UidToData.growTo(nNewClauseUid + 1);
+	vec<CRef> dummyParnets;
+	CRef refResol = m_RA.alloc(dummyParnets,false);
+	m_UidToData[nNewClauseUid].m_ClauseRef = ref;
+	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
+	m_RA[refResol].header.m_nRefCount--;
+}
+void CResolutionGraph::DecreaseReference(uint32_t nUid){
     CRef& ref = m_UidToData[nUid].m_ResolRef;
-    Resol& res = m_RA[ref];
-    --res.m_nRefCount;
-    if (res.m_nRefCount == 0)
-    {
+	if (ref == CRef_Undef)
+		return;
+    Resol& res = GetResol(ref);
+    --res.header.m_nRefCount;
+    if (res.header.m_nRefCount <= 0) {
+
         // first decrease reference count for all the parents
         uint32_t* parents = res.Parents();
-        for (int nInd = 0; nInd < res.ParentsSize(); ++nInd)
-        {
-            DecreaseReference(parents[nInd]);
+        for (int pUid = 0; pUid < res.ParentsSize(); ++pUid) {
+            DecreaseReference(parents[pUid]);
         }
 
+
+		//than mark node as free in resol graph (lazy removal), by counting the size of memory to free
         m_RA.free(ref);
-		// printf("removing ref to %d\n", nUid);
+		// and removing reference to it from m_RA
+
         ref = CRef_Undef;
+		//if (temp_ics.has(nUid))
+		//	temp_ics.remove(nUid);
+		//if (icDelayedRemoval.find(nUid) != icDelayedRemoval.end()) {
+		//	delete(icDelayedRemoval[nUid]);
+		//	icDelayedRemoval.erase(nUid);
+		//}
     }
+	
 }
 
 void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
@@ -51,18 +69,18 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
     int nParentsSize = resol.ParentsSize();
  
-     if (nParentsSize == 0)
-     {
+     if (nParentsSize == 0) {
          allParents.push(nUid);
          return;
      }
 
      uint32_t* parents = resol.Parents();
 
-     for (int nParentId = 0; nParentId < nParentsSize; ++nParentId)
-     {
-         if (checked.insert(parents[nParentId]))
-            GetOriginalParentsUids(parents[nParentId], allParents, checked);
+     for (int i = 0; i < nParentsSize; ++i) {
+		 CRef parentRef = GetResolRef(parents[i]);
+         if (parentRef != CRef_Undef && GetResol(parentRef).header.ic &&
+			 checked.insert(parents[i]))
+            GetOriginalParentsUids(parents[i], allParents, checked);
      }
  }
 
@@ -99,25 +117,21 @@ void CResolutionGraph::BuildBackwardResolution()
     }
 }
 */
-void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone)
-{
+void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone) {
     Set<uint32_t> set;
     set.add(cone);
-    for (int nInd = 0; nInd < cone.size(); ++nInd)
-    {
+    for (int nInd = 0; nInd < cone.size(); ++nInd) {
         uint32_t nUid = cone[nInd];
-        CRef ref = m_UidToData[nUid].m_ResolRef;
+        CRef ref = GetResolRef(nUid);
         if (ref == CRef_Undef)
             continue;
-        Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
-        if (resol.m_Children.size() > 0)
-        {
+        Resol& resol = GetResol(ref);
+        if (resol.m_Children.size() > 0) {
             const vec<uint32_t>& children = resol.m_Children;
-            for (int nChild = 0; nChild < children.size(); ++nChild)
-            {
-                uint32_t nChildId = children[nChild];
-                if (m_UidToData[nChildId].m_ResolRef != CRef_Undef && set.insert(nChildId))
-                    cone.push(nChildId);
+            for (int i = 0; i < children.size(); ++i)  {
+                uint32_t childUid = children[i];
+                if (GetResolRef(childUid) != CRef_Undef && set.insert(childUid))
+                    cone.push(childUid);
             }
         }
     }
@@ -129,7 +143,7 @@ void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniq
         if (m_UidToData[nextUid].m_ResolRef == CRef_Undef)
             return;
 		Resol& resol = GetResol(GetResolRef(nextUid)); // m_RA[m_UidToData[nextUid].m_ResolRef];
-        if (resol.m_Children.size() != 1 || m_EmptyClauseParents.has(nextUid))
+        if (resol.m_Children.size() != 1 || m_EmptyClauseParents.has(nextUid)) //oferg: why would we skip on a parent of the empty clause?
             return;    
         nextUid = resol.m_Children[0];
         uniquePath.push(nextUid);
@@ -140,10 +154,11 @@ void CResolutionGraph::Shrink()
 {
     int nSize = m_UidToData.size();
     m_RA.StartReloc();
-    for (int nId = 0; nId < nSize; ++nId)
-    {
-        m_RA.Reloc(m_UidToData[nId].m_ResolRef);
-    }
+	for (int nUid = 0; nUid < nSize; ++nUid) {
+		//if (nUid == 367885)
+		//	printf("uid: %d reloc\n", nUid);
+		m_RA.Reloc(m_UidToData[nUid].m_ResolRef);
+	}
     m_RA.FinishReloc();
 }
 
@@ -153,72 +168,68 @@ void CResolutionGraph::Shrink()
 
 // assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals, after 'SAT' case), 
 // then setGood will be filled with all their descendants that now do not have an IC ancestor. 
-void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
-{
-	std::vector<uint32_t> vecToCheck;
-	std::vector<uint32_t> vecCurrChecked;
+void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start) {
+	std::vector<uint32_t> vecNextCheck;
+	std::vector<uint32_t> vecCurrCheck;
 	bool firstTime = true;
 
 	// add children of all sets to be checked
-
 	setGood.add(start);
-	for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
+	for (int i = 0; i < start.size(); ++i) {
+		vecCurrCheck.push_back(start[i]);
+	}
 	
-	while (vecCurrChecked.size() > 0)
-	{
-		for (int i = 0; i < vecCurrChecked.size(); ++i)
-		{
-			int nUid = vecCurrChecked[i];
+	while (vecCurrCheck.size() > 0) {
+		for (int i = 0; i < vecCurrCheck.size(); ++i) {
+			int nUid = vecCurrCheck[i];
 			if (!firstTime && setGood.has(nUid))
 				continue;
 
-			CRef ref = m_UidToData[nUid].m_ResolRef;
-
-			if (ref == CRef_Undef)
+			//CRef resolRef = m_UidToData[nUid].m_ResolRef;
+			CRef resolRef = GetResolRef(nUid);
+			if (resolRef == CRef_Undef) // oferg: already deleted from resolution graph (all children must have been deleted already, no point in checking deeper)
 				continue;
 
-			Resol& resol = m_RA[ref];
+			Resol& resol = GetResol(resolRef);
 			int nParents = resol.ParentsSize();
 			int j = 0;
 			uint32_t* parents = resol.Parents();
-			for (; j < nParents; ++j)
-			{
+			for (; j < nParents; ++j) {
 				if (!setGood.has(parents[j]))
 					break;
 			}
 
-			if (j == nParents) // all parents are 'good',i.e., not ics.
-			{
-				if (!firstTime)
+			if (j == nParents) {// all parents are 'good',i.e., not ics.
+				if (!firstTime) {
 					setGood.insert(nUid);
+				}
 				// pass over all children and add them to be checked
-				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
-				{
-					vecToCheck.push_back(resol.m_Children[nChild]);
+				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild) {
+					vecNextCheck.push_back(resol.m_Children[nChild]);
 				}
 			}
 		}
 
 		firstTime = false;
 
-		// this implements removeduplicated_ for a std:vector
-		if (vecToCheck.size() == 0) return;
+		if (vecNextCheck.size() == 0) {
+			return;
+		}
 
-		std::sort(vecToCheck.begin(), vecToCheck.end());
+		// this implements removeduplicated_ for a std:vector
+		std::sort(vecNextCheck.begin(), vecNextCheck.end());
 		int nNewInd = 0;
 		int nOldInd = 1;
-		for (; nOldInd < vecToCheck.size(); ++nOldInd)
-		{
-			if (vecToCheck[nNewInd] != vecToCheck[nOldInd])
-			{
-				vecToCheck[++nNewInd] = vecToCheck[nOldInd];
+		for (; nOldInd < vecNextCheck.size(); ++nOldInd) {
+			if (vecNextCheck[nNewInd] != vecNextCheck[nOldInd]) {
+				vecNextCheck[++nNewInd] = vecNextCheck[nOldInd];
 			}
 		}
-		vecToCheck.resize(nNewInd + 1);
-		
-		vecToCheck.swap(vecCurrChecked);
-		vecToCheck.clear();
+		vecNextCheck.resize(nNewInd + 1);
+		vecNextCheck.swap(vecCurrCheck);
+		vecNextCheck.clear();
 	}
+	//("icDelayedRemoval size: %d\n", icDelayedRemoval.size());
 // print:	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
 }
 

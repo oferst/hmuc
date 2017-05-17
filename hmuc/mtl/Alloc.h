@@ -65,7 +65,7 @@ class RegionAllocator
     T&       operator[](Ref r)       { assert(r >= 0 && r < sz); return memory[r]; }
     const T& operator[](Ref r) const { assert(r >= 0 && r < sz); return memory[r]; }
 
-    T*       lea       (Ref r)       { assert(r >= 0 && r < sz); return &memory[r]; }
+    T*       lea       (Ref r)       { assert(r >= 0 && r < sz); return &memory[ r]; }
     const T* lea       (Ref r) const { assert(r >= 0 && r < sz); return &memory[r]; }
     Ref      ael       (const T* t)  { assert((void*)t >= (void*)&memory[0] && (void*)t < (void*)&memory[sz-1]);
         return  (Ref)(t - &memory[0]); }
