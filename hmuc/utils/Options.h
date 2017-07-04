@@ -360,9 +360,8 @@ class BoolOption : public Option
 
     virtual bool parse(const char* str){
         const char* span = str; 
-        
         if (match(span, "-")){
-            bool b = !match(span, "no-");
+            bool b = !match(span, "no-"); 
 
             if (strcmp(span, name) == 0){
                 value = b;
@@ -391,10 +390,6 @@ class BoolOption : public Option
 
 
 
-//Multi Module Options
-static const char* _mul = "MUL";
-static BoolOption	 opt_blm_rebuild_proof(_mul, "blm-rebuild-proof", "following backbone literal mining (BLM), will generate a resolution proof of unsat, whether or not assumptions were used to deduce unsat of the formula", false);
-//=================================================================================================
 
 
 }

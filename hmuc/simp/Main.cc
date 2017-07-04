@@ -93,8 +93,92 @@ int main(int argc, char** argv)
 		
         
 		parseOptions(argc, argv, true);
-        
-        SimpSolver  S;
+
+		 
+
+		//vec<uint32_t> icParentsVec; 
+		//vec<uint32_t> remParentsVec; 
+		//vec<uint32_t> allParentsVec; 
+		////Resol r = Resol(icParentsVec, remParentsVec, allParentsVec, true);
+		//for (int i = 32; i < 64; ++i) {
+		//	if (i == 34)
+		//		remParentsVec.push(i);
+		//	else
+		//		icParentsVec.push(i);
+		//	allParentsVec.push(i);
+		//}
+		//icParentsVec.push(10);  icParentsVec.push(7); icParentsVec.push(6); icParentsVec.push(2); icParentsVec.push(1);
+		//remParentsVec.push(5); remParentsVec.push(4); remParentsVec.push(15);  remParentsVec.push(8);
+		//allParentsVec.push(5); allParentsVec.push(10);  allParentsVec.push(4); allParentsVec.push(7); allParentsVec.push(6); allParentsVec.push(15); allParentsVec.push(2); allParentsVec.push(1); allParentsVec.push(8);
+
+		// for (int i = 64; i < 96; ++i) {
+		//	 if (i == 65 || i == 95)
+		//		 icParentsVec.push(i);
+		//	 else
+		//		 remParentsVec.push(i);
+		//	 allParentsVec.push(i);
+		// }
+
+
+		//vec<uint32_t> dummyVec;
+  //     
+		//for (int i = 0; i < allParentsVec.size(); ++i) {
+		//	S.resolGraph.AddNewResolution(allParentsVec[i], CRef_Undef, dummyVec, dummyVec, dummyVec);
+		//}
+
+		//S.resolGraph.AddNewResolution(0, CRef_Undef, icParentsVec, remParentsVec, allParentsVec);
+		//CRef resolRef = S.resolGraph.GetResolRef(0);
+		//Resol& resol = S.resolGraph.GetResol(resolRef);
+
+
+		//int remSize = resol.remParentsSize();
+		//int icSize = resol.ParentsSize();
+		//int size = remSize + icSize;
+		//int flagsSize = (size / 32) + (int)((size % 32) > 0);
+
+
+		//for (int i = 0; i < 1 + resol.ParentsSize() + ((remSize == 0) ? 0 : (1 + remSize + flagsSize)); ++i)
+		//	printf("resol.m_Parents[%d] =  %u\n",i, resol.m_Parents[i]);
+
+		//uint32_t j, k;
+		//uint32_t flags;
+		//uint32_t flagBit;
+		//uint32_t icOffset = 1;
+		//uint32_t remOffset = icOffset + 1 + icSize;
+		//uint32_t flagOffset = remOffset + remSize;
+		//uint32_t lastFlagWordLoc = size / 32;
+		//uint32_t icIdx, remIdx; icIdx = remIdx = 0;
+
+
+		//
+		//for (uint32_t i = 0; i < size; ++i) {
+		//	k = i % 32;
+		//	if (k == 0) {
+		//		j = i / 32;
+		//		flags = resol.m_Parents[flagOffset + j].guideFlags;
+		//	}
+		//	flagBit = ((flags << k) & 0x80000000) >> 31; //extract the MSB after shifting k steps to the left (i.e. after multiplying by 2^k)
+		//	//printf("flagsIdx[%d]=%u, flagBit[%d] = %d, \n", j, flags, k, flagBit);
+		//	if (flagBit)
+		//		printf("ic uid: %d\n", resol.m_Parents[icOffset + icIdx++]);
+		//	else
+		//		printf("rem uid: %d\n", resol.m_Parents[remOffset + remIdx++]);
+		//}
+
+
+
+		//printf("flags size: %d\n", flagsSize);
+
+		//exit(-5);
+
+
+
+
+
+
+		SimpSolver  S;
+
+
         double      initial_time = cpuTime();
 
         if (!pre) S.eliminate(true);
@@ -178,6 +262,7 @@ int main(int argc, char** argv)
             printf("\n"); }
         printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s UNKNOWN\n");
 //		getchar();
+		freopen("CON", "w", stdout);
 #ifdef NDEBUG
         exit(ret == l_True ? 10 : ret == l_False ? 20 : 0);     // (faster than "return", which will invoke the destructor for 'Solver')
 #else
@@ -186,6 +271,7 @@ int main(int argc, char** argv)
     } catch (OutOfMemoryException&){
         printf("c ===============================================================================\n");
         printf("s UNKNOWN\n");
+		freopen("CON", "w", stdout);
         exit(0);
     }
 }

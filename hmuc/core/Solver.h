@@ -51,6 +51,10 @@ enum pf_modes{
 
 class Solver {
 public:
+
+	//CRef prevCr = CRef_Undef; //!!
+
+
     //FILE* flog;
 	void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
@@ -102,11 +106,14 @@ public:
 	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
 	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 
 	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).	
-    int m_nSatCall;
+
+	bool blm_rebuild_proof;
+
+	int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
     vec<uint32_t> icParents;
 	vec<uint32_t> allParents;
-	vec<uint32_t> nonIcParents;
+	vec<uint32_t> remParents;
     bool m_bUnsatByPathFalsification;
 	int nUnsatByPF;
 	int pf_prev_trail_size;
@@ -127,7 +134,7 @@ public:
     bool    addClause (Lit p);                                  // Add a unit clause to the solver. 
     bool    addClause (Lit p, Lit q);                           // Add a binary clause to the solver. 
     bool    addClause (Lit p, Lit q, Lit r);                    // Add a ternary clause to the solver. 
-    bool    addClause_(vec<Lit>& ps, bool ic = false, vec<uint32_t>* parents = NULL);        // Add a clause to the solver without making superflous internal copy. Will
+    bool    addClause_(vec<Lit>& ps, bool ic = false, vec<uint32_t>* icparents = NULL);        // Add a clause to the solver without making superflous internal copy. Will
                                                                 // change the passed vector 'ps'.
 
     // Solving:
@@ -239,13 +246,15 @@ public:
 	uint32_t dottyCalls = 0; //!!
 
 	//populates outRhombus with all uids that are 1) reachable from some root inRoots and 2) reach some leaf in inLeaves
-	void calcRhombus(vec<uint32_t>& inRoots, vec<uint32_t>& inLeaves, Set<uint32_t>& outRhombus);
+	//void calcRhombus(vec<uint32_t>& inRoots, vec<uint32_t>& inLeaves, Set<uint32_t>& outRhombus);
 	//________________________________________________________________________________________________
 	
 	int todimacsLit(Lit l);
-
+	void printLearntsDB();
+	void printTrail();
 	void printClause(const Clause & c, std::string text);
 	void printClause(const vec<Lit>& v, std::string text);
+	void printClause(uint32_t uid, std::string text);
  //   void printClause(FILE* f, Clause& c);
 	//	
 	//void printClause(FILE * f, vec<Lit>& v, std::string text="");	
@@ -357,7 +366,7 @@ protected:
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-    bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents); // (helper method for 'analyze()')
+    bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
@@ -467,7 +476,7 @@ inline bool     Solver::locked          (const Clause& c) const { return value(c
 inline void     Solver::newDecisionLevel(int conflictC)         { trail_lim.push(trail.size()); vecConfl.push(conflictC);}
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
-inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }
+inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); } // returns 2^(n mod 32) where n==level(x)
 inline lbool    Solver::value         (Var x) const   { return assigns[x]; }
 inline lbool    Solver::value         (Lit p) const   { return assigns[var(p)] ^ sign(p); }
 inline lbool    Solver::modelValue    (Var x) const   { return model[x]; }

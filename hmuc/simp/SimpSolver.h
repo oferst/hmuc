@@ -42,10 +42,10 @@ class SimpSolver : public Solver {
     Var     newVar    (bool polarity = true, bool dvar = true);
     bool    addClause (const vec<Lit>& ps, bool bIc);
     bool    addEmptyClause();                // Add the empty clause to the solver.
-    bool    addClause (Lit p);               // Add a unit clause to the solver.
-    bool    addClause (Lit p, Lit q);        // Add a binary clause to the solver.
-    bool    addClause (Lit p, Lit q, Lit r); // Add a ternary clause to the solver.
-    bool    addClause_(vec<Lit>& ps, bool bIc, vec<uint32_t>* parents = NULL);
+    //bool    addClause (Lit p);               // Add a unit clause to the solver.
+    //bool    addClause (Lit p, Lit q);        // Add a binary clause to the solver.
+    //bool    addClause (Lit p, Lit q, Lit r); // Add a ternary clause to the solver.
+    bool    addClause_(vec<Lit>& ps, bool bIc, vec<uint32_t>* icParents = NULL);
     bool    substitute(Var v, Lit x);  // Replace all occurrences of v with x (may cause a contradiction).
 
     // Variable mode:

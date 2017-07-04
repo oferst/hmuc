@@ -22,7 +22,7 @@ namespace Minisat
 	static BoolOption    opt_sec_rot_use_prev	(_cat, "sec-call-use-prev", "include in second rotation-call previously discovered clauses", true);
 	static IntOption     opt_remove_order		(_cat, "remove-order", "removal order: 0 - biggest, 1 - smallest, 2 - highest, 3 - lowest, 4 - rotation\n", 4, IntRange(0, 4));
 	static BoolOption    opt_only_cone			(_cat, "only-cone", "remove all the clauses outside the empty clause cone\n", true);
-	
+	static IntOption     max_Iter				(_cat, "max-iter", "allow for a maximum number of iteration before cutting of the search\n", -1, IntRange(-1, 2147483647));
 	
 
 	CMinimalCore::CMinimalCore(SimpSolver& solver): 
@@ -41,17 +41,18 @@ namespace Minisat
 		m_nICSize = nIcNum;
 	}
 
-	void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, bool last)
+	void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, std::string msg, bool last)
 	{
 		if (opt_muc_print)
 		{
-			printf("c %siter %d time %g not-muc %d unknown %d muc %d\n", 
+			printf("c %siter %d time %g not-muc %d unknown %d muc %d %s\n", 
 				last ? "final " : "", 
-				iter + 1, 
-				cpuTime(),
+				iter, 
+				0.0,//cpuTime(),
 				m_nICSize - mucSize - unknownSize, 
 				unknownSize, 
-				mucSize);
+				mucSize,
+				msg.c_str());
 		}
 		if (last) {
 			printf("### time %g\n", cpuTime());		
@@ -188,9 +189,9 @@ namespace Minisat
 				if (unsatClss == 2 && opt_remove_order == 4)
 				{
 					if (!setMuc.has(unsatCls1))
-						m_ClausesForRemoval.push(unsatCls1);
+						m_uidRotationBlockers.push(unsatCls1);
 					if (!setMuc.has(unsatCls2))
-						m_ClausesForRemoval.push(unsatCls2);
+						m_uidRotationBlockers.push(unsatCls2);
 				}
 				else if (unsatClss == 1) 
 				{
@@ -216,7 +217,11 @@ namespace Minisat
 	}
 
 	void CMinimalCore::Rotate(uint32_t uid, Var v, Set<uint32_t>& moreMucClauses, Set<uint32_t>& setMuc, bool bUseSet)
-	{		
+	{
+
+
+		//printf("rotate %d on var %d, setMuc.size() (after) %d,moreMucClauses.size() (after) %d \n", uid, v, setMuc.elems(), moreMucClauses.elems());
+
 		++m_nRotationCalled;
 		CRef ref = m_Solver.GetClauseIndFromUid(uid);
 		assert(ref != CRef_Undef);
@@ -225,27 +230,26 @@ namespace Minisat
 		{
 			// we will pass one by one literal and check if the clause is satisfiable with change 
 			Var checkVar = var(cls[i]);
-			if (checkVar == v) 
+			if (checkVar == v)
 			{
 				continue;
 			}
-
 			// first we swap v in the model and count the number of clauses that became unsat as a result of it
 			assert(m_Solver.modelValue(cls[i]) == l_False);
 			m_Solver.model[checkVar] = m_Solver.model[checkVar] ^ 1;
-
 			// now we need to check how many variables are 
-			vec<uint32_t>& _cs = m_Occurs[toInt(~cls[i])];
+			vec<uint32_t>& _cs = m_Occurs[toInt(~cls[i])]; //TODO: lazy clean m_Occurs, remove deleted clauses
+
 			uint32_t* cs = (uint32_t*)_cs;
 			int unsatClss = 0;
 			uint32_t unsatClsUid = CRef_Undef;
-			uint32_t unsatCls1 = CRef_Undef;
-			uint32_t unsatCls2 = CRef_Undef;
+			uint32_t unsatClsUid1 = CRef_Undef;
+			uint32_t unsatClsUid2 = CRef_Undef;
 			for (int j = 0; j < _cs.size() && unsatClss < 2; ++j)
 			{
 				CRef ref = m_Solver.GetClauseIndFromUid(cs[j]);
 				// check if this clause was previously removed
-				if  (ref == CRef_Undef)
+				if (ref == CRef_Undef)
 					continue;
 				Clause& cls = m_Solver.GetClause(ref);
 				int litInd = 0;
@@ -257,53 +261,67 @@ namespace Minisat
 						break;
 					}
 				}
-
 				// check if the clause is unsat
-				if (litInd == cls.size()) 
+				if (litInd == cls.size())
 				{
+					//m_Solver.printClause(cls, std::to_string(cls.uid()) + " unsat");
+
 					++unsatClss;
 					unsatClsUid = cs[j];
 					if (unsatClss == 1)
 					{
-						unsatCls1 = unsatClsUid;
+						unsatClsUid1 = unsatClsUid;
+						//if (m_Solver.verbosity == 1)
+						//	m_Solver.printClause(unsatClsUid1, "unsatCls1");
 					}
 					else
 					{
-						unsatCls2 = unsatClsUid;
+						unsatClsUid2 = unsatClsUid;
+						//if (m_Solver.verbosity == 1)
+						//	m_Solver.printClause(unsatClsUid2, "unsatCls2");
 					}
 				}
+				//else {
+				//	m_Solver.printClause(cls, std::to_string(cls.uid()) + " sat");
+				//}
+
 			}
 
 			assert(unsatClss > 0);
 
-			if (unsatClss == 1) 
-			{
-				if (bUseSet)
-				{
-					if (!setMuc.has(unsatClsUid) && moreMucClauses.insert(unsatClsUid))
-					{
-						Rotate(unsatClsUid, checkVar, moreMucClauses, setMuc, bUseSet);
-					}
-				}
-				else
-				{
-					if (moreMucClauses.insert(unsatClsUid))
-					{
-						Rotate(unsatClsUid, checkVar, moreMucClauses, setMuc, bUseSet);
-					}
-				}
+
+
+			//if (unsatClss == 1) { // exactly one clause is unsat for current assignment
+			//	if (bUseSet) { // if true, do rotation only when the clause wasn't seen in either the 'setMuc' or the 'moreMucClauses' collections
+			//		if (!setMuc.has(unsatClsUid) && moreMucClauses.insert(unsatClsUid)) {
+			//			Rotate(unsatClsUid, checkVar, moreMucClauses, setMuc, bUseSet);
+			//		}
+			//	}
+			//	else {
+			//		if (moreMucClauses.insert(unsatClsUid)) {
+			//			Rotate(unsatClsUid, checkVar, moreMucClauses, setMuc, bUseSet);
+			//		}
+			//	}
+			//}
+			if (unsatClss == 1 && (!bUseSet || !setMuc.has(unsatClsUid)) && moreMucClauses.insert(unsatClsUid)) {
+				Rotate(unsatClsUid, checkVar, moreMucClauses, setMuc, bUseSet);
 			}
-			else if (unsatClss == 2 && opt_remove_order == 4)
-			{
-				if (!setMuc.has(unsatCls1))
-					m_ClausesForRemoval.push(unsatCls1);
-				if (!setMuc.has(unsatCls2))
-					m_ClausesForRemoval.push(unsatCls2);
+
+
+
+			else if (unsatClss == 2 && opt_remove_order == 4) {
+				if (!setMuc.has(unsatClsUid1)) {
+					m_uidRotationBlockers.push(unsatClsUid1);
+				}
+				if (!setMuc.has(unsatClsUid2)) {
+					m_uidRotationBlockers.push(unsatClsUid2);
+				}
 			}
 
 			// swap the value back to what it was before
 			m_Solver.model[checkVar] = m_Solver.model[checkVar] ^ 1;
 		}
+
 	}
 
 
@@ -382,11 +400,19 @@ namespace Minisat
 		}
 
 		m_Occurs.growTo(m_Solver.nVars() << 1);
-		int nIteration = 0;		
-		for (; true; ++nIteration) {				
+		int nIteration = 0;
+		int exitIter = max_Iter;
+		for (; true; ++nIteration) {	
+
+
 			if (!m_bIcInConfl) {			
 				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
+
+
+
+
+
 				if (nIteration){
 						double time = cpuTime() - before_time;
 						if (time > longestcall) longestcall = time;
@@ -409,9 +435,25 @@ namespace Minisat
 					if (m_Solver.verbosity == 1) printf("UNSAT (normal)\n");
 					rombus.clear();
 					m_Solver.GetUnsatCore(vecUids, rombus);
+					//if (m_Solver.verbosity == 1) {
+					//	printf("------------unsat core size %d-----------\n", rombus.elems());
+					//	vec<uint32_t> rombusVec;
+					//	rombus.copyTo(rombusVec);
+					//	for (int i = 0; i < rombusVec.size(); ++i)
+					//		printf("%d\n", rombusVec[i]);
+					//	printf("------------unsat core end-----------\n");
+					//}
+						
+					//printf("core size %d\n", vecUids.size());
 					// vecUids.removeDuplicated_();
 					// for each clause in vecUids check if it is ic
 					// and mark it as unknown. 
+
+
+
+
+
+
 					for (int nInd = 0; nInd < vecUids.size(); ++nInd) // go over clauses in core
 					{
 						uint32_t nIc = vecUids[nInd];
@@ -435,12 +477,15 @@ namespace Minisat
 							{
 								m_ClauseHeap.insert(nIc);
 							}
+
+							
+
 						}
 					}
 					
 					vecNextUnknown.removeDuplicated_(); // see why we need it sorted and without duplicates below. 
-
-					PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration);
+					
+					PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat");
 
 
 					//if (m_Solver.test_result) test(vecNextUnknown, setMuc, "normal unsat");
@@ -472,9 +517,15 @@ namespace Minisat
 							if (nIndUnknown + 1 < vecNextUnknown.size()) ++nIndUnknown;							
 						}
 					}
-
+					//if (m_Solver.verbosity == 1) {
+					//	printf("nIteration %d\n", nIteration);
+					//	printf("sat call res: %d\n", result);
+					//	m_Solver.printLearntsDB();
+					//}
 					//sort(vecUidsToRemove);
-					// remove their cones				
+					// remove their cones		
+
+
 					if (!opt_only_cone)
 						m_Solver.RemoveClauses(vecUidsToRemove);
 					else {
@@ -499,7 +550,7 @@ namespace Minisat
 				m_Solver.test_now = false;
 
 
-				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration);
+				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - blm assumption");
 				}
 			}
 #pragma endregion
@@ -508,13 +559,10 @@ namespace Minisat
 			else if (result == l_True)
 			{
 				if (m_Solver.verbosity == 1) printf("SAT\n");
-				/*for (int j = 0; j < 300; ++j)
-					printf("%d ", m_Solver.model[j]);*/
-				
+				if (nIteration == 0) {printf("### SAT\n"); return result; }// the problem is sat			
+				//printf("nIcForRemove: %d\n", nIcForRemove);
 
 
-				if (nIteration == 0)
-				{printf("### SAT\n"); return result; }// the problem is sat			
 
 				// we removed too much ics; add the last one back
 				setMuc.insert(nIcForRemove);  
@@ -530,12 +578,40 @@ namespace Minisat
 
 				if (opt_muc_rotate)
 				{	
+
 					moreMucClauses.clear(); // Here we will collect more clauses to be moved from vecCurrentUnknown (the IC list) and be added to setMuc (i.e., bound as remainder). 
 					vec<uint32_t> UidsToBind;  // a subset of moreMucClauses that are not already in setMuc. These we need to bind back as setMuc and remove from vecCurrentUnknown.
 					++m_nRotationFirstCalls;
 					if (m_Solver.verbosity == 1) printf("Rotate...\n");
+
+					
+					//if (nIteration >=29 ) {
+					//	printf("##########Occurs list##########\n");
+					//	for (int i = 0; i < m_Occurs.size(); ++i) {
+					//		if (m_Occurs[i].size() == 0)
+					//			continue;
+					//		for (int j = 0; j < m_Occurs[i].size(); ++j) {
+					//			/*if (335302 == m_Occurs[i][j])*/
+					//				m_Solver.printClause(m_Occurs[i][j], "clause uid " + std::to_string(m_Occurs[i][j]));
+					//		}
+					//	}
+					//	printf("##########END##########\n");
+					//}
+					//if (m_Solver.verbosity == 1)
+						//printf("iter %d, rotate %d, setMuc.size() (before) %d,moreMucClauses.size() (before) %d \n", nIteration, nIcForRemove, setMuc.elems(), moreMucClauses.elems());
+
+
+
 					Rotate(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecCurrentUnknown.size()));
+					
+					
+					
+						//printf("iter %d, rotate %d, setMuc.size() (after) %d,moreMucClauses.size() (after) %d \n", nIteration, nIcForRemove, setMuc.elems(), moreMucClauses.elems());
+					
+					
+					
 					//Rotate_it(nIcForRemove, var_Undef, moreMucClauses, setMuc, ((opt_set_ratio * setMuc.elems()) >= vecCurrentUnknown.size()));  // a little slower. Supposed to prevent stack-overflow problems with the recursive version. 
+
 
 					if (opt_second_sat_call)
 					{
@@ -591,7 +667,7 @@ namespace Minisat
 				}
 #pragma endregion
 				vecCurrentUnknown.swap(vecNextUnknown);
-				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration);			
+				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "sat");			
 			}			
 #pragma endregion
 
@@ -615,16 +691,27 @@ namespace Minisat
 #pragma endregion
 
 #pragma region search_next_clause
+
+			//printf("\n\nmax uid: %d\n", m_Solver.resolGraph.GetMaxUid());
 			// searching for the next clause c to attempt removing			
 			vecUidsToRemove.clear(); 
 			CRef cr;
 			while (true) {
+				//printf("m_ClausesForRemoval.size() = %d\n", m_uidRotationBlockers.size());
 				switch ((unsigned)opt_remove_order) {
 				case 4: // here we first try to remove a clause that interrupted rotation (when we have two unsat clauses instead of 1)
 					nIcForRemove = CRef_Undef;
-					while (nIcForRemove == CRef_Undef && m_ClausesForRemoval.size() > 0) {
-						nIcForRemove = m_ClausesForRemoval.last();
-						m_ClausesForRemoval.pop();
+					while (nIcForRemove == CRef_Undef && m_uidRotationBlockers.size() > 0) {
+						nIcForRemove = m_uidRotationBlockers.last();
+						m_uidRotationBlockers.pop();
+						//printf("removing %d\n", nIcForRemove);
+						//m_Solver.printClause(nIcForRemove, "");
+
+
+						//if(338861 == nIcForRemove)
+						//	m_Solver.printClause(338618, "other: (338618)");
+						//if (338618 == nIcForRemove)
+						//	m_Solver.printClause(338861, "other: (338861)");
 						if (!find(vecNextUnknown, nIcForRemove))
 							nIcForRemove = CRef_Undef;
 					}
@@ -647,22 +734,25 @@ namespace Minisat
 					}
 					break;
 				}
-
+				
 				cr = m_Solver.resolGraph.GetClauseRef(nIcForRemove);
-				if (cr != CRef_Undef) break;  // if == Cref_Undef, then this clause was removed from the resolution graph (by rotation?). 
-
+				if (cr != CRef_Undef) {
+					break;  // if == Cref_Undef, then this clause was removed from the resolution graph (by rotation?). 
+					
+				}
 				// the clause we selected is trivially satisfied (i.e., there is a remainder unit clause that subsumes it)				
 				vecUidsToRemove.push(nIcForRemove);
 				remove(vecNextUnknown, nIcForRemove);
 				if (vecNextUnknown.size() == 0)  { // no unknowns left, end of story. 
 					result = l_False;
 					goto end;
-				}				
+				}
+				//m_Solver.printClause(nIcForRemove, "^^nIcForRemove");
 			}
 #pragma endregion
 
 			
-			if (m_Solver.verbosity == 1) printf("nictoremove = %d\n", nIcForRemove);
+			//if (m_Solver.verbosity == 1) printf("nictoremove = %d\n", nIcForRemove);
 			if (m_Solver.pf_mode != none) {
 #ifndef NewParents				
 				if ((result == l_False) && m_Solver.m_bConeRelevant && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
@@ -698,11 +788,26 @@ namespace Minisat
 			vecCurrentUnknown.swap(vecNextUnknown);
 			vecNextUnknown.clear();
 			m_Solver.nICtoRemove = nIcForRemove;
-		}  // main 'true' loop
+
+
+			//if (m_Solver.verbosity == 1)
+			//	for (uint32_t i = 0; i < m_Solver.resolGraph.GetMaxUid(); ++i) {
+			//		CRef resolRef = m_Solver.resolGraph.GetResolRef(i);
+			//		if (resolRef != CRef_Undef) {
+			//			Resol& resol = m_Solver.resolGraph.GetResol(resolRef);
+			//			if(resol.header.ic)
+			//				printf("%u\n", resol.ParentsSize());
+			//		}
+			//	}
+			if (exitIter > 0 && nIteration == exitIter - 1)
+				m_Solver.verbosity = 1;
+			if (exitIter > 0 && nIteration == exitIter)
+				exit(5);
+			}  // main 'true' loop
 
 #pragma region end_of_story
 
-end:	PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, true);
+end:	PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "last",true);
 		vec<uint32_t> vecMuc;
 		setMuc.copyTo(vecMuc);
 		sort(vecMuc);

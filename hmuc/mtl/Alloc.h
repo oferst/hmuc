@@ -54,7 +54,7 @@ class RegionAllocator
 
 
     uint32_t size      () const      { return sz; }
-    void SetSize(uint32_t newSize)   { sz = newSize;  }
+	void SetSize(uint32_t newSize) {  sz = newSize; }
     void ClearWasted   ()            { wasted_ = 0;  }
     uint32_t wasted    () const      { return wasted_; }
 
@@ -78,6 +78,7 @@ class RegionAllocator
         to.wasted_ = wasted_;
 
         memory = NULL;
+
         sz = cap = wasted_ = 0;
     }
 };
@@ -96,10 +97,11 @@ void RegionAllocator<T>::capacity(uint32_t min_cap)
         uint32_t delta = ((cap >> 1) + (cap >> 3) + 2) & ~1;
         cap += delta;
 
-        if (cap <= prev_cap)
-            throw OutOfMemoryException();
+		if (cap <= prev_cap) 
+			throw OutOfMemoryException();
+		
     }
-    // printf(" .. (%p) cap = %u\n", this, cap);
+     //printf(" .. (%p) cap = %u\n", this, cap);
 
     assert(cap > 0);
     memory = (T*)xrealloc(memory, sizeof(T)*cap);
@@ -110,16 +112,21 @@ template<class T>
 typename RegionAllocator<T>::Ref
 RegionAllocator<T>::alloc(int size)
 { 
-    // printf("ALLOC called (this = %p, size = %d)\n", this, size); fflush(stdout);
+    //printf("ALLOC called (this = %p, size = %d)\n", this, size); fflush(stdout);
     assert(size > 0);
-    capacity(sz + size);
+
+	
+	capacity(sz + size);
 
     uint32_t prev_sz = sz;
     sz += size;
+
     
     // Handle overflow:
-    if (sz < prev_sz)
-        throw OutOfMemoryException();
+	if (sz < prev_sz) 
+
+		throw OutOfMemoryException();
+
 
     return prev_sz;
 }

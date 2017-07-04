@@ -15,7 +15,6 @@ public:
 	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "" ); 
     lbool Solve(bool pre);
 
-	void testsat(); // !!
 
     inline SimpSolver& GetSolver() { return m_Solver; }
 
@@ -23,7 +22,7 @@ public:
 
     bool m_bIcInConfl;
 private:
-   void PrintData(int unknownSize, int mucSize, int iter, bool last = false);
+   void PrintData(int unknownSize, int mucSize, int iter, std::string msg = "", bool last = false);
 
    uint32_t GetMaxIc(Map<uint32_t, uint32_t>& mapIcToScore);
    uint32_t GetMinIc(Map<uint32_t, uint32_t>& mapIcToScore);
@@ -58,7 +57,7 @@ private:
     };
 
     Heap<ClauseOrder> m_ClauseHeap;
-    vec<uint32_t> m_ClausesForRemoval;
+    vec<uint32_t> m_uidRotationBlockers;
 };
 
 }

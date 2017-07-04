@@ -29,7 +29,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Vec.h"
 #include "mtl/Map.h"
 #include "mtl/Alloc.h"
-#include "utils/Options.h"
+#include<iostream>
+#include<string>
+
 namespace Minisat {
 
 //=================================================================================================
@@ -131,7 +133,7 @@ class Clause {
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned ic        : 1;
-		unsigned parentToIc : 1;
+		unsigned parentToIc : 1; //oferg To document
         unsigned size      : 25;
 		
 	}                            header;
@@ -142,11 +144,11 @@ class Clause {
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool use_extra, bool learnt, bool ic) {
+    Clause(const V& ps, bool use_extra, bool learnt, bool ic, bool isParentToIc=false) {
         header.mark      = 0;
         header.learnt    = learnt;
         header.ic      = ic;
-		header.parentToIc = 0;
+		header.parentToIc = isParentToIc;
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
@@ -161,10 +163,12 @@ class Clause {
                 calcAbstraction(); 
 		}
 
-        if (ic)
-        {
+        //if (ic || isParentToIc)
+        //{
             data[header.size + (int)header.has_extra].uid = icUid++;
-        }
+
+
+        //}
     }
 
 public:
@@ -173,13 +177,23 @@ public:
     static uint32_t SetUid(uint32_t newUid) { return icUid = newUid; }
 	void setIsParentToIc(bool isParent) {
 		header.parentToIc = isParent;
-		if(!header.ic && isParent){
+		//if(!header.ic && isParent){
 			//printf("%d", header.size);
-			data[header.size + (int)header.has_extra].uid = icUid++;
+			//data[header.size + (int)header.has_extra].uid = icUid++;
 			//printf("headerSize = %d headerHasExtra = %d, newUid = %d, uidIdx = %d\n", header.size, (int)header.has_extra, icUid-1, header.size+ (int)header.has_extra);
-		}
+		//}
 	}
-
+	void printClause(std::string text)
+	{
+		std::cout << text << std::endl;
+		for (int i = 0; i < this->size(); i++) {
+			Lit l = (*this)[i];
+			int litVal = var((*this)[i]) + 1;
+			litVal = sign(l) ? -litVal : litVal;
+			std::cout << litVal << " ";
+		}
+		std::cout << "0" << std::endl;
+	}
 	void* getHeaderAddr() {
 		return &header;
 	}
@@ -213,7 +227,12 @@ public:
     bool         ic        ()      const   { return header.ic; }
     bool         has_extra   ()      const   { return header.has_extra; }
     uint32_t     mark        ()      const   { return header.mark; }
-    void         mark        (uint32_t m)    { header.mark = m; }
+	void         mark(uint32_t m) {
+		if (uid() == 369119) {
+			printf("mark %u 369119 \n",m);
+		//	throw -1;
+		}
+		header.mark = m; }
     const Lit&   last        ()      const   { return data[header.size-1].lit; }
 
     bool         reloced     ()      const   { return header.reloced; }
@@ -227,6 +246,7 @@ public:
     operator const Lit* (void) const         { return (Lit*)data; }
 
     float&       activity    ()              { assert(header.has_extra); return data[header.size].act; }
+	float       activity() const{ assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
     uint32_t&    uid         ()              { //assert(header.ic || header.parentToIc); 
 	return data[header.size + (int)header.has_extra].uid; }
@@ -248,6 +268,7 @@ public:
 
 
 const CRef CRef_Undef = RegionAllocator<uint32_t>::Ref_Undef;
+
 class ClauseAllocator : public RegionAllocator<uint32_t>
 {
     static int clauseWord32Size(int size, bool has_extra, bool ic){
@@ -263,13 +284,15 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::moveTo(to); }
 
     template<class Lits>
-    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false) {
+    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false, bool isParentToIc = false) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool has_extra = learnt | extra_clause_field;
-		bool has_uid =   opt_blm_rebuild_proof || ic;
+		bool has_uid = true;
+		
 		CRef newCr = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, has_uid));
-        new (lea(newCr)) Clause(ps, has_extra, learnt, ic);
+        new (lea(newCr)) Clause(ps, has_extra, learnt, ic, isParentToIc);
+		
         return newCr;
     }
 
@@ -289,10 +312,19 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     void reloc(CRef& cr, ClauseAllocator& to)
     {
         Clause& c = operator[](cr);
+		uint32_t uid = c.uid();
 
+			
         if (c.reloced()) { cr = c.relocation(); return; }
-        
-        cr = to.alloc(c, c.learnt(), c.ic());
+
+		//if (uid == 368608) {
+		////	c.printClause(std::to_string(c.uid()) + 
+		////		" relocating clause cr = " + std::to_string(cr) + 
+		////		"********");
+		//printf("%d is parnet to ic %d (BEFORE)\n", uid, c.isParentToIc());
+		//}
+  //      
+        cr = to.alloc(c, c.learnt(), c.ic() , c.isParentToIc());
         c.relocate(cr);
         
         // Copy extra data-fields: 
@@ -302,12 +334,19 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
             to[cr].activity() = c.activity();
         else if (to[cr].has_extra()) 
             to[cr].calcAbstraction();
-        if (to[cr].ic()) 
+        if (to[cr].ic() || to[cr].isParentToIc())
         {
             // we don't want to increase uid here
             Clause::icUid--;
             to[cr].uid() = c.uid();
         }
+		//if (uid == 368608) {
+		//	//to[cr].printClause(std::to_string(to[cr].uid()) +
+		//	//	" relocated clause cr = " + std::to_string(cr) +
+		//	//	"********");
+		//	printf("%d is parnet to ic %d (AFTER)\n", uid, to[cr].isParentToIc());
+		//}
+
     }
 };
 

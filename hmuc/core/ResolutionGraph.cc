@@ -9,30 +9,68 @@ namespace Minisat
 {
 
 void CResolutionGraph::AddNewResolution
-    (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& parents){
-    m_UidToData.growTo(nNewClauseUid + 1);
-    CRef refResol = m_RA.alloc(parents, true);
-    // increase reference count for all the parents
-    for (int nInd = 0; nInd < parents.size(); ++nInd) {
-		CRef resRef = GetResolRef(parents[nInd]);
-		if (resRef == CRef_Undef)
-			continue;
-		Resol& res = GetResol(resRef);
-        ++res.header.m_nRefCount;
-        res.m_Children.push(nNewClauseUid);
-    }
+    (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents){
+   
+	if (nNewClauseUid == 369119 || nNewClauseUid == 368608) {
+		printf("%d created CRef= %d\n", nNewClauseUid, ref);
+	}
+	
+	m_UidToData.growTo(nNewClauseUid + 1);
+	CRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
+    // increase reference count for all the icparents
+    
+	
+	if (remParents.size() > 0) {
+		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
+			CRef resRef = GetResolRef(allParents[nInd]);
+			if (resRef == CRef_Undef)
+				continue;
+			Resol& res = GetResol(resRef);
+			++res.header.m_nRefCount;
+			res.m_Children.push(nNewClauseUid);
+			//if (!res.header.ic)
+			//	printf("%d %d\n", allParents[nInd], res.header.m_nRefCount);
 
+		}
+
+	}
+
+	else {
+		for (int nInd = 0; nInd < icParents.size(); ++nInd) {
+			CRef resRef = GetResolRef(icParents[nInd]);
+			if (resRef == CRef_Undef)
+				continue;
+			Resol& res = GetResol(resRef);
+			++res.header.m_nRefCount;
+			res.m_Children.push(nNewClauseUid);
+		}
+	}
+	if (nNewClauseUid == 369119)
+		printf("created ic 369119 with CRef %d", ref);
     m_UidToData[nNewClauseUid].m_ClauseRef = ref;
     m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 }
-void CResolutionGraph::AddRemainderResolution
-(uint32_t nNewClauseUid, CRef ref) {
+
+void CResolutionGraph::AddNewResolution
+(uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents) {
+	vec<uint32_t> dummy;
+	AddNewResolution(nNewClauseUid, ref, icParents, dummy, dummy);
+}
+
+
+void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) {
+	//if (nNewClauseUid == 369119 || nNewClauseUid == 368608) {
+	//if (nNewClauseUid == 368608) {
+	//	printf("%d created rem CRef= %d\n", nNewClauseUid, ref);
+	//}
 	m_UidToData.growTo(nNewClauseUid + 1);
-	vec<CRef> dummyParnets;
-	CRef refResol = m_RA.alloc(dummyParnets,false);
+	vec<CRef> dummyParents;
+	CRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
+	//if (nNewClauseUid == 369119)
+	//	printf("created rem 369119 with CRef %d\n", ref);
 	m_UidToData[nNewClauseUid].m_ClauseRef = ref;
 	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
-	m_RA[refResol].header.m_nRefCount--;
+	m_RA[refResol].header.m_nRefCount = 0;
 }
 void CResolutionGraph::DecreaseReference(uint32_t nUid){
     CRef& ref = m_UidToData[nUid].m_ResolRef;
@@ -42,8 +80,9 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
     --res.header.m_nRefCount;
     if (res.header.m_nRefCount <= 0) {
 
-        // first decrease reference count for all the parents
+        // first decrease reference count for all the icparents
         uint32_t* parents = res.Parents();
+		//printf("%d %d\n", nUid, res.ParentsSize());
         for (int pUid = 0; pUid < res.ParentsSize(); ++pUid) {
             DecreaseReference(parents[pUid]);
         }
@@ -68,7 +107,7 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
     int nParentsSize = resol.ParentsSize();
- 
+
      if (nParentsSize == 0) {
          allParents.push(nUid);
          return;
@@ -78,7 +117,7 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
 
      for (int i = 0; i < nParentsSize; ++i) {
 		 CRef parentRef = GetResolRef(parents[i]);
-         if (parentRef != CRef_Undef && GetResol(parentRef).header.ic &&
+         if (GetResol(parentRef).header.ic &&
 			 checked.insert(parents[i]))
             GetOriginalParentsUids(parents[i], allParents, checked);
      }
@@ -163,18 +202,16 @@ void CResolutionGraph::Shrink()
 }
 
 // using vector rather than vec, which enables us to use std::sort, which does not stack-overflow at least for now. 
-#define SORT
-#ifdef SORT
 
 // assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals, after 'SAT' case), 
-// then setGood will be filled with all their descendants that now do not have an IC ancestor. 
-void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start) {
+// then NewRemainders will be filled with all their descendants that now do not have an IC ancestor. 
+void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start) {
 	std::vector<uint32_t> vecNextCheck;
 	std::vector<uint32_t> vecCurrCheck;
 	bool firstTime = true;
 
 	// add children of all sets to be checked
-	setGood.add(start);
+	NewRemainders.add(start);
 	for (int i = 0; i < start.size(); ++i) {
 		vecCurrCheck.push_back(start[i]);
 	}
@@ -182,7 +219,7 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
 	while (vecCurrCheck.size() > 0) {
 		for (int i = 0; i < vecCurrCheck.size(); ++i) {
 			int nUid = vecCurrCheck[i];
-			if (!firstTime && setGood.has(nUid))
+			if (!firstTime && NewRemainders.has(nUid))
 				continue;
 
 			//CRef resolRef = m_UidToData[nUid].m_ResolRef;
@@ -191,17 +228,18 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
 				continue;
 
 			Resol& resol = GetResol(resolRef);
+
 			int nParents = resol.ParentsSize();
 			int j = 0;
 			uint32_t* parents = resol.Parents();
 			for (; j < nParents; ++j) {
-				if (!setGood.has(parents[j]))
+				if (!NewRemainders.has(parents[j]))
 					break;
 			}
 
-			if (j == nParents) {// all parents are 'good',i.e., not ics.
+			if (j == nParents) {// all icparents are 'good',i.e., not ics.
 				if (!firstTime) {
-					setGood.insert(nUid);
+					NewRemainders.insert(nUid);
 				}
 				// pass over all children and add them to be checked
 				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild) {
@@ -230,63 +268,8 @@ void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start
 		vecNextCheck.clear();
 	}
 	//("icDelayedRemoval size: %d\n", icDelayedRemoval.size());
-// print:	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
+// print:	printf("setgood.size = %d, start.size = %d\n", NewRemainders.elems(), start.size());
 }
 
-#else
-void CResolutionGraph::GetAllIcUids(Set<uint32_t>& setGood, vec<uint32_t>& start)
-{
-    vec<uint32_t> vecToCheck;
-    vec<uint32_t> vecCurrChecked;
-    bool firstTime = true;
-
-    // add children of all sets to be checked
-
-    setGood.add(start);
-    start.copyTo(vecCurrChecked);
-    while (vecCurrChecked.size() > 0)
-    {
-        for (int i = 0; i < vecCurrChecked.size(); ++i)
-        {
-            int nUid = vecCurrChecked[i];
-            if (!firstTime && setGood.has(nUid))
-                continue;
-
-            CRef ref = m_UidToData[nUid].m_ResolRef;
-
-            if (ref == CRef_Undef)
-                continue;
-
-            Resol& resol = m_RA[ref];
-            int nParents = resol.ParentsSize();
-            int j = 0;
-            uint32_t* parents = resol.Parents();
-            for (; j < nParents; ++j)
-            {
-                if (!setGood.has(parents[j]))
-                    break;
-            }
-
-            if (j == nParents) // all parents are 'good',i.e., not ics.
-            {
-                if (!firstTime)
-                    setGood.insert(nUid);
-                // pass over all children and add them to be checked
-                for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
-                {
-                    vecToCheck.push(resol.m_Children[nChild]);
-                }
-            }
-        }
-
-        firstTime = false;
-		//printf("getallIcUids (no removeduplicate)");
-        vecToCheck.removeDuplicated_(); // This is the problem that made us define SORT above, for a version using std::sort.
-		vecToCheck.swap(vecCurrChecked);
-        vecToCheck.clear();
-    }
-//	printf("setgood.size = %d, start.size = %d\n", setGood.elems(), start.size());
-}
-#endif
 
 }

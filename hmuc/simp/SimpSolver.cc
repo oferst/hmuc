@@ -130,7 +130,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 
 
 
-bool SimpSolver::addClause_(vec<Lit>& ps, bool bIc, vec<uint32_t>* parents)
+bool SimpSolver::addClause_(vec<Lit>& ps, bool bIc, vec<uint32_t>* icParents)
 {
 #ifndef NDEBUG
     for (int i = 0; i < ps.size(); i++)
@@ -143,7 +143,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps, bool bIc, vec<uint32_t>* parents)
     if (use_rcheck && implied(ps))
         return true;
 
-    if (!Solver::addClause_(ps, bIc, parents)) 
+    if (!Solver::addClause_(ps, bIc, icParents))
         return false;
 
     if (use_simplification && (clauses.size() == nclauses + 1))
@@ -562,7 +562,6 @@ bool SimpSolver::eliminateVar(Var v)
     // Produce clauses in cross product:
     vec<Lit>& resolvent = add_tmp;
     assert(icParents.size() == 0);
-
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
         {
@@ -573,6 +572,7 @@ bool SimpSolver::eliminateVar(Var v)
                 icParents.push(c1.uid());
             if (c2.ic())
                 icParents.push(c2.uid());
+			//printf("%d %d %d\n", icParents.size(), remParents.size(),allParents.size());
             if (merge(c1, c2, v, resolvent) && !addClause_(resolvent, icParents.size() > 0, &icParents))
             {
                 return false;
