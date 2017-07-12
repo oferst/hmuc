@@ -10,17 +10,12 @@ namespace Minisat
 
 void CResolutionGraph::AddNewResolution
     (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents){
-   
-	if (nNewClauseUid == 369119 || nNewClauseUid == 368608) {
-		printf("%d created CRef= %d\n", nNewClauseUid, ref);
-	}
 	
 	m_UidToData.growTo(nNewClauseUid + 1);
 	CRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
     // increase reference count for all the icparents
     
-	
-	if (remParents.size() > 0) {
+	if (remParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			CRef resRef = GetResolRef(allParents[nInd]);
 			if (resRef == CRef_Undef)
@@ -28,13 +23,13 @@ void CResolutionGraph::AddNewResolution
 			Resol& res = GetResol(resRef);
 			++res.header.m_nRefCount;
 			res.m_Children.push(nNewClauseUid);
-			//if (!res.header.ic)
-			//	printf("%d %d\n", allParents[nInd], res.header.m_nRefCount);
-
 		}
 
 	}
 
+	//the original code for creating a new resol node.
+	//For now (July 2017) it was kept seperated from the changes above to allow for 
+	//easy regression testing
 	else {
 		for (int nInd = 0; nInd < icParents.size(); ++nInd) {
 			CRef resRef = GetResolRef(icParents[nInd]);
@@ -45,8 +40,6 @@ void CResolutionGraph::AddNewResolution
 			res.m_Children.push(nNewClauseUid);
 		}
 	}
-	if (nNewClauseUid == 369119)
-		printf("created ic 369119 with CRef %d", ref);
     m_UidToData[nNewClauseUid].m_ClauseRef = ref;
     m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 }
@@ -59,15 +52,9 @@ void CResolutionGraph::AddNewResolution
 
 
 void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) {
-	//if (nNewClauseUid == 369119 || nNewClauseUid == 368608) {
-	//if (nNewClauseUid == 368608) {
-	//	printf("%d created rem CRef= %d\n", nNewClauseUid, ref);
-	//}
 	m_UidToData.growTo(nNewClauseUid + 1);
 	vec<CRef> dummyParents;
 	CRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
-	//if (nNewClauseUid == 369119)
-	//	printf("created rem 369119 with CRef %d\n", ref);
 	m_UidToData[nNewClauseUid].m_ClauseRef = ref;
 	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 	m_RA[refResol].header.m_nRefCount = 0;
@@ -82,7 +69,6 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 
         // first decrease reference count for all the icparents
         uint32_t* parents = res.Parents();
-		//printf("%d %d\n", nUid, res.ParentsSize());
         for (int pUid = 0; pUid < res.ParentsSize(); ++pUid) {
             DecreaseReference(parents[pUid]);
         }
@@ -108,18 +94,16 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
     int nParentsSize = resol.ParentsSize();
 
-     if (nParentsSize == 0) {
-         allParents.push(nUid);
-         return;
-     }
+    if (nParentsSize == 0) {
+        allParents.push(nUid);
+        return;
+    }
+    uint32_t* parents = resol.Parents();
 
-     uint32_t* parents = resol.Parents();
-
-     for (int i = 0; i < nParentsSize; ++i) {
-		 CRef parentRef = GetResolRef(parents[i]);
-         if (GetResol(parentRef).header.ic &&
-			 checked.insert(parents[i]))
-            GetOriginalParentsUids(parents[i], allParents, checked);
+    for (int i = 0; i < nParentsSize; ++i) {
+		CRef parentRef = GetResolRef(parents[i]);
+        if (GetResol(parentRef).header.ic && checked.insert(parents[i]))
+			GetOriginalParentsUids(parents[i], allParents, checked);
      }
  }
 
@@ -221,8 +205,6 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 			int nUid = vecCurrCheck[i];
 			if (!firstTime && NewRemainders.has(nUid))
 				continue;
-
-			//CRef resolRef = m_UidToData[nUid].m_ResolRef;
 			CRef resolRef = GetResolRef(nUid);
 			if (resolRef == CRef_Undef) // oferg: already deleted from resolution graph (all children must have been deleted already, no point in checking deeper)
 				continue;

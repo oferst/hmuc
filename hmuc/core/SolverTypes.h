@@ -173,15 +173,12 @@ class Clause {
 
 public:
     static uint32_t GetLastUid() { return icUid-1; }
-    static void DecreaseUid() { --icUid; }
-    static uint32_t SetUid(uint32_t newUid) { return icUid = newUid; }
+	static void DecreaseUid() {
+		//printf("decreased uid %d\n", icUid);
+		--icUid; }
+	static uint32_t SetUid(uint32_t newUid) { return icUid = newUid; }
 	void setIsParentToIc(bool isParent) {
 		header.parentToIc = isParent;
-		//if(!header.ic && isParent){
-			//printf("%d", header.size);
-			//data[header.size + (int)header.has_extra].uid = icUid++;
-			//printf("headerSize = %d headerHasExtra = %d, newUid = %d, uidIdx = %d\n", header.size, (int)header.has_extra, icUid-1, header.size+ (int)header.has_extra);
-		//}
 	}
 	void printClause(std::string text)
 	{
@@ -202,7 +199,7 @@ public:
 	}
 
 
-	bool isParentToIc() {
+	bool isParentToIc() const{
 		return header.parentToIc;
 	}
     void calcAbstraction() {
@@ -227,12 +224,7 @@ public:
     bool         ic        ()      const   { return header.ic; }
     bool         has_extra   ()      const   { return header.has_extra; }
     uint32_t     mark        ()      const   { return header.mark; }
-	void         mark(uint32_t m) {
-		if (uid() == 369119) {
-			printf("mark %u 369119 \n",m);
-		//	throw -1;
-		}
-		header.mark = m; }
+	void         mark(uint32_t m) { header.mark = m; }
     const Lit&   last        ()      const   { return data[header.size-1].lit; }
 
     bool         reloced     ()      const   { return header.reloced; }
@@ -271,8 +263,8 @@ const CRef CRef_Undef = RegionAllocator<uint32_t>::Ref_Undef;
 
 class ClauseAllocator : public RegionAllocator<uint32_t>
 {
-    static int clauseWord32Size(int size, bool has_extra, bool ic){
-        return (sizeof(Clause) + (sizeof(Lit) * (size + (int)has_extra + (int)ic))) / sizeof(uint32_t); }
+    static int clauseWord32Size(int size, bool has_extra, bool has_uid){
+        return (sizeof(Clause) + (sizeof(Lit) * (size + (int)has_extra + (int)has_uid))) / sizeof(uint32_t); }
  public:
     bool extra_clause_field;
 
@@ -281,7 +273,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 
     void moveTo(ClauseAllocator& to){
         to.extra_clause_field = extra_clause_field;
-        RegionAllocator<uint32_t>::moveTo(to); }
+        RegionAllocator<uint32_t>::moveTo(to); 
+	}
 
     template<class Lits>
     CRef alloc(const Lits& ps, bool learnt = false, bool ic = false, bool isParentToIc = false) {
@@ -292,7 +285,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 		
 		CRef newCr = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, has_uid));
         new (lea(newCr)) Clause(ps, has_extra, learnt, ic, isParentToIc);
-		
+		Clause& c = this->operator[](newCr);
+		//c.printClause("allocated cref " + std::to_string(newCr) + " uid "+ std::to_string(c.uid()));
         return newCr;
     }
 
@@ -306,47 +300,36 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     void free(CRef cid)
     {
         Clause& c = operator[](cid);
-        RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra(), c.ic()));
+		//bool has_uid = c.ic();
+		//bool has_uid = c.ic() || c.isParentToIc();
+		bool has_uid = true;
+        RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra(), has_uid));
     }
 
     void reloc(CRef& cr, ClauseAllocator& to)
     {
         Clause& c = operator[](cr);
 		uint32_t uid = c.uid();
-
-			
-        if (c.reloced()) { cr = c.relocation(); return; }
-
-		//if (uid == 368608) {
-		////	c.printClause(std::to_string(c.uid()) + 
-		////		" relocating clause cr = " + std::to_string(cr) + 
-		////		"********");
-		//printf("%d is parnet to ic %d (BEFORE)\n", uid, c.isParentToIc());
-		//}
-  //      
+        if (c.reloced()) { cr = c.relocation(); return; }     
         cr = to.alloc(c, c.learnt(), c.ic() , c.isParentToIc());
         c.relocate(cr);
         
         // Copy extra data-fields: 
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
-        to[cr].mark(c.mark());
-        if (to[cr].learnt())         
-            to[cr].activity() = c.activity();
-        else if (to[cr].has_extra()) 
-            to[cr].calcAbstraction();
-        if (to[cr].ic() || to[cr].isParentToIc())
+		Clause& newC = to[cr];
+		newC.mark(c.mark());
+        if (newC.learnt())
+			newC.activity() = c.activity();
+        else if (newC.has_extra())
+			newC.calcAbstraction();
+        
+		if(true)
+		//if (newC.ic() || newC.isParentToIc())
         {
             // we don't want to increase uid here
             Clause::icUid--;
-            to[cr].uid() = c.uid();
+			newC.uid() = c.uid();
         }
-		//if (uid == 368608) {
-		//	//to[cr].printClause(std::to_string(to[cr].uid()) +
-		//	//	" relocated clause cr = " + std::to_string(cr) +
-		//	//	"********");
-		//	printf("%d is parnet to ic %d (AFTER)\n", uid, to[cr].isParentToIc());
-		//}
-
     }
 };
 
