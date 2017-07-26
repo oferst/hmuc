@@ -10,11 +10,10 @@ namespace Minisat
 
 void CResolutionGraph::AddNewResolution
     (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents){
-	
 	m_UidToData.growTo(nNewClauseUid + 1);
 	CRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
     // increase reference count for all the icparents
-    
+
 	if (remParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			CRef resRef = GetResolRef(allParents[nInd]);
@@ -67,11 +66,16 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
     --res.header.m_nRefCount;
     if (res.header.m_nRefCount <= 0) {
 
-        // first decrease reference count for all the icparents
-        uint32_t* parents = res.Parents();
-        for (int pUid = 0; pUid < res.ParentsSize(); ++pUid) {
+        // first decrease reference count for all the icParents
+        uint32_t* parents = res.IcParents();
+        for (int pUid = 0; pUid < res.IcParentsSize(); ++pUid) {
             DecreaseReference(parents[pUid]);
         }
+		// also decrease reference count for all the remParents (if any exist)
+		parents = res.RemParents();
+		for (int pUid = 0; pUid < res.remParentsSize(); ++pUid) {
+			DecreaseReference(parents[pUid]);
+		}
 
 
 		//than mark node as free in resol graph (lazy removal), by counting the size of memory to free
@@ -79,12 +83,10 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 		// and removing reference to it from m_RA
 
         ref = CRef_Undef;
-		//if (temp_ics.has(nUid))
-		//	temp_ics.remove(nUid);
-		//if (icDelayedRemoval.find(nUid) != icDelayedRemoval.end()) {
-		//	delete(icDelayedRemoval[nUid]);
-		//	icDelayedRemoval.erase(nUid);
-		//}
+		if (icDelayedRemoval.find(nUid) != icDelayedRemoval.end()) {
+			delete(icDelayedRemoval[nUid]);
+			icDelayedRemoval.erase(nUid);
+		}
     }
 	
 }
@@ -92,13 +94,13 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
-    int nParentsSize = resol.ParentsSize();
+    int nParentsSize = resol.IcParentsSize();
 
     if (nParentsSize == 0) {
         allParents.push(nUid);
         return;
     }
-    uint32_t* parents = resol.Parents();
+    uint32_t* parents = resol.IcParents();
 
     for (int i = 0; i < nParentsSize; ++i) {
 		CRef parentRef = GetResolRef(parents[i]);
@@ -163,9 +165,10 @@ void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone) {
 void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath) {
     uint32_t nextUid = nStartUid;
     while (nextUid != CRef_Undef) {
-        if (m_UidToData[nextUid].m_ResolRef == CRef_Undef)
+		RRef rr = GetResolRef(nextUid);
+        if (RRef_Undef == rr)
             return;
-		Resol& resol = GetResol(GetResolRef(nextUid)); // m_RA[m_UidToData[nextUid].m_ResolRef];
+		Resol& resol = GetResol(rr); // m_RA[m_UidToData[nextUid].m_ResolRef];
         if (resol.m_Children.size() != 1 || m_EmptyClauseParents.has(nextUid)) //oferg: why would we skip on a parent of the empty clause?
             return;    
         nextUid = resol.m_Children[0];
@@ -178,8 +181,6 @@ void CResolutionGraph::Shrink()
     int nSize = m_UidToData.size();
     m_RA.StartReloc();
 	for (int nUid = 0; nUid < nSize; ++nUid) {
-		//if (nUid == 367885)
-		//	printf("uid: %d reloc\n", nUid);
 		m_RA.Reloc(m_UidToData[nUid].m_ResolRef);
 	}
     m_RA.FinishReloc();
@@ -187,15 +188,17 @@ void CResolutionGraph::Shrink()
 
 // using vector rather than vec, which enables us to use std::sort, which does not stack-overflow at least for now. 
 
-// assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals, after 'SAT' case), 
+// assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals (remainders), after 'SAT' case), 
 // then NewRemainders will be filled with all their descendants that now do not have an IC ancestor. 
 void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start) {
 	std::vector<uint32_t> vecNextCheck;
 	std::vector<uint32_t> vecCurrCheck;
 	bool firstTime = true;
 
-	// add children of all sets to be checked
+	//everything in start is now a new remainder clause
 	NewRemainders.add(start);
+
+	// add starting new remainders to be checked
 	for (int i = 0; i < start.size(); ++i) {
 		vecCurrCheck.push_back(start[i]);
 	}
@@ -211,19 +214,19 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 
 			Resol& resol = GetResol(resolRef);
 
-			int nParents = resol.ParentsSize();
 			int j = 0;
-			uint32_t* parents = resol.Parents();
+			int nParents = resol.IcParentsSize(); 
+			uint32_t* parents = resol.IcParents();
 			for (; j < nParents; ++j) {
-				if (!NewRemainders.has(parents[j]))
+				if (!NewRemainders.has(parents[j])) // stop visiting parents if at least one of them is currently not a remainder
 					break;
 			}
 
-			if (j == nParents) {// all icparents are 'good',i.e., not ics.
-				if (!firstTime) {
-					NewRemainders.insert(nUid);
+			if (j == nParents) {// if all parents are now remainder,i.e., not ics.
+				if (!firstTime) { // than (except for the fisrt iteration (where the clause was pre-added))
+					NewRemainders.insert(nUid); //add the newly found remainder to the resulting 'NewRemainders'
 				}
-				// pass over all children and add them to be checked
+				// and lastly, pass over all it's children and add them to be checked
 				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild) {
 					vecNextCheck.push_back(resol.m_Children[nChild]);
 				}
@@ -249,8 +252,6 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 		vecNextCheck.swap(vecCurrCheck);
 		vecNextCheck.clear();
 	}
-	//("icDelayedRemoval size: %d\n", icDelayedRemoval.size());
-// print:	printf("setgood.size = %d, start.size = %d\n", NewRemainders.elems(), start.size());
 }
 
 

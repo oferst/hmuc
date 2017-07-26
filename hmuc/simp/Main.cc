@@ -99,7 +99,7 @@ int main(int argc, char** argv)
 		//vec<uint32_t> icParentsVec; 
 		//vec<uint32_t> remParentsVec; 
 		//vec<uint32_t> allParentsVec; 
-		////Resol r = Resol(icParentsVec, remParentsVec, allParentsVec, true);
+
 		//for (int i = 32; i < 64; ++i) {
 		//	if (i == 34)
 		//		remParentsVec.push(i);
@@ -119,7 +119,16 @@ int main(int argc, char** argv)
 		//	 allParentsVec.push(i);
 		// }
 
+		//Resol r = Resol(icParentsVec, remParentsVec, allParentsVec, true);
+		//int j = 0;
 
+
+
+
+		//for (auto i: r) {
+		//	printf("%d, %d, %d\n", i == allParentsVec[j++],i, allParentsVec[j-1]);
+		//}
+		//exit(-1);
 		//vec<uint32_t> dummyVec;
   //     
 		//for (int i = 0; i < allParentsVec.size(); ++i) {
@@ -132,12 +141,12 @@ int main(int argc, char** argv)
 
 
 		//int remSize = resol.remParentsSize();
-		//int icSize = resol.ParentsSize();
+		//int icSize = resol.IcParentsSize();
 		//int size = remSize + icSize;
 		//int flagsSize = (size / 32) + (int)((size % 32) > 0);
 
 
-		//for (int i = 0; i < 1 + resol.ParentsSize() + ((remSize == 0) ? 0 : (1 + remSize + flagsSize)); ++i)
+		//for (int i = 0; i < 1 + resol.IcParentsSize() + ((remSize == 0) ? 0 : (1 + remSize + flagsSize)); ++i)
 		//	printf("resol.m_Parents[%d] =  %u\n",i, resol.m_Parents[i]);
 
 		//uint32_t j, k;

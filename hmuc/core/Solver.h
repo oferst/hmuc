@@ -51,11 +51,6 @@ enum pf_modes{
 
 class Solver {
 public:
-
-	//CRef prevCr = CRef_Undef; //!!
-
-
-    //FILE* flog;
 	void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
     void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
@@ -239,10 +234,18 @@ public:
 	bool pf_early_unsat_terminate(); 
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
+	
+	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
+	vec<uint32_t> rhombusParentOfEmptyClause;
+	bool rhombusValid;
+	uint32_t lpfTopChainUid;
+	uint32_t lpfBottomChainUid;
+	vec<Lit> lpfBottomLits;
+
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );
 	void ResGraph2dotty(vec<uint32_t>&, vec<uint32_t>&, vec<Lit>& , const char*);
-	void ResSubgraph2dotty(vec<uint32_t>&, vec<uint32_t>&,Set<uint32_t>&, vec<Lit>&, const char*);
+	//void ResSubgraph2dotty(vec<uint32_t>&, vec<uint32_t>&,Set<uint32_t>&, vec<Lit>&, const char*);
 	uint32_t dottyCalls = 0; //!!
 
 	//populates outRhombus with all uids that are 1) reachable from some root inRoots and 2) reach some leaf in inLeaves
@@ -365,8 +368,8 @@ protected:
     CRef     propagate        ();                                                      // Perform unit propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
-    void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-    bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
+    void     analyzeFinal     (Lit p, vec<Lit>& out_conflict, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
+    bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.

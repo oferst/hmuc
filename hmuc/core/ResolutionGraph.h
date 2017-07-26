@@ -10,7 +10,80 @@
 namespace Minisat
 {
 	typedef CRef RRef; //RRef - Resolution Ref
-const RRef RRef_Rem = 0xFFFFFFFE; // A remainder node Resolution Ref
+	const RRef RRef_Undef = CRef_Undef;
+
+
+
+//class SimpleParentIter {
+//	uint32_t m_idx;
+//	const uint32_t* m_data;
+//public:
+//	SimpleParentIter(const uint32_t* data, uint32_t idx = 0) : m_data(data), m_idx(idx) {}
+//	bool operator!=(const SimpleParentIter& other) { return m_idx != other.m_idx; }
+//	const SimpleParentIter& operator++() { m_idx++; return *this; }
+//	const uint32_t& operator*() const { return m_data[m_idx]; };
+//};
+
+class MixedParentIter {
+public:
+	uint32_t m_icIdx;
+	uint32_t m_remIdx;
+	const uint32_t* m_icParents;
+	const uint32_t* m_remParents;
+	const uint32_t* m_flags;
+
+	uint32_t idx;
+	uint32_t flagWord;
+	uint32_t flagOffset;
+	uint32_t currUid;
+
+	MixedParentIter(const uint32_t* icParents,
+					const uint32_t* remParents,
+					const uint32_t* flags, 
+					uint32_t icIdx = 0, 
+					uint32_t remIdx = 0) : 
+		m_icParents(icParents),m_remParents(remParents), m_flags(flags),
+		m_icIdx(icIdx),m_remIdx(remIdx){
+		if (m_remParents == NULL) {
+			assert(NULL != m_icParents);
+			currUid = m_icParents[m_icIdx++];
+		}
+		else {
+			idx = m_icIdx + m_remIdx;
+			flagOffset = idx % 32;
+			flagWord = m_flags[idx/32] << flagOffset;
+			if (flagWord & 0x80000000)
+				currUid = m_icParents[m_icIdx++];
+			else
+				currUid = m_remParents[m_remIdx++];
+		}
+	}
+	bool operator!=(const MixedParentIter& other) { 
+		return (m_icIdx + m_remIdx) != (other.m_icIdx + other.m_remIdx); 
+	}
+	const MixedParentIter& operator++() { 
+		if (m_remParents == NULL) {
+			currUid = m_icParents[m_icIdx++];
+		}
+		else {
+			if (++flagOffset == 32) {
+				flagOffset = 0;
+				flagWord = m_flags[(m_icIdx + m_remIdx) / 32];
+			}
+			else
+				flagWord = flagWord << 1;
+			if (flagWord & 0x80000000)
+				currUid = m_icParents[m_icIdx++];
+			else
+				currUid = m_remParents[m_remIdx++];
+		}
+		return *this; 
+	}
+	const uint32_t& operator*() const { 
+		return currUid; 
+	}
+};
+
 class Resol
 {
 public:
@@ -33,20 +106,38 @@ public:
 
     } m_Parents[0];
 
-  
 
-    uint32_t* Parents()
-    {
+	MixedParentIter begin() const {
+		const uint32_t* icParents = &(m_Parents[1].icParent);
+		const uint32_t* remParents = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize()].remParent): NULL;
+		const uint32_t* flags = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize()+remParentsSize()].guideFlags) : NULL;
+		return MixedParentIter(icParents, remParents, flags,0,0);
+	}
+
+
+	MixedParentIter end() const { 
+		const uint32_t* icParents = &(m_Parents[1].icParent);
+		const uint32_t* remParents = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize()].remParent) : NULL;
+		const uint32_t* flags = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize() + remParentsSize()].guideFlags) : NULL;
+		return MixedParentIter(icParents, remParents, flags, IcParentsSize(), remParentsSize());
+	}
+
+
+    uint32_t* IcParents(){
        return &m_Parents[1].icParent;
     }
-
-    inline int ParentsSize() const
+	uint32_t* RemParents(){
+		assert(header.hasRemParents);
+		return (header.hasRemParents) ? &m_Parents[2 + IcParentsSize()].remParent : NULL;
+	}
+    inline int IcParentsSize() const
     {
         return m_Parents[0].icSize;
     }
 	inline int remParentsSize() const
 	{
-		return (header.hasRemParents) ? m_Parents[ParentsSize() + 1].remSize : 0;
+		assert(header.hasRemParents);
+		return (header.hasRemParents) ? m_Parents[IcParentsSize() + 1].remSize : 0;
 	}
 	
 	//this function returns the size of the addidtional data in case remainder clases are saved in a resol node, in units of 32-bit words
@@ -54,12 +145,12 @@ public:
 	{
 		if (!header.hasRemParents)
 			return 0;
-		int totalParentsNum = ParentsSize() + remParentsSize();
+		int totalParentsNum = IcParentsSize() + remParentsSize();
 		return  1 + (totalParentsNum / 32) + (int)((totalParentsNum % 32) != 0); //the +1 is for the cell holding the number of remainders - all the rest are for the size of the flag array
 	}
     uint32_t Size() const
     {
-		int totalParentsNum = ParentsSize() + remParentsSize();
+		int totalParentsNum = IcParentsSize() + remParentsSize();
 		
         return SIZE + totalParentsNum + additionalRemDataSize(); //if remainders exists, add 1 for their header
     }
@@ -218,11 +309,6 @@ public:
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
-		//if (newRef == CRef_Undef)
-		//	printf("%d Cref deleted from graph\n", nUid);
-		//if (nUid == 369119 || nUid == 368608) {
-		//	printf("%d new CRef= %d\n", nUid,newRef);
-		//}
         m_UidToData[nUid].m_ClauseRef = newRef;
     }
 
@@ -237,12 +323,8 @@ public:
     }
 
     void DeleteClause(uint32_t nUid) {
-		//if (nUid == 369119) {
-		//	printf("369119 deleted\n");
-		//}
         DecreaseReference(nUid);
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
-		//printf("icDelayedRemoval size = %d\n", icDelayedRemoval.size());
     }
 
     void GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
@@ -261,7 +343,7 @@ public:
 
     int GetParentsNumber(uint32_t nUid)
     {
-        return GetResol(GetResolRef(nUid)).ParentsSize();
+        return GetResol(GetResolRef(nUid)).IcParentsSize();
     }
 
     void AddNewRemainderUidsFromCone(Set<uint32_t>& good, vec<uint32_t>& start);
@@ -270,7 +352,7 @@ public:
 
     bool ValidUid(uint32_t uid)
     {
-        return GetResolRef(uid) != CRef_Undef;
+        return GetResolRef(uid) != RRef_Undef;
     }
 
     uint32_t GetMaxUid() const
@@ -279,7 +361,10 @@ public:
     }
 
     Set<uint32_t> m_EmptyClauseParents;
-	//std::unordered_map<uint32_t, vec<Lit>*>  icDelayedRemoval;
+
+
+	std::unordered_map<uint32_t, vec<Lit>*>  icDelayedRemoval;
+	std::unordered_map<uint32_t, vec<Lit>* > mapClsToTClausePivotsInRhombus; // if opt_blm_rebuild_proof, in lpf_get_assumptions we find, for every clause in rhombus, the pivots through th parents in the rhombus (literals that appear in a parent but not in a child are pivots)
 private:
     void DecreaseReference(uint32_t nUid);
 
@@ -300,6 +385,9 @@ private:
     ResolAllocator m_RA;
     vec<uint32_t> dummy;
 };
+
+
+
 
 }
 

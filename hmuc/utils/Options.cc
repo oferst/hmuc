@@ -35,15 +35,8 @@ void Minisat::parseOptions(int& argc, char** argv, bool strict)
                 printUsageAndExit(argc, argv, true);
         } else {
             bool parsed_ok = false;
-			//printf("opt_blm_rebuild_proof %d\n", opt_blm_rebuild_proof);
             for (int k = 0; !parsed_ok && k < Option::getOptionList().size(); k++){
                 parsed_ok = Option::getOptionList()[k]->parse(argv[i]);
-				/*if (parsed_ok) {
-					printf("checking %d: %s against flag <%s> (%s)\n", i, argv[i], Option::getOptionList()[k]->name, parsed_ok ? "ok" : "skip");
-					printf("category: %s\n", Option::getOptionList()[k]->category);
-					printf("name: %s\n", Option::getOptionList()[k]->name);
-					printf("opt_blm_rebuild_proof %d\n", (bool)opt_blm_rebuild_proof);
-				}*/
             }
 
             if (!parsed_ok)
