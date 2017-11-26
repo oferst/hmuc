@@ -749,7 +749,7 @@ namespace Minisat
 #ifndef NewParents				
 				if ((result == l_False) && m_Solver.m_bConeRelevant && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
 					m_Solver.icParents.copyTo(m_Solver.prev_icParents);
-					// m_Solver.resolGraph.m_EmptyClauseParents.copyTo()
+					// m_Solver.resolGraph.m_icPoEC.copyTo()
 					if (nIteration == 0) m_Solver.icParents.copyTo(m_Solver.parents_of_empty_clause);
 				}
 #endif

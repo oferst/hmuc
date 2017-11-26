@@ -52,14 +52,20 @@ struct Lit {
     friend Lit mkLit(Var var, bool sign = false);
 
     bool operator == (Lit p) const { return x == p.x; }
+	size_t operator()() { return (size_t)x; }
     bool operator != (Lit p) const { return x != p.x; }
     bool operator <  (Lit p) const { return x < p.x;  } // '<' makes p, ~p adjacent in the ordering.
 };
-
+struct LitHash {
+	std::size_t operator()(const Lit& _l) const {
+		return std::hash<int>()(_l.x);
+	}
+};
 
 inline  Lit  mkLit     (Var var, bool sign) { Lit p; p.x = var + var + (int)sign; return p; }
 inline  Lit  operator ~(Lit p)              { Lit q; q.x = p.x ^ 1; return q; }
 inline  Lit  operator ^(Lit p, bool b)      { Lit q; q.x = p.x ^ (unsigned int)b; return q; }
+//sign==false means the literal is positive
 inline  bool sign      (Lit p)              { return p.x & 1; }
 inline  int  var       (Lit p)              { return p.x >> 1; }
 
@@ -121,8 +127,9 @@ inline lbool toLbool(int   v) { return lbool((uint8_t)v);  }
 // Clause -- a simple class for representing a clause:
 
 class Clause;
-typedef RegionAllocator<uint32_t>::Ref CRef;
 
+
+typedef RegionAllocator<uint32_t>::Ref CRef;
 class Clause {
     struct {
 		// mark(0): default
@@ -153,8 +160,13 @@ class Clause {
         header.reloced   = 0;
         header.size      = ps.size();
 
-        for (int i = 0; i < ps.size(); i++) 
-            data[i].lit = ps[i];
+		int i = 0;
+		for (Lit l : ps) {
+			data[i++].lit = l;
+		}
+
+        //for (int i = 0; i < ps.size(); i++) 
+        //    data[i].lit = ps[i];
 
         if (header.has_extra){
             if (header.learnt)
@@ -253,6 +265,25 @@ public:
 
     Lit          subsumes    (const Clause& other) const;
     void         strengthen  (Lit p);
+	class ClauseIter {
+		const Clause& c;
+		int i;
+	public:
+		//ClauseIter() : c(Clause(vec<Lit>(),false,false,false)), i(-1){}
+		ClauseIter(const Clause& _c, int _i = 0) : c(_c), i(_i) {}
+		ClauseIter(const ClauseIter& o) : c(o.c), i(o.i) {}
+		bool operator!=(const ClauseIter& o) { return &c != &o.c || i != o.i; }
+		const Lit operator*() { return (i < 0 || i >= c.size()) ? mkLit(var_Undef) : c[i]; }
+		ClauseIter& operator++() { ++i; return *this; }
+		//ClauseIter operator++(int) { ClauseIter result(*this); ++(*this); return result; }
+		ClauseIter& operator--() { --i; return *this; }
+		//ClauseIter operator--(int) { ClauseIter result(*this); --(*this); return result; }
+	};
+
+
+	const ClauseIter begin() const { return ClauseIter(*this, 0); }
+	const ClauseIter end() const { return ClauseIter(*this, this->size()); }
+
 };
 
 //=================================================================================================

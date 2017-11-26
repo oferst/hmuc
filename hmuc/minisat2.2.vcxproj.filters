@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\ProofRebuilder">
+      <UniqueIdentifier>{f6a08f03-b934-4369-8f25-4750d7592c2b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\Dimacs.h">
@@ -72,6 +75,18 @@
     <ClInclude Include="simp\SimpSolver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProofRebuilder.h">
+      <Filter>Header Files\ProofRebuilder</Filter>
+    </ClInclude>
+    <ClInclude Include="SolverHandle.h">
+      <Filter>Header Files\ProofRebuilder</Filter>
+    </ClInclude>
+    <ClInclude Include="RebuilderContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core\Solver.cc">
@@ -95,5 +110,22 @@
     <ClCompile Include="simp\SimpSolver.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SolverHandle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source.cpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProofRebuilder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RebuilderContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="hmuc.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

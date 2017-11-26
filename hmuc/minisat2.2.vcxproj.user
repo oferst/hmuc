@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|Win32'">
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='releaseWithAssert|x64'">
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+</Project>

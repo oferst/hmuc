@@ -32,6 +32,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
 // temporary, for testing a simplification of the code. 
 #define NewParents
@@ -49,7 +50,18 @@ enum pf_modes{
 	lpf_inprocess // literal-based, as part of search
 };
 
+//typedef enum {//used in proof reconstruction when opt_blm_rebuild_proof is used
+//	Left, Right, Both, Either
+//} ParentUsed;
+
+typedef uint32_t Uid;
+typedef std::unordered_map<Uid, vec<Lit>> UidToLitVec;
+typedef std::unordered_set<Lit, LitHash> LitSet;
+typedef std::unordered_map<Uid, LitSet> UidToLitSet;
+typedef std::unordered_map<Uid, Uid> UidToUid;
+
 class Solver {
+	friend class SolverHandle;
 public:
 	void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
@@ -92,7 +104,13 @@ public:
 	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
 	
-	vec<uint32_t> parents_of_empty_clause; // used in lpf_get_assumptions. Stores the parents of empty clause from the last unsat.
+	// PoEC - Parents of Empty Clause
+	vec<uint32_t> icPoEC; //ic parents of empty clause used in lpf_get_assumptions. Stores the ic parents of empty clause from the last unsat.
+	vec<uint32_t> allPoEC; //All parents of empty clause from the last unsat.
+	//vec<vec<Lit>> allPoEC_sortedLits; //All PoEC sorted clause contents from the last unsat. Used in BLM proof reconstruction. 
+	vec<Lit> allPoEC_pivots; //All PoEC pivots from the last unsat. Used in BLM proof reconstruction.
+
+	
 	int pf_Literals;
 
 
@@ -103,6 +121,7 @@ public:
 	bool lpf_delay; // when true, it means that we did not reach the delay threshold (set by opt_pf_delay).	
 
 	bool blm_rebuild_proof;
+
 
 	int m_nSatCall;
     int m_nUnsatPathFalsificationCalls;
@@ -231,12 +250,24 @@ public:
 	int pf_mode;
 	bool test_result;
 
+
 	bool pf_early_unsat_terminate(); 
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
 	
+	//bool inRhombus(Uid uid);
+	//Uid updateClause(Uid uid, Lit BL, UidToLitVec& pivots, UidToUid& clauseUdates, UidToLitSet& newClauses_lits);
+	//void RebuildProof(Lit startingConflLit);
+	//void updateClauseLits(Uid newUid, UidToLitSet& newClauses_lits);
+	//ParentUsed findParentsUsed(LitSet& leftLits, uint32_t rightParentUid, Lit piv, UidToLitSet& newClauses_lits);
+	//template<class T>
+	//int BackwardsTraversal(const Uid currUid, const T& initParents, const Lit BL, UidToLitVec& pivots, UidToUid& clausesUpdates, UidToLitSet& newClauses_lits,std::list<Uid>& out_parentsUidUpdates);
+	//Uid reconstructClause(const Uid currUid, const vec<Lit>& pivots, const int initPivIdx, const std::list<Uid>& parentsUpdate, UidToUid& clausesUpdates, UidToLitSet& newClauses_lits);
+
+	Uid ProveBackboneLiteral(Uid nodeId, Lit p, UidToLitVec& pivots, UidToUid& clauseUpdates, UidToLitSet& newClauses_lits);
+
 	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
-	vec<uint32_t> rhombusParentOfEmptyClause;
+	vec<Uid> rhombusParentOfEmptyClause;
 	bool rhombusValid;
 	uint32_t lpfTopChainUid;
 	uint32_t lpfBottomChainUid;
@@ -270,7 +301,6 @@ public:
     }
 
 	CResolutionGraph resolGraph; 
-
 protected:
     void findConflictICReasons(CRef ref);
     
@@ -340,6 +370,8 @@ protected:
 
     ClauseAllocator     ca;
 
+
+
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
     // used, except 'seen' which is used in several places.
     //
@@ -393,7 +425,7 @@ protected:
     void     removeClause     (CRef cr);               // Detach and free a clause.
     bool     locked           (const Clause& c) const; // Returns TRUE if a clause is a reason for some implication in the current state.
     bool     satisfied        (const Clause& c) const; // Returns TRUE if a clause is satisfied in the current state.
-	bool satisfiedInVec(const Clause& c, vec<int>&) const; // Returns TRUE if c has a non-empty intersection with the input vector<Lit>.
+	//bool satisfiedInVec(const Clause& c, vec<int>&) const; // Returns TRUE if c has a non-empty intersection with the input vector<Lit>.
 	
     void     relocAll         (ClauseAllocator& to);
 
@@ -427,6 +459,8 @@ protected:
     // Returns a random integer 0 <= x < size. Seed must never be 0.
     static inline int irand(double& seed, int size) {
         return (int)(drand(seed) * size); }
+
+
 };
 
 
@@ -531,6 +565,10 @@ inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ ve
 
 
 //=================================================================================================
+
+
+
+
 }
 
 #endif

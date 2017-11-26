@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hmuc", "hmuc\minisat2.2.vcxproj", "{FA2167B1-7793-447A-BE0A-B48C391DB1E4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HmucTests", "HmucTests\HmucTests.vcxproj", "{2BA79913-F372-4274-B13A-308B4F995945}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,17 @@ Global
 		{FA2167B1-7793-447A-BE0A-B48C391DB1E4}.releaseWithAssert|Win32.Build.0 = releaseWithAssert|Win32
 		{FA2167B1-7793-447A-BE0A-B48C391DB1E4}.releaseWithAssert|x64.ActiveCfg = releaseWithAssert|x64
 		{FA2167B1-7793-447A-BE0A-B48C391DB1E4}.releaseWithAssert|x64.Build.0 = releaseWithAssert|x64
+		{2BA79913-F372-4274-B13A-308B4F995945}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2BA79913-F372-4274-B13A-308B4F995945}.Debug|Win32.Build.0 = Debug|Win32
+		{2BA79913-F372-4274-B13A-308B4F995945}.Debug|x64.ActiveCfg = Debug|x64
+		{2BA79913-F372-4274-B13A-308B4F995945}.Debug|x64.Build.0 = Debug|x64
+		{2BA79913-F372-4274-B13A-308B4F995945}.Release|Win32.ActiveCfg = Release|Win32
+		{2BA79913-F372-4274-B13A-308B4F995945}.Release|Win32.Build.0 = Release|Win32
+		{2BA79913-F372-4274-B13A-308B4F995945}.Release|x64.ActiveCfg = Release|x64
+		{2BA79913-F372-4274-B13A-308B4F995945}.releaseWithAssert|Win32.ActiveCfg = Release|Win32
+		{2BA79913-F372-4274-B13A-308B4F995945}.releaseWithAssert|Win32.Build.0 = Release|Win32
+		{2BA79913-F372-4274-B13A-308B4F995945}.releaseWithAssert|x64.ActiveCfg = Release|x64
+		{2BA79913-F372-4274-B13A-308B4F995945}.releaseWithAssert|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

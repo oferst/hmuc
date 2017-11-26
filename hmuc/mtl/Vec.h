@@ -35,6 +35,9 @@ namespace Minisat {
 //
 // NOTE! Don't use this vector on datatypes that cannot be re-located in memory (with realloc)
 
+
+
+
 template<class T>
 class vec {
     T*  data;
@@ -92,7 +95,11 @@ public:
         for (int i = 0; i < sz; i++) 
             dest[size + i] = data[i]; 
     }
-
+	template <class S>
+	void copyAll(S& from) {
+		growTo(sz + from.size());
+		for (T elem : from) push(elem);
+	}
     void moveTo(vec<T>& dest) { dest.clear(true); dest.data = data; dest.sz = sz; dest.cap = cap; data = NULL; sz = 0; cap = 0; }
 
     // Don't Allow copying (error prone): -- CHANGED to allow
@@ -209,6 +216,43 @@ public:
 		lb = lower_bound(val);
 		return (data[lb] == val);
 	}
+	//template<class T>
+	class vecIter {
+		int i;
+		const vec<T>& v;
+	public:
+		vecIter() : v(vec<Lit>()), i(0) {}
+
+		vecIter(const vec<T>& _v, int _i = 0) : v(_v), i(_i) {}
+		vecIter(const vecIter& o) : v(o.v), i(o.i) {}
+		bool operator!=(const vecIter& other) {
+			return ((&v != &other.v) || (i != other.i));
+		}
+		const vecIter& operator++() {
+			++i;
+			return *this;
+		}
+		const vecIter& operator--() {
+			--i;
+			return *this;
+		}
+		const T& operator*() const {
+			return v[i];
+		}
+	};
+	const vecIter begin() const{
+		return vecIter(*this, 0);
+	}
+	const vecIter end() const {
+		return vecIter(*this, this->size());
+	}
+	const vecIter rbegin() const {
+		return vecIter(*this, this->size()-1);
+	}
+	const vecIter rend() const {
+		return vecIter(*this, -1);
+	}
+
 
 };
 

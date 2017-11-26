@@ -14,83 +14,16 @@ namespace Minisat
 
 
 
-//class SimpleParentIter {
-//	uint32_t m_idx;
-//	const uint32_t* m_data;
-//public:
-//	SimpleParentIter(const uint32_t* data, uint32_t idx = 0) : m_data(data), m_idx(idx) {}
-//	bool operator!=(const SimpleParentIter& other) { return m_idx != other.m_idx; }
-//	const SimpleParentIter& operator++() { m_idx++; return *this; }
-//	const uint32_t& operator*() const { return m_data[m_idx]; };
-//};
 
-class MixedParentIter {
-public:
-	uint32_t m_icIdx;
-	uint32_t m_remIdx;
-	const uint32_t* m_icParents;
-	const uint32_t* m_remParents;
-	const uint32_t* m_flags;
 
-	uint32_t idx;
-	uint32_t flagWord;
-	uint32_t flagOffset;
-	uint32_t currUid;
-
-	MixedParentIter(const uint32_t* icParents,
-					const uint32_t* remParents,
-					const uint32_t* flags, 
-					uint32_t icIdx = 0, 
-					uint32_t remIdx = 0) : 
-		m_icParents(icParents),m_remParents(remParents), m_flags(flags),
-		m_icIdx(icIdx),m_remIdx(remIdx){
-		if (m_remParents == NULL) {
-			assert(NULL != m_icParents);
-			currUid = m_icParents[m_icIdx++];
-		}
-		else {
-			idx = m_icIdx + m_remIdx;
-			flagOffset = idx % 32;
-			flagWord = m_flags[idx/32] << flagOffset;
-			if (flagWord & 0x80000000)
-				currUid = m_icParents[m_icIdx++];
-			else
-				currUid = m_remParents[m_remIdx++];
-		}
-	}
-	bool operator!=(const MixedParentIter& other) { 
-		return (m_icIdx + m_remIdx) != (other.m_icIdx + other.m_remIdx); 
-	}
-	const MixedParentIter& operator++() { 
-		if (m_remParents == NULL) {
-			currUid = m_icParents[m_icIdx++];
-		}
-		else {
-			if (++flagOffset == 32) {
-				flagOffset = 0;
-				flagWord = m_flags[(m_icIdx + m_remIdx) / 32];
-			}
-			else
-				flagWord = flagWord << 1;
-			if (flagWord & 0x80000000)
-				currUid = m_icParents[m_icIdx++];
-			else
-				currUid = m_remParents[m_remIdx++];
-		}
-		return *this; 
-	}
-	const uint32_t& operator*() const { 
-		return currUid; 
-	}
-};
-
+class ParentIter;
 class Resol
 {
 public:
     vec<uint32_t> m_Children;
 	struct {
 		unsigned ic : 1;
-		unsigned hasRemParents : 1; //if this flag is turned on, then this node containes some remainder clauses as parents (in m_Parents below) - can only active when using opt-blm-rebuild-proof to reconstruct a proof in a BLM calc
+		unsigned hasRemParents : 1; //if this flag is turned on, then this node containes some remainder clauses as parents (in m_Parents below) - can only active when using opt-blm-rebuild-proof to findParentsUsed a proof in a BLM calc
 		unsigned m_nRefCount : 30; // the number of nodes (this node + children) known to be ic by this node. Basically the count of all the ic children and (if this node is ic) itself
 
 	} header;
@@ -107,20 +40,7 @@ public:
     } m_Parents[0];
 
 
-	MixedParentIter begin() const {
-		const uint32_t* icParents = &(m_Parents[1].icParent);
-		const uint32_t* remParents = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize()].remParent): NULL;
-		const uint32_t* flags = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize()+remParentsSize()].guideFlags) : NULL;
-		return MixedParentIter(icParents, remParents, flags,0,0);
-	}
 
-
-	MixedParentIter end() const { 
-		const uint32_t* icParents = &(m_Parents[1].icParent);
-		const uint32_t* remParents = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize()].remParent) : NULL;
-		const uint32_t* flags = (header.hasRemParents) ? &(m_Parents[2 + IcParentsSize() + remParentsSize()].guideFlags) : NULL;
-		return MixedParentIter(icParents, remParents, flags, IcParentsSize(), remParentsSize());
-	}
 
 
     uint32_t* IcParents(){
@@ -160,64 +80,192 @@ public:
 //private:
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
-    Resol(const vec<uint32_t>& icParents,const vec<uint32_t>& remainderParents, const vec<uint32_t>& allParents,bool ic)
-    {
+    Resol(const vec<uint32_t>& icParents,const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic){
+		assert(icParents.size() + remParents.size() == allParents.size());	
 		header.ic = (int)ic;
-		
 		header.m_nRefCount = 1;
-        m_Parents[0].icSize = icParents.size();
 
-		if (remainderParents.size() == 0) {
+        m_Parents[0].icSize = icParents.size();
+		uint32_t* ics = &(m_Parents[1].icParent);
+		if (0 == remParents.size()) {
 			header.hasRemParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
-				int offset = 1;
-				m_Parents[i + offset].icParent = icParents[i];
+				ics[i] = icParents[i];
 			}
 		}
-
-
-
-
-		else { // remainderParents.size() > 0
+		else { // remParents.size() > 0
 			header.hasRemParents = 1;
-			m_Parents[icParents.size() + 1].remSize = remainderParents.size();
-			uint32_t i, j, k; i = j = k = 0;
-			uint32_t icOffset = 1;
-			uint32_t remOffset = 2 + icParents.size();
-			uint32_t guidesOffset = 2 + icParents.size() + remainderParents.size();
-			uint32_t guideFlags = 0;
-
-			assert(icParents.size() + remainderParents.size() == allParents.size());
-
-
-			for (uint32_t idx = 0; idx < allParents.size(); ++idx) {
-				if((idx % 32) == 0)
-					guideFlags = 0;
-				else
-					guideFlags = guideFlags << 1;
-
+			m_Parents[icParents.size() + 1].remSize = remParents.size();
+			uint32_t * rems = &(m_Parents[icParents.size() + 2].remParent);
+			uint32_t * flags = &(m_Parents[icParents.size() + 2 + remParentsSize()].guideFlags);
+			uint32_t i, j; i = j = 0;
+			BitArray ba = BitArray(flags);
+			for (uint32_t idx = 0; idx < allParents.size(); ++idx) {	
 				if (icParents[i] == allParents[idx]) {
-					m_Parents[i + icOffset].icParent = allParents[idx];
-					guideFlags = guideFlags | 1;
-					i++;
+					ics[i++] = allParents[idx];
+					ba.addBitMSB(1);
 				} 
 				else {
-					assert(allParents[idx] == remainderParents[j]);
-					m_Parents[j + remOffset].remParent = allParents[idx];
-					// LSB in guideFlags remains 0 here
-					j++;
+					assert(allParents[idx] == remParents[j]);
+					rems[j++] = allParents[idx];
+					ba.addBitMSB(0);
 				}													
-				if ((idx % 32) == 31) {										// if currently idx is equiv to 31 (mod 32), then next idx divisible by 32, and in the current iter we finished filling a 32bit guide word,
-					m_Parents[guidesOffset + k].guideFlags = guideFlags;	// we place the guides in the proper place in the guide array,
-					k++;
+			}
+		}
+    }
+	class ParentIter {
+		const Resol& r;
+		const uint32_t size;
+		int idx;
+		int icIdx;
+		int remIdx;
+
+		const uint32_t* flags;
+		uint32_t f_word;
+		uint32_t f_mask;
+
+		void initFlags() {
+			f_mask = 1 << (idx % 32);
+			f_word = flags[idx / 32];
+			updateIdxsUsingFlags();
+		}
+		//f_mask is a 32-bit word with a single bit on, incrementing it will bit-shift the bit towards the MSB. If overflowing, rotate back to LSB.
+		void incFlagData() {
+			if (f_mask < MAX_MASK)
+				f_mask = f_mask << 1;
+			else {
+				f_mask = MIN_MASK;
+				f_word = flags[idx / 32];
+			}
+
+		}
+		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
+		void updateIdxsUsingFlags() {
+			if (f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
+				icIdx++;
+			else
+				remIdx++;
+		}
+	public:
+		ParentIter(const Resol& _r, uint32_t _idx = 0) : r(_r), size(_r.IcParentsSize() + _r.remParentsSize()), idx(_idx), icIdx(-1),remIdx(-1), flags( (_r.header.hasRemParents) ? &(_r.m_Parents[2 + _r.IcParentsSize() + _r.remParentsSize()].guideFlags) : NULL ){
+			if (r.header.hasRemParents) 
+				initFlags();
+		}
+		bool operator!=(const ParentIter& other) {
+			return &r != &other.r || idx != other.idx;
+		}
+		const ParentIter& operator++() {
+			idx++;
+			if (idx > size)
+				//if already at the end of the interator, do nothing to actually increment it.
+				idx = size;
+			else {
+				if (!r.header.hasRemParents)
+					//no remainder parents, iterate only on ic parents.
+					icIdx++; 
+				else {
+					//remainder parents exist, use flag array to increment between ic and rem parents.
+					incFlagData();
+					updateIdxsUsingFlags();
 				}
 			}
-			if ((allParents.size() % 32) != 0)
-				m_Parents[guidesOffset + k].guideFlags =  guideFlags << (32 - (allParents.size() % 32));
+			return *this;
 		}
-		
+		const uint32_t& operator*() const {
+			if (idx >= size)
+				return CRef_Undef;
+			else if (r.header.hasRemParents && !(f_mask & f_word)) //next parent is a remainder parent
+				return r.m_Parents[2 + r.IcParentsSize() + remIdx].remParent;
+			else //next parent is an ic parent
+				return r.m_Parents[1 + icIdx].icParent;
+		}
+	};
 
-    }
+	class RevParentIter {
+		const Resol& r;
+		const uint32_t size;
+		int idx;
+		int icIdx;
+		int remIdx;
+
+		const uint32_t* flags;
+		uint32_t f_word;
+		uint32_t f_mask;
+
+		void initFlags() {
+			f_mask = 1 << (idx % 32);
+			f_word = flags[idx / 32];
+			updateIdxsUsingFlags();
+		}
+		//f_mask is a 32-bit word with a single bit on, incrementing it will bit-shift the bit towards the MSB. If overflowing, rotate back to LSB.
+		void decFlagData() {
+			if (f_mask > MIN_MASK)
+				f_mask = f_mask >> 1;
+			else {
+				f_mask = MAX_MASK;
+				f_word = flags[idx / 32];
+			}
+
+		}
+		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
+		void updateIdxsUsingFlags() {
+			if (f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
+				icIdx--;
+			else
+				remIdx--;
+		}
+	public:
+		RevParentIter(const Resol& _r, uint32_t _idx) : r(_r), size(_r.IcParentsSize() + _r.remParentsSize()), idx(_idx), icIdx(_r.IcParentsSize()), remIdx(_r.remParentsSize()), flags((_r.header.hasRemParents) ? &(_r.m_Parents[2 + _r.IcParentsSize() + _r.remParentsSize()].guideFlags) : NULL) {
+			if (r.header.hasRemParents)
+				initFlags();
+		}
+		bool operator!=(const RevParentIter& other) {
+			return &r != &other.r || idx != other.idx;
+		}
+		const RevParentIter& operator--() {
+			idx--;
+			if (idx < -1)
+				//if already at the start of the iterator, do nothing to actually decrement it.
+				idx = -1;
+			else {
+				if (!r.header.hasRemParents)
+					//no remainder parents, iterate only on ic parents.
+					icIdx--;
+				else {
+					//remainder parents exist, use flag array to decrement between ic and rem parents.
+					decFlagData();
+					updateIdxsUsingFlags();
+				}
+			}
+			return *this;
+		}
+		const uint32_t& operator*() const {
+			if (idx <= -1)
+				return CRef_Undef;
+			else if (r.header.hasRemParents && !(f_mask & f_word)) //next parent is a remainder parent
+				return r.m_Parents[2 + r.IcParentsSize() + remIdx].remParent;
+			else //next parent is an ic parent
+				return r.m_Parents[1 + icIdx].icParent;
+		}
+	};
+
+
+
+	const ParentIter begin() const{
+		return ParentIter(*this, 0);
+	}
+	const RevParentIter rbegin() const {
+		printf("size: %d\n", IcParentsSize() + remParentsSize() - 1);
+		return RevParentIter(*this, IcParentsSize() + remParentsSize() - 1);
+	}
+
+
+	const ParentIter end() const {
+		return ParentIter(*this, IcParentsSize() + remParentsSize());
+	}
+	 const RevParentIter rend() const {
+		return RevParentIter(*this, -1);
+	}
 };
 
 class ResolAllocator : public RegionAllocator<uint32_t>
@@ -360,11 +408,12 @@ public:
         return m_UidToData.size();
     }
 
-    Set<uint32_t> m_EmptyClauseParents;
+    Set<uint32_t> m_icPoEC;
 
 
 	std::unordered_map<uint32_t, vec<Lit>*>  icDelayedRemoval;
-	std::unordered_map<uint32_t, vec<Lit>* > mapClsToTClausePivotsInRhombus; // if opt_blm_rebuild_proof, in lpf_get_assumptions we find, for every clause in rhombus, the pivots through th parents in the rhombus (literals that appear in a parent but not in a child are pivots)
+
+	//std::unordered_map<uint32_t, vec<Lit>* > mapClsToTClausePivotsInRhombus; // if opt_blm_rebuild_proof, in lpf_get_assumptions we find, for every clause in rhombus, the pivots through th parents in the rhombus (literals that appear in a parent but not in a child are pivots)
 private:
     void DecreaseReference(uint32_t nUid);
 

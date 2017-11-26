@@ -34,7 +34,13 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "utils/Options.h"
 #include "core/Dimacs.h"
 #include "simp/SimpSolver.h"
-
+#include "SolverHandle.h"
+#include "ProofRebuilder.h"
+#include "MockSolverhandle.h"
+#include "boost/lambda/lambda.hpp"
+#include <iostream>
+#include <iterator>
+#include <algorithm>
 using namespace Minisat; 
 
 
@@ -52,6 +58,9 @@ void printStats(Solver& solver)
     if (mem_used != 0) printf("c Memory used           : %.2f MB\n", mem_used);
     printf("c CPU time              : %g s\n", cpu_time);
 }
+
+
+
 
 
 static Solver* solver;
@@ -72,7 +81,6 @@ static void SIGINT_exit(int signum) {
 
 //=================================================================================================
 // Main:
-
 int main(int argc, char** argv)
 {
     try {
@@ -90,103 +98,24 @@ int main(int argc, char** argv)
         StringOption dimacs ("MAIN", "dimacs", "If given, stop after preprocessing and write the result to this file.");
         IntOption    cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
         IntOption    mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
-		
-        
+
 		parseOptions(argc, argv, true);
+		
 
-		 
-
-		//vec<uint32_t> icParentsVec; 
-		//vec<uint32_t> remParentsVec; 
-		//vec<uint32_t> allParentsVec; 
-
-		//for (int i = 32; i < 64; ++i) {
-		//	if (i == 34)
-		//		remParentsVec.push(i);
-		//	else
-		//		icParentsVec.push(i);
-		//	allParentsVec.push(i);
-		//}
-		//icParentsVec.push(10);  icParentsVec.push(7); icParentsVec.push(6); icParentsVec.push(2); icParentsVec.push(1);
-		//remParentsVec.push(5); remParentsVec.push(4); remParentsVec.push(15);  remParentsVec.push(8);
-		//allParentsVec.push(5); allParentsVec.push(10);  allParentsVec.push(4); allParentsVec.push(7); allParentsVec.push(6); allParentsVec.push(15); allParentsVec.push(2); allParentsVec.push(1); allParentsVec.push(8);
-
-		// for (int i = 64; i < 96; ++i) {
-		//	 if (i == 65 || i == 95)
-		//		 icParentsVec.push(i);
-		//	 else
-		//		 remParentsVec.push(i);
-		//	 allParentsVec.push(i);
-		// }
-
-		//Resol r = Resol(icParentsVec, remParentsVec, allParentsVec, true);
-		//int j = 0;
-
-
-
-
-		//for (auto i: r) {
-		//	printf("%d, %d, %d\n", i == allParentsVec[j++],i, allParentsVec[j-1]);
-		//}
-		//exit(-1);
-		//vec<uint32_t> dummyVec;
-  //     
-		//for (int i = 0; i < allParentsVec.size(); ++i) {
-		//	S.resolGraph.AddNewResolution(allParentsVec[i], CRef_Undef, dummyVec, dummyVec, dummyVec);
-		//}
-
-		//S.resolGraph.AddNewResolution(0, CRef_Undef, icParentsVec, remParentsVec, allParentsVec);
-		//CRef resolRef = S.resolGraph.GetResolRef(0);
-		//Resol& resol = S.resolGraph.GetResol(resolRef);
-
-
-		//int remSize = resol.remParentsSize();
-		//int icSize = resol.IcParentsSize();
-		//int size = remSize + icSize;
-		//int flagsSize = (size / 32) + (int)((size % 32) > 0);
-
-
-		//for (int i = 0; i < 1 + resol.IcParentsSize() + ((remSize == 0) ? 0 : (1 + remSize + flagsSize)); ++i)
-		//	printf("resol.m_Parents[%d] =  %u\n",i, resol.m_Parents[i]);
-
-		//uint32_t j, k;
-		//uint32_t flags;
-		//uint32_t flagBit;
-		//uint32_t icOffset = 1;
-		//uint32_t remOffset = icOffset + 1 + icSize;
-		//uint32_t flagOffset = remOffset + remSize;
-		//uint32_t lastFlagWordLoc = size / 32;
-		//uint32_t icIdx, remIdx; icIdx = remIdx = 0;
-
-
-		//
-		//for (uint32_t i = 0; i < size; ++i) {
-		//	k = i % 32;
-		//	if (k == 0) {
-		//		j = i / 32;
-		//		flags = resol.m_Parents[flagOffset + j].guideFlags;
-		//	}
-		//	flagBit = ((flags << k) & 0x80000000) >> 31; //extract the MSB after shifting k steps to the left (i.e. after multiplying by 2^k)
-		//	//printf("flagsIdx[%d]=%u, flagBit[%d] = %d, \n", j, flags, k, flagBit);
-		//	if (flagBit)
-		//		printf("ic uid: %d\n", resol.m_Parents[icOffset + icIdx++]);
-		//	else
-		//		printf("rem uid: %d\n", resol.m_Parents[remOffset + remIdx++]);
-		//}
-
-
-
-		//printf("flags size: %d\n", flagsSize);
-
-		//exit(-5);
-
-
-
-
-
+		UidToLitSet m;
+		LitSet& s = m[1];
+		printf("%d\n", s.size());
+		s.insert(mkLit(1));
+		m[2] = m[1];
+		s.insert(mkLit(3));
+		printf("%d\n", m[1].size());
+		printf("%d\n", m[2].size());
+		exit(-5);
 
 		SimpSolver  S;
-
+		SolverHandle sh = SolverHandle(&S);
+		RebuilderContext ctx;
+		ProofRebuilder pr = ProofRebuilder(&sh, &ctx);
 
         double      initial_time = cpuTime();
 
@@ -284,3 +213,7 @@ int main(int argc, char** argv)
         exit(0);
     }
 }
+
+
+
+

@@ -548,13 +548,13 @@ bool SimpSolver::eliminateVar(Var v)
     eliminated_vars++;
 
     /* - we don't need it, because we have only unsat case
-    if (pos.size() > neg.size()){
+    if (idx.size() > neg.size()){
         for (int i = 0; i < neg.size(); i++)
             mkElimClause(elimclauses, v, ca[neg[i]]);
         mkElimClause(elimclauses, mkLit(v));
     }else{
-        for (int i = 0; i < pos.size(); i++)
-            mkElimClause(elimclauses, v, ca[pos[i]]);
+        for (int i = 0; i < idx.size(); i++)
+            mkElimClause(elimclauses, v, ca[idx[i]]);
         mkElimClause(elimclauses, ~mkLit(v));
     }
     */
@@ -572,7 +572,6 @@ bool SimpSolver::eliminateVar(Var v)
                 icParents.push(c1.uid());
             if (c2.ic())
                 icParents.push(c2.uid());
-			//printf("%d %d %d\n", icParents.size(), remParents.size(),allParents.size());
             if (merge(c1, c2, v, resolvent) && !addClause_(resolvent, icParents.size() > 0, &icParents))
             {
                 return false;

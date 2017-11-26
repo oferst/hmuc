@@ -169,7 +169,7 @@ void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniq
         if (RRef_Undef == rr)
             return;
 		Resol& resol = GetResol(rr); // m_RA[m_UidToData[nextUid].m_ResolRef];
-        if (resol.m_Children.size() != 1 || m_EmptyClauseParents.has(nextUid)) //oferg: why would we skip on a parent of the empty clause?
+        if (resol.m_Children.size() != 1 || m_icPoEC.has(nextUid)) //oferg: why would we skip on a parent of the empty clause?
             return;    
         nextUid = resol.m_Children[0];
         uniquePath.push(nextUid);
