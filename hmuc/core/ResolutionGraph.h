@@ -179,7 +179,7 @@ public:
         return m_RA[m_UidToData[nUid].m_ResolRef].ParentsSize();
     }
 
-    void GetNewRemaindersInCone(Set<uint32_t>& good, vec<uint32_t>& start);
+    void GetNewRemaindersFromCone(Set<uint32_t>& good, vec<uint32_t>& start);
 
     void GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath);
 

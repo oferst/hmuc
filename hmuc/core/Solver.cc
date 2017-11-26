@@ -1474,7 +1474,7 @@ void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
 // descendant has yet another IC parent, we do not want to remove it, because we rely on a path
 // from ICs to the empty clause when using optimization pf-mode=3/pf-mode=4.
 void Solver::RemoveClauses_withoutICparents(vec<uint32_t>& cone) {	
-	resol.GetNewRemaindersInCone(setGood, cone);  // setGood = clauses that all their parents are not IC	
+	resol.GetNewRemaindersFromCone(setGood, cone);  // setGood = clauses that all their parents are not IC	
 	resol.GetClausesCones(cone); // find all cones of the roots we started from
 	cancelUntil(0);
 	// cone contains all the clauses we want to remove
@@ -1558,7 +1558,7 @@ void Solver::UnbindClauses(vec<uint32_t>& cone)
             if (c.size() > 1)
             {
                 detachClause(cr);
-                // so we will be able to use lazy watch removal
+                // so we will be able to use lazy watch removal. It affects cleanAll below.
                 c.mark(1); 
             }
             else
@@ -1594,7 +1594,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid)
         vec<uint32_t> init(1);
         init[0] = startUid;
 		//printf("%s ", __FUNCTION__);
-        resol.GetNewRemaindersInCone(setGood, init); // setGood will now contain clauses that all their parents are not IC
+        resol.GetNewRemaindersFromCone(setGood, init); // setGood will now contain clauses that all their parents are not IC
     }
 
     //resol.GetClausesCones(cone) - we don't need that because we pass the previous found set of nodes
@@ -1673,7 +1673,7 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
 
     if (opt_bind_as_orig == 2)
     {		
-        resol.GetNewRemaindersInCone(setGood, cone); // setGood will now contain clauses that all their parents are not IC
+        resol.GetNewRemaindersFromCone(setGood, cone); // setGood will now contain clauses that all their parents are not IC
 		//printf("setGood = %d, cone = %d ", setGood.elems(), cone.size());
         resol.GetClausesCones(cone);  // This adds to cone all its cones. 
 		//printf("cone = %d\n", cone.size());
@@ -2089,6 +2089,7 @@ void Solver::LPF_get_assumptions(
 	vec<Lit>* Top_TClause = new vec<Lit>(); 
     CRef c = resol.GetClauseRef(uid_root);  // the clause reference of c
     Clause& cc = ca[c];
+	
 	// printfVec(cc, "removing (c) ");
 
 	if ((pf_mode == lpf_inprocess) && satisfied(cc)) {

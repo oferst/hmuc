@@ -341,7 +341,7 @@ void OccLists<Idx,Vec,Deleted>::clean(const Idx& idx)
     Vec& vec = occs[toInt(idx)];
     int  i, j;
     for (i = j = 0; i < vec.size(); i++)
-        if (!deleted(vec[i]))
+        if (!deleted(vec[i]))  // if it is mark==1 it is deleted; via overloaded '('. 
             vec[j++] = vec[i];
     vec.shrink(i - j);
     dirty[toInt(idx)] = 0;

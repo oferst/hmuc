@@ -160,37 +160,34 @@ void CResolutionGraph::Shrink()
     m_RA.FinishReloc();
 }
 
-// using vector rather than vec, which enables us to use std::sort, which does not stack-overflow at least for now. 
-#define SORT
-#ifdef SORT
 
 // assuming the clauses in 'start' are not IC anymore (e.g., we bind them back as originals, after 'SAT' case), 
 // then NewRemainders will be filled with all their descendants that now do not have an IC ancestor. 
-void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start)
+void CResolutionGraph::GetNewRemaindersFromCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start)
 {
-	std::vector<uint32_t> vecToCheck;
-	std::vector<uint32_t> vecCurrChecked;
+	std::vector<uint32_t> vecNextCheck;
+	std::vector<uint32_t> vecCurrCheck;
 	bool firstTime = true;
 
 	// add children of all sets to be checked
 
 	NewRemainders.add(start);
-	for (int i = 0; i < start.size(); ++i) vecCurrChecked.push_back(start[i]);
+	for (int i = 0; i < start.size(); ++i) 
+		vecCurrCheck.push_back(start[i]);
 	
-	while (vecCurrChecked.size() > 0)
+	while (vecCurrCheck.size() > 0)
 	{
-		for (int i = 0; i < vecCurrChecked.size(); ++i)
-		{
-			int nUid = vecCurrChecked[i];
+		for (int i = 0; i < vecCurrCheck.size(); ++i) {
+			int nUid = vecCurrCheck[i];
 			if (!firstTime && NewRemainders.has(nUid))
 				continue;
 
-			CRef ref = m_UidToData[nUid].m_ResolRef;
+			CRef resolRef = m_UidToData[nUid].m_ResolRef;
 
-			if (ref == CRef_Undef)
+			if (resolRef == CRef_Undef)
 				continue;
 
-			Resol& resol = m_RA[ref];
+			Resol& resol = m_RA[resolRef];
 			int nParents = resol.ParentsSize();
 			int j = 0;
 			uint32_t* parents = resol.Parents();
@@ -207,7 +204,7 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 				// pass over all children and add them to be checked
 				for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
 				{
-					vecToCheck.push_back(resol.m_Children[nChild]);
+					vecNextCheck.push_back(resol.m_Children[nChild]);
 				}
 			}
 		}
@@ -215,80 +212,26 @@ void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<
 		firstTime = false;
 
 		// this implements removeduplicated_ for a std:vector
-		if (vecToCheck.size() == 0) return;
+		if (vecNextCheck.size() == 0) return;
 
-		std::sort(vecToCheck.begin(), vecToCheck.end());
+		std::sort(vecNextCheck.begin(), vecNextCheck.end());
 		int nNewInd = 0;
 		int nOldInd = 1;
-		for (; nOldInd < vecToCheck.size(); ++nOldInd)
+		for (; nOldInd < vecNextCheck.size(); ++nOldInd)
 		{
-			if (vecToCheck[nNewInd] != vecToCheck[nOldInd])
+			if (vecNextCheck[nNewInd] != vecNextCheck[nOldInd])
 			{
-				vecToCheck[++nNewInd] = vecToCheck[nOldInd];
+				vecNextCheck[++nNewInd] = vecNextCheck[nOldInd];
 			}
 		}
-		vecToCheck.resize(nNewInd + 1);
+		vecNextCheck.resize(nNewInd + 1);
 		
-		vecToCheck.swap(vecCurrChecked);
-		vecToCheck.clear();
+		vecNextCheck.swap(vecCurrCheck);
+		vecNextCheck.clear();
 	}
 // print:	printf("setgood.size = %d, start.size = %d\n", NewRemainders.elems(), start.size());
 }
 
-#else
-void CResolutionGraph::GetNewRemaindersInCone(Set<uint32_t>& NewRemainders, vec<uint32_t>& start)
-{
-    vec<uint32_t> vecToCheck;
-    vec<uint32_t> vecCurrChecked;
-    bool firstTime = true;
 
-    // add children of all sets to be checked
-
-    NewRemainders.add(start);
-    start.copyTo(vecCurrChecked);
-    while (vecCurrChecked.size() > 0)
-    {
-        for (int i = 0; i < vecCurrChecked.size(); ++i)
-        {
-            int nUid = vecCurrChecked[i];
-            if (!firstTime && NewRemainders.has(nUid))
-                continue;
-
-            CRef ref = m_UidToData[nUid].m_ResolRef;
-
-            if (ref == CRef_Undef)
-                continue;
-
-            Resol& resol = m_RA[ref];
-            int nParents = resol.ParentsSize();
-            int j = 0;
-            uint32_t* parents = resol.Parents();
-            for (; j < nParents; ++j)
-            {
-                if (!NewRemainders.has(parents[j]))
-                    break;
-            }
-
-            if (j == nParents) // all parents are 'good',i.e., not ics.
-            {
-                if (!firstTime)
-                    NewRemainders.insert(nUid);
-                // pass over all children and add them to be checked
-                for (int nChild = 0; nChild < resol.m_Children.size(); ++nChild)
-                {
-                    vecToCheck.push(resol.m_Children[nChild]);
-                }
-            }
-        }
-
-        firstTime = false;
-		//printf("getallIcUids (no removeduplicate)");
-        vecToCheck.removeDuplicated_(); // This is the problem that made us define SORT above, for a version using std::sort.
-		vecToCheck.swap(vecCurrChecked);
-        vecToCheck.clear();
-    }
-//	printf("setgood.size = %d, start.size = %d\n", NewRemainders.elems(), start.size());
-}
-#endif
 
 }
