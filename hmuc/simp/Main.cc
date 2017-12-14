@@ -102,15 +102,15 @@ int main(int argc, char** argv)
 		parseOptions(argc, argv, true);
 		
 
-		UidToLitSet m;
-		LitSet& s = m[1];
-		printf("%d\n", s.size());
-		s.insert(mkLit(1));
-		m[2] = m[1];
-		s.insert(mkLit(3));
-		printf("%d\n", m[1].size());
-		printf("%d\n", m[2].size());
-		exit(-5);
+		//UidToLitSet m;
+		//LitSet& s = m[1];
+		//printf("%d\n", s.size());
+		//s.insert(mkLit(1));
+		//m[2] = m[1];
+		//s.insert(mkLit(3));
+		//printf("%d\n", m[1].size());
+		//printf("%d\n", m[2].size());
+		//exit(-5);
 
 		SimpSolver  S;
 		SolverHandle sh = SolverHandle(&S);
@@ -199,7 +199,6 @@ int main(int argc, char** argv)
             printStats(S);
             printf("\n"); }
         printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s UNKNOWN\n");
-//		getchar();
 		freopen("CON", "w", stdout);
 #ifdef NDEBUG
         exit(ret == l_True ? 10 : ret == l_False ? 20 : 0);     // (faster than "return", which will invoke the destructor for 'Solver')

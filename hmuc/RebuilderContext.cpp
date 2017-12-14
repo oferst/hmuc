@@ -2,13 +2,13 @@
 
 namespace Minisat {
 
-	RebuilderContext::RebuilderContext(){}
+	//RebuilderContext::RebuilderContext(){}
 
 
-	RebuilderContext::~RebuilderContext(){}
+	//RebuilderContext::~RebuilderContext(){}
 
 
-	bool RebuilderContext::seenClause(Uid uid) {
+	bool RebuilderContext::isClauseSeen(Uid uid) {
 		return seenClauses.find(uid) != seenClauses.end();
 	}
 	LitSet& RebuilderContext::getClause(Uid uid) {
@@ -23,10 +23,13 @@ namespace Minisat {
 	void RebuilderContext::mapClausesUpdate(Uid oldUid, Uid newUid) {
 		clausesUpdates[oldUid] = newUid;
 	}
-	Uid RebuilderContext::getNewClauseUid(Uid oldUid) {
+	Uid RebuilderContext::getClausesUpdate(Uid oldUid) {
 		return clausesUpdates[oldUid];
 	}
-	bool RebuilderContext::clasueUpdated(Uid oldUid) {
+	bool RebuilderContext::isClauseUpdated(Uid oldUid) {
 		return clausesUpdates.find(oldUid) != clausesUpdates.end();
+	}
+	void RebuilderContext::clearUpdates() {
+		clausesUpdates.clear();
 	}
 }

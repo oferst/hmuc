@@ -273,7 +273,7 @@ public:
 		ClauseIter(const Clause& _c, int _i = 0) : c(_c), i(_i) {}
 		ClauseIter(const ClauseIter& o) : c(o.c), i(o.i) {}
 		bool operator!=(const ClauseIter& o) { return &c != &o.c || i != o.i; }
-		const Lit operator*() { return (i < 0 || i >= c.size()) ? mkLit(var_Undef) : c[i]; }
+		const Lit& operator*() { return (i < 0 || i >= c.size()) ? mkLit(var_Undef) : c[i]; }
 		ClauseIter& operator++() { ++i; return *this; }
 		//ClauseIter operator++(int) { ClauseIter result(*this); ++(*this); return result; }
 		ClauseIter& operator--() { --i; return *this; }

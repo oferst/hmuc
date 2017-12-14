@@ -74,7 +74,10 @@ public:
 		
         return SIZE + totalParentsNum + additionalRemDataSize(); //if remainders exists, add 1 for their header
     }
-
+	uint32_t size() const
+	{
+		return Size();
+	}
 
     friend class ResolAllocator;
 //private:

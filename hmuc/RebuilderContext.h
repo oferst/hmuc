@@ -10,22 +10,28 @@ namespace Minisat {
 		UidToLitVec seenPivots;
 
 		//This map will contain all the literals for clauses that are parents of clauses in c's rhombus, and that
-		//were visited during the current proof recunstruction context
+		//were visited during the current proof reconstruction context
 		UidToLitSet seenClauses;
 
 		//will contain a mapping between an old, unreconstructed clause uid, and the uid of it's updated version.
 		UidToUid clausesUpdates;
 
 	public:
-		RebuilderContext();
-		virtual ~RebuilderContext();
-		virtual bool seenClause(Uid uid);
-		virtual vec<Lit>& getPivots(Uid uid);
-		virtual LitSet& getClause(Uid uid);
-		virtual bool arePivotsKnown(Uid uid);
-		virtual void mapClausesUpdate(Uid oldUid, Uid newUid);
-		virtual Uid getNewClauseUid(Uid oldUid);
-		virtual bool clasueUpdated(Uid oldUid);
+		const Lit dummy = mkLit(var_Undef);
+
+		RebuilderContext() {}
+		virtual ~RebuilderContext() {}
+
+		virtual LitSet&			getClause(Uid uid);
+		virtual Uid				getClausesUpdate(Uid oldUid);
+		virtual vec<Lit>&		getPivots(Uid uid);
+		
+		virtual void			mapClausesUpdate(Uid oldUid, Uid newUid);
+		virtual void			clearUpdates();
+
+		virtual bool			isClauseSeen(Uid uid);
+		virtual bool			isClauseUpdated(Uid oldUid);
+		virtual bool			arePivotsKnown(Uid uid);
 	};
 
 }

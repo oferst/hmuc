@@ -15,16 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Turtle.h">
+    <ClInclude Include="MockRebuilderContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MockTurtle.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TurtleUser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Header.h">
+    <ClInclude Include="MockSolverHandle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

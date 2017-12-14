@@ -409,10 +409,6 @@ namespace Minisat
 				before_time = cpuTime();
 				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
 
-
-
-
-
 				if (nIteration){
 						double time = cpuTime() - before_time;
 						if (time > longestcall) longestcall = time;
