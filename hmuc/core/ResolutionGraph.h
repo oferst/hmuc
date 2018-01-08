@@ -56,7 +56,6 @@ public:
     }
 	inline int remParentsSize() const
 	{
-		assert(header.hasRemParents);
 		return (header.hasRemParents) ? m_Parents[IcParentsSize() + 1].remSize : 0;
 	}
 	
@@ -292,9 +291,9 @@ public:
     const Resol* lea       (Ref r) const { return (Resol*)RegionAllocator<uint32_t>::lea(r); }
     Ref           ael       (const Resol* t){ return RegionAllocator<uint32_t>::ael((uint32_t*)t); }
 
-    void free(CRef cid)
+    void free(RRef rref)
     {
-        Resol& r = operator[](cid);
+        Resol& r = operator[](rref);
         r.m_Children.clear(true);
         RegionAllocator<uint32_t>::free(r.Size());
     }
@@ -344,7 +343,7 @@ class CResolutionGraph
 public:
 	//________________________________________________________________________________________________
 
-    Resol& GetResol(CRef ref)
+    Resol& GetResol(RRef ref)
 	{
 	 return m_RA[ref]; 
 	}
@@ -378,7 +377,7 @@ public:
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
 
-    void GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& parents, Set<uint32_t>& checked);
+    void GetOriginalParentsUids(Uid nUid, vec<Uid>& parents, Set<Uid>& checked);
 
     //void BuildBackwardResolution();
 
@@ -417,12 +416,8 @@ public:
 	std::unordered_map<uint32_t, vec<Lit>*>  icDelayedRemoval;
 
 	//std::unordered_map<uint32_t, vec<Lit>* > mapClsToTClausePivotsInRhombus; // if opt_blm_rebuild_proof, in lpf_get_assumptions we find, for every clause in rhombus, the pivots through th parents in the rhombus (literals that appear in a parent but not in a child are pivots)
-private:
-    void DecreaseReference(uint32_t nUid);
-
-    void Shrink();
-
-    struct Pair 
+    
+	struct Pair 
     {
         CRef m_ClauseRef;
         CRef m_ResolRef;
@@ -430,9 +425,14 @@ private:
         Pair() : m_ClauseRef(CRef_Undef) , m_ResolRef(CRef_Undef)
         {}
     };
-
     // Map that contains mapping between clause uid to its ind in clause buffer
     vec<Pair> m_UidToData;
+private:
+    void DecreaseReference(uint32_t nUid);
+
+    void Shrink();
+
+
 
     ResolAllocator m_RA;
     vec<uint32_t> dummy;

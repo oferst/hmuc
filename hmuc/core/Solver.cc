@@ -252,7 +252,7 @@ void Solver::removeClause(CRef cr) {
     // Don't leave pointers to freed memory!
     if (locked(c)) 
 		vardata[var(c[0])].reason = CRef_Undef;
-	Resol& resol = resolGraph.GetResol(resolGraph.GetResolRef(c.uid()));
+	
 	if ((c.ic() || c.isParentToIc()) && c.mark() != 2) {
 		resolGraph.DeleteClause(c.uid());
 	}
@@ -1532,7 +1532,7 @@ void Solver::relocAll(ClauseAllocator& to)
     {
         ca.reloc(learnts[i], to);
         Clause& c = to[learnts[i]];
-		if (c.ic() || c.isParentToIc()) {
+		if ((c.ic() || c.isParentToIc())  ) {
            resolGraph.UpdateClauseRef(c.uid(), learnts[i]);
 		}
     }
@@ -1641,16 +1641,16 @@ void Solver::findConflictICReasons(CRef origConfl) {
 
 }
 
-void Solver::GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone)
+void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus)
 {
-    core.clear();
-    for (int nInd = 0; nInd < icPoEC.size(); ++nInd)
-    {
-		if (emptyClauseCone.insert(icPoEC[nInd])) {
-			resolGraph.GetOriginalParentsUids(icPoEC[nInd], core, emptyClauseCone);
-		}
-    }
+	icCore.clear();
 
+	for (auto uid : icPoEC) {
+		assert(resolGraph.GetResol(resolGraph.GetResolRef(uid)).header.ic); // may fail if we do not filter out non-ic parents-of-e.c.
+		if (rhombus.insert(uid)) {
+			resolGraph.GetOriginalParentsUids(uid, icCore, rhombus);
+		}
+	}
 }
 
 // used for removing subsumed IC clauses. We want to remove them and their descendants, but if a 
@@ -1685,12 +1685,12 @@ void Solver::RemoveClauses(vec<uint32_t>& cone) {
 
 }
 
-void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc) {
+void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>& muc) {
 	//if (verbosity == -1)
-	//	printf("RemoveEverythingNotInCone\n");
+	//	printf("RemoveEverythingNotInRhombusOrMuc\n");
     uidsVec.clear();
 	//    sort(uidsVec); // what is this for ? 
-    cone.copyTo(uidsVec);
+    rhombus.copyTo(uidsVec);
     cancelUntil(0);
     sort(uidsVec);
     int j = 0;
@@ -1710,7 +1710,7 @@ void Solver::RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc) 
             ++j;
         }
     }
-	//printf("RemoveEverythingNotInCone cone.size() %d, muc.size() %d\n", cone.elems(), muc.elems());
+	//printf("RemoveEverythingNotInRhombusOrMuc cone.size() %d, muc.size() %d\n", cone.elems(), muc.elems());
 }
 
 void Solver::UnbindClauses(vec<uint32_t>& cone){
@@ -1877,8 +1877,8 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
                 enqueue(analyze_stack[0]);
             }
             else {
-
-                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false, c.isParentToIc()); // normal clause, not IC. The literals are in analyze_stack.
+				bool isInGraph = resolGraph.m_UidToData[uid].m_ResolRef != RRef_Undef;
+                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false, isInGraph && c.isParentToIc()); // normal clause, not IC. The literals are in analyze_stack.
                 clauses.push(newCr);
                 attachClause(newCr);
                 if (opt_use_clauses)

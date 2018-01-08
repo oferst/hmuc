@@ -26,3 +26,4 @@ run.bat
 *.db
 hmuc.VC.opendb
 ipch/
+.vs/

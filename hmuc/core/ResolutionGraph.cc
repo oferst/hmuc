@@ -52,14 +52,14 @@ void CResolutionGraph::AddNewResolution
 
 void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) {
 	m_UidToData.growTo(nNewClauseUid + 1);
-	vec<CRef> dummyParents;
-	CRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
+	vec<Uid> dummyParents;
+	RRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
 	m_UidToData[nNewClauseUid].m_ClauseRef = ref;
 	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 	m_RA[refResol].header.m_nRefCount = 0;
 }
 void CResolutionGraph::DecreaseReference(uint32_t nUid){
-    CRef& ref = m_UidToData[nUid].m_ResolRef;
+    RRef& ref = m_UidToData[nUid].m_ResolRef;
 	if (ref == CRef_Undef)
 		return;
     Resol& res = GetResol(ref);
@@ -72,17 +72,21 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
             DecreaseReference(parents[pUid]);
         }
 		// also decrease reference count for all the remParents (if any exist)
-		parents = res.RemParents();
-		for (int pUid = 0; pUid < res.remParentsSize(); ++pUid) {
-			DecreaseReference(parents[pUid]);
+		if (res.header.hasRemParents) {
+			parents = res.RemParents();
+
+			for (int pUid = 0; pUid < res.remParentsSize(); ++pUid) {
+				DecreaseReference(parents[pUid]);
+			}
 		}
 
-
-		//than mark node as free in resol graph (lazy removal), by counting the size of memory to free
+		
+		//then mark node as free in resol graph (lazy removal), by counting the size of memory to free
         m_RA.free(ref);
 		// and removing reference to it from m_RA
 
         ref = CRef_Undef;
+		
 		if (icDelayedRemoval.find(nUid) != icDelayedRemoval.end()) {
 			delete(icDelayedRemoval[nUid]);
 			icDelayedRemoval.erase(nUid);
@@ -91,13 +95,14 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 	
 }
 
-void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allParents, Set<uint32_t>& checked)
+void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcParents, Set<Uid>& checked)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
+	assert(resol.header.ic);
     int nParentsSize = resol.IcParentsSize();
 
     if (nParentsSize == 0) {
-        allParents.push(nUid);
+        allIcParents.push(nUid);
         return;
     }
     uint32_t* parents = resol.IcParents();
@@ -105,7 +110,7 @@ void CResolutionGraph::GetOriginalParentsUids(uint32_t nUid, vec<uint32_t>& allP
     for (int i = 0; i < nParentsSize; ++i) {
 		CRef parentRef = GetResolRef(parents[i]);
         if (GetResol(parentRef).header.ic && checked.insert(parents[i]))
-			GetOriginalParentsUids(parents[i], allParents, checked);
+			GetOriginalParentsUids(parents[i], allIcParents, checked);
      }
  }
 

@@ -31,6 +31,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Alloc.h"
 #include<iostream>
 #include<string>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace Minisat {
 
@@ -134,6 +136,12 @@ inline lbool toLbool(int   v) { return lbool((uint8_t)v);  }
 
 class Clause;
 
+typedef uint32_t Uid;
+typedef std::unordered_map<Uid, vec<Lit>> UidToLitVec;
+typedef std::unordered_set<Lit, LitHash> LitSet;
+typedef std::unordered_map<Uid, LitSet> UidToLitSet;
+typedef std::unordered_map<Uid, Uid> UidToUid;
+typedef std::unordered_map<Uid, bool> UidLabel;
 
 typedef RegionAllocator<uint32_t>::Ref CRef;
 class Clause {

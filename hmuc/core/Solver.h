@@ -54,18 +54,12 @@ enum pf_modes{
 //	Left, Right, Both, Either
 //} ParentUsed;
 
-typedef uint32_t Uid;
-typedef std::unordered_map<Uid, vec<Lit>> UidToLitVec;
-typedef std::unordered_set<Lit, LitHash> LitSet;
-typedef std::unordered_map<Uid, LitSet> UidToLitSet;
-typedef std::unordered_map<Uid, Uid> UidToUid;
-typedef std::unordered_map<Uid, bool> UidLabel;
 class Solver {
 	friend class SolverHandle;
 public:
 	void GeticUnits(vec<int>&);
     void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
-    void RemoveEverythingNotInCone(Set<uint32_t>& cone, Set<uint32_t>& muc);
+    void RemoveEverythingNotInRhombusOrMuc(Set<uint32_t>& cone, Set<uint32_t>& muc);
 	void RemoveClauses_withoutICparents(vec<uint32_t>& cone);
     void RemoveClauses(vec<uint32_t>& cone);
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
