@@ -37,7 +37,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "SolverHandle.h"
 #include "ProofRebuilder.h"
 #include "MockSolverhandle.h"
-#include "boost/lambda/lambda.hpp"
+//#include "boost/lambda/lambda.hpp"
 #include <iostream>
 #include <iterator>
 #include <algorithm>
