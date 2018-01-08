@@ -59,7 +59,7 @@ typedef std::unordered_map<Uid, vec<Lit>> UidToLitVec;
 typedef std::unordered_set<Lit, LitHash> LitSet;
 typedef std::unordered_map<Uid, LitSet> UidToLitSet;
 typedef std::unordered_map<Uid, Uid> UidToUid;
-
+typedef std::unordered_map<Uid, bool> UidLabel;
 class Solver {
 	friend class SolverHandle;
 public:

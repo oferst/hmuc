@@ -21,6 +21,9 @@
     <ClInclude Include="MockSolverHandle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TestUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp">

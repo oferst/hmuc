@@ -56,6 +56,8 @@ struct Lit {
     bool operator != (Lit p) const { return x != p.x; }
     bool operator <  (Lit p) const { return x < p.x;  } // '<' makes p, ~p adjacent in the ordering.
 };
+
+
 struct LitHash {
 	std::size_t operator()(const Lit& _l) const {
 		return std::hash<int>()(_l.x);
@@ -69,6 +71,10 @@ inline  Lit  operator ^(Lit p, bool b)      { Lit q; q.x = p.x ^ (unsigned int)b
 inline  bool sign      (Lit p)              { return p.x & 1; }
 inline  int  var       (Lit p)              { return p.x >> 1; }
 
+inline int toDimacsLit(Lit l) {
+	int res = var(l) + 1;
+	return sign(l) ? -res : res;
+}
 // Mapping Literals to and from compact integers suitable for array indexing:
 inline  int  toInt     (Var v)              { return v; } 
 inline  int  toInt     (Lit p)              { return p.x; } 

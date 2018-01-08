@@ -1909,11 +1909,11 @@ int Solver::todimacsLit(Lit l) {
 }
 
 void Solver::printLearntsDB() {
-	printf("---- learnts start-----\n");
+	printf("---- learned start-----\n");
 	for (int i = 0; i < learnts.size(); ++i) {
 		printf("uid %d, mark %d\n", ca[learnts[i]].uid(), ca[learnts[i]].mark());
 	}
-	printf("---- learnts end-----\n");
+	printf("---- learned end-----\n");
 }
 void Solver::printTrail() {
 

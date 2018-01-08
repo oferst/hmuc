@@ -54,7 +54,12 @@ public:
 	vec() : data(NULL), sz(0), cap(0) { }
     explicit vec(int size)      : data(NULL) , sz(0)   , cap(0)    { growTo(size); }
     vec(int size, const T& pad) : data(NULL) , sz(0)   , cap(0)    {  growTo(size, pad); }
-   ~vec()                                                          { clear(true); }
+	vec(std::initializer_list<T> il):
+		vec(il.size()) {
+		for (auto i : il)
+			push(i);
+	}
+	~vec()                                                          { clear(true); }
 
     // Pointer to first element:
     operator T*       (void)           { return data; }
@@ -106,7 +111,17 @@ public:
     vec<T>&  operator = (const vec<T>& other) { other.copyTo(*this); return *this; }
              vec<T>     (const vec<T>& other) { other.copyTo(*this); }
 
-
+	//bool operator==(const vec<T>& other) {
+	//	if (this == &other)
+	//		return true;
+	//	if (other.size() != size())
+	//		return false;
+	//	for (int i = 0; i < size(); ++i) {
+	//		if ((*this)[i] != other[i])
+	//			return false;
+	//	}
+	//	return true;
+	//}
     // better than moveTo because keeps allocated memory
     void swap(vec<T>& other)
     {

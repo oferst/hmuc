@@ -25,3 +25,4 @@ results.xlsx
 run.bat
 *.db
 hmuc.VC.opendb
+ipch/

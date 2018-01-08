@@ -53,4 +53,10 @@ vec<Lit>& SolverHandle::getPoEC_Piv() {
 bool SolverHandle::inRhombus(Uid uid) {
 	return s->map_cls_to_Tclause.find(uid) != s->map_cls_to_Tclause.end();
 }
+
+template <class T>
+void SolverHandle::printClause(T clause, std::string msg) {
+	s->printClaue(clause, msg);
+}
+
 }
