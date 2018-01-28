@@ -552,16 +552,15 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
 	int cutoffLevel = (int)(!opt_blm_rebuild_proof); // 1 if we don't need to rebuild a proof, 0 otherwise (we need the conflict reasons from level 1)
     for (int i = trail.size()-1; i >= trail_lim[cutoffLevel]; i--) {
         Var x = var(trail[i]);
-		
         if (seen[x]) {
+			//printf("%d trail is %d, reason is %u\n", i, todimacsLit(trail[i]), reason(x));
             if (reason(x) == CRef_Undef) {
                 assert(cutoffLevel == 0 || level(x) > 1);
-				//printf("trail[i]: %d\n", todimacsLit(trail[i]));
                 out_conflict.push(~trail[i]);
             } 
 			else {
                 Clause& c = ca[reason(x)];
-
+				//printClause(c, ("clause " + std::to_string(reason(x))));
 				if (opt_blm_rebuild_proof) {
 					uint32_t uid = c.uid();
 					if (c.ic()) {
@@ -572,6 +571,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
 							c.setIsParentToIc(true);
 							resolGraph.AddRemainderResolution(uid, reason(x));
 							setGood.insert(uid);
+							//printf("added remainder %d\n", reason(x));
 						}
 						out_remParents.push(uid);
 					}
@@ -585,8 +585,11 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
             }
             seen[x] = 0;
         }
+		//else
+		//	printf("not seen\n");
     }
-
+	printf("original conflict %d\n", todimacsLit(p));
+	printClause(out_conflict, "conflicts");
     seen[var(p)] = 0;
 }
 
@@ -1221,7 +1224,13 @@ lbool Solver::search(int nof_conflicts)
 							SolverHandle sh = SolverHandle(this);
 							RebuilderContext ctx;
 							ProofRebuilder pr = ProofRebuilder(&sh,&ctx);
-							pr.RebuildProof(currBL,allPoEC);
+							printf("rebuild start!\n");
+							vec<Uid> new_allPoEC, new_icPoEC;
+							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
+							//replaceContent(icPoEC, new_icPoEC);
+							//rhombus.clear();
+							//GetUnsatCore(icPoEC, rhombus);
+							printf("rebuild end!\n");
 							return l_False;
 							
 							//exit(-6);
@@ -1532,8 +1541,9 @@ void Solver::relocAll(ClauseAllocator& to)
     {
         ca.reloc(learnts[i], to);
         Clause& c = to[learnts[i]];
-		if ((c.ic() || c.isParentToIc())  ) {
-           resolGraph.UpdateClauseRef(c.uid(), learnts[i]);
+		Uid uid = c.uid();
+		if ((c.ic() || c.isParentToIc()) && resolGraph.m_UidToData[uid].m_ResolRef != CRef_Undef ) {
+           resolGraph.UpdateClauseRef(uid, learnts[i]);
 		}
     }
 
@@ -1543,11 +1553,11 @@ void Solver::relocAll(ClauseAllocator& to)
 		CRef oldCr = clauses[i];
 		ca.reloc(clauses[i], to); //this changes the value of clauses[i] !!!!!!!!!!!!!!!!!!!!!!!!!!
         Clause& c = to[clauses[i]];
+		Uid uid = c.uid();
 
 
-
-		if (c.ic() || c.isParentToIc()) {
-			resolGraph.UpdateClauseRef(c.uid(), clauses[i]);
+		if (c.ic() || c.isParentToIc() && resolGraph.m_UidToData[uid].m_ResolRef != CRef_Undef) {
+			resolGraph.UpdateClauseRef(uid, clauses[i]);
 		}
     }
 
@@ -1558,8 +1568,9 @@ void Solver::relocAll(ClauseAllocator& to)
 		//}
         ca.reloc(icUnitClauses[i], to);
         Clause& c = to[icUnitClauses[i]];
+		Uid uid = c.uid();
         assert(c.ic());
-        resolGraph.UpdateClauseRef(c.uid(), icUnitClauses[i]);
+        resolGraph.UpdateClauseRef(uid, icUnitClauses[i]);
     }
 }
 

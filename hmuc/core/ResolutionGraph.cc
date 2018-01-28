@@ -9,12 +9,21 @@ namespace Minisat
 {
 
 void CResolutionGraph::AddNewResolution
-    (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents){
+    (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents){
 	m_UidToData.growTo(nNewClauseUid + 1);
-	CRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
+	if (verbose == 1) {
+		printf("AddNewResolution - alloc. res\n");
+		printf("AddNewResolution - uid = %d\n", nNewClauseUid);
+		printf("AddNewResolution - CRef = %d\n", ref);
+		printfVec(icParents, "ic parents");
+		printfVec(remParents, "rem parents");
+		printfVec(allParents, "all parents");
+	}
+	RRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
     // increase reference count for all the icparents
-
 	if (remParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
+		if (verbose == 1)
+			printf("AddNewResolution - rem parents present");
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			CRef resRef = GetResolRef(allParents[nInd]);
 			if (resRef == CRef_Undef)
@@ -84,7 +93,6 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 		//then mark node as free in resol graph (lazy removal), by counting the size of memory to free
         m_RA.free(ref);
 		// and removing reference to it from m_RA
-
         ref = CRef_Undef;
 		
 		if (icDelayedRemoval.find(nUid) != icDelayedRemoval.end()) {

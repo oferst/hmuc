@@ -32,9 +32,11 @@ namespace Minisat {
 		//Mutator for the set of literals owned by uid.
 		virtual LitSet&			getClauseLits(Uid uid);
 		
-		//Mutator for the oldUid's updated uid.
-		virtual Uid&			getClausesUpdate(Uid oldUid);
-		
+		//Getter for the oldUid's updated uid.
+		virtual Uid			getClausesUpdate(Uid oldUid);
+		//Setter for the oldUid's updated uid.
+		virtual void			setClausesUpdate(Uid oldUid,Uid newUid);
+
 		//Mutator for the set of pivots (literals) generating uid from it's parents.
 		virtual vec<Lit>&		getPivots(Uid uid);
 		

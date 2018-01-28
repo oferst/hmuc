@@ -82,8 +82,8 @@ public:
 //private:
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
-    Resol(const vec<uint32_t>& icParents,const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic){
-		assert(icParents.size() + remParents.size() == allParents.size());	
+    Resol(const vec<Uid>& icParents,const vec<Uid>& remParents, const vec<Uid>& allParents,bool ic){
+		assert(allParents.size() == 0 || icParents.size() + remParents.size() == allParents.size());
 		header.ic = (int)ic;
 		header.m_nRefCount = 1;
 
@@ -341,6 +341,7 @@ private:
 class CResolutionGraph
 {
 public:
+	int verbose = 0;
 	//________________________________________________________________________________________________
 
     Resol& GetResol(RRef ref)
@@ -373,6 +374,7 @@ public:
     }
 
     void DeleteClause(uint32_t nUid) {
+
         DecreaseReference(nUid);
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }

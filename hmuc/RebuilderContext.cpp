@@ -8,8 +8,12 @@ namespace Minisat {
 		return seenClauses[uid];
 	}
 
-	Uid& RebuilderContext::getClausesUpdate(Uid oldUid) {
+
+	Uid RebuilderContext::getClausesUpdate(Uid oldUid) {
 		return clausesUpdates[oldUid];
+	}
+	void RebuilderContext::setClausesUpdate(Uid oldUid,Uid newUid) {
+		clausesUpdates[oldUid]= newUid;
 	}
 	
 	vec<Lit>& RebuilderContext::getPivots(Uid uid) {
