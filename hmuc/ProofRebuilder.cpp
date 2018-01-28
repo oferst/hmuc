@@ -69,7 +69,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 	//after analyzeFinal the vector negConflAssumptions contains all the set of negated BL that are in conflict - they are the reason for the current conflict - we will prove the  assumption (backbones) below.
 	//confLits_icParents, confLits_remParents, confLits_allParents will contain all the reason clauses for the conflict - used in the resolution graph, as it is needed to allocate new resolution nodes.
 	allParents.push_front(ClauseData());
-	ClauseData& newParent = result.parentsCandidates.front();
+	ClauseData& newParent = allParents.front();
 	if (confLits_icParents.size() == 0) {
 		newParent.setNonIc(negConflAssumptions);
 	}
@@ -78,6 +78,11 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		sh->allocResol(newCr, confLits_allParents, confLits_icParents, confLits_remParents);
 		newParent.setIc(sh->CRefToUid(newCr));
 		result.isIc = true; // a parent is ic, and therefore the resulting node is also ic.
+	}
+
+	if (newParent.status == Uninitialized) {
+		printf("disjunction type is unknown\n");
+		printfVec(negConflAssumptions, "negConflAssumptions");
 	}
 	//PART 2
 	/********************************************************************
@@ -105,31 +110,38 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		*******************************************************/
 		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
 		
-		result.isIc = result.isIc || Ic == newUnitParent.clauseType;
+		result.isIc = result.isIc || Allocated == newUnitParent.status;
 	}
 
+
+	for (ClauseData& parentData : result.parentsCandidates) {
+		if (parentData.status == Uninitialized) {
+			printf("Unknown\n");
+		}
+	}
 	//Iterate over reconstruction result and find if there exists an ic parent at all.
 	//If there exists an ic parent, allocate remainder resolution for every non ic parent found in the reconstruction
 	if (result.isIc) {
 		Uid unitUid = CRef_Undef;
 		CRef newCr = CRef_Undef;
-		for (ClauseData& newUnitParent : result.parentsCandidates) {
-			switch (newUnitParent.clauseType) {
-			case NonIc:
-				newCr = sh->allocClause(*newUnitParent.clauseContent, true, false);
+		for (ClauseData* parentData : result.parentsUsed) {
+			printf("parents used\n");
+			switch (parentData->status) {
+			case Deferred:
+				newCr = sh->allocClause(*(parentData->clauseContent), true, false);
 				assert(CRef_Undef != newCr);
 				sh->allocNonIcResol(newCr);
 				unitUid = sh->CRefToUid(newCr);
 				assert(CRef_Undef != unitUid);
 
 				break;
-			case Ic:
-				unitUid = newUnitParent.clauseUid;
+			case Allocated:
+				unitUid = parentData->clauseUid;
 				assert(CRef_Undef != unitUid);
 				new_icPoEC.push(unitUid);
 
 				break;
-			case Unknown:
+			case Uninitialized:
 				throw(ResolutionException("A clause with 'Unknown' type was build"));
 			}
 			new_allPoEC.push(unitUid);
@@ -187,7 +199,7 @@ void ProofRebuilder::backwardsTraversal(
 		
 		rebuiltparentsData.push_front(ClauseData());
 		ClauseData& currParent = rebuiltparentsData.front();
-		if (currPiv == negBL) { // cut off the 'pUid' parent by skipping current parent (it's type is Unknown)
+		if (currPiv == negBL) { // cut off the 'pUid' parent by skipping current parent (it's type is Uninitialized)
 			continue;
 		}
 		else {
@@ -237,7 +249,7 @@ void ProofRebuilder::reconstructClause(const Lit& BL,
 	//-1 because we must have at least one candidate parent
 	auto parentIter = reconRes.parentsCandidates.begin();
 	for (;j < currPivots.size(); ++j, ++parentIter) {
-		bool isRightParentIc = (Ic == parentIter->clauseType);
+		bool isRightParentIc = (Allocated == parentIter->status);
 		LitSet& lits = (isRightParentIc ?  ctx->getClauseLits(parentIter->clauseUid) : *parentIter->clauseContent);
 		assert(!isRightParentIc || ctx->isIc(parentIter->clauseUid));
 		ParentUsed pu = findParentsUsed(*currClause, lits, currPivots[j], BL);
@@ -310,7 +322,7 @@ Uid ProofRebuilder::
 	//need to allocate the clause, as it already exists in the DB (if ic).
 	else if (actualParentsUsed.size() == 1) {
 		ClauseData* singleParent = *actualParentsUsed.begin();
-		assert(singleParent->clauseType == Ic);
+		assert(singleParent->status == Allocated);
 		newUid = singleParent->clauseUid;
 	}
 	//otherwise (if more than one parent was used, but at least 
@@ -339,14 +351,14 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 	for (auto data : reconRes.parentsUsed) {
 		Uid uid = CRef_Undef;
 		CRef cr = CRef_Undef;
-		switch (data->clauseType) {
-		case Ic:
+		switch (data->status) {
+		case Allocated:
 			uid = data->clauseUid;
 			assert(CRef_Undef != uid);
 			icUids.push(uid);
 			allUids.push(uid);
 			break;
-		case NonIc:
+		case Deferred:
 			cr = sh->allocClause(*data->clauseContent, true, false);
 			assert(CRef_Undef != cr);
 			sh->allocNonIcResol(cr);
@@ -355,7 +367,7 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 			nonIcUids.push(uid);
 			allUids.push(uid);
 			break;
-		case Unknown:
+		case Uninitialized:
 			throw ResolutionException("actual parent used is of type 'Unknown'");
 		}
 	}
@@ -375,8 +387,10 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//Check whether we encountered this parent before (and therefore
 	//have an update for it. If an updated version exists, return 
 	//it's uid.
-	if (ctx->isClauseUpdated(currUid)) 
+	if (ctx->isClauseUpdated(currUid)) {
+		result.setIc(ctx->getClausesUpdate(currUid));
 		return ctx->getClausesUpdate(currUid);
+	}
 	//We shouldn't call 'proveBackboneLiteral' on a clause that
 	//contains negBL (and the checks below should guarantees it).
 	assert(!memberOfClause(currUid, ~BL));
@@ -387,6 +401,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		recordClause(currUid);
 		//now the clause will return 'true'
 		//on future ctx->isClauseSeen(pUid) calls
+		result.setIc(currUid);
 		return currUid;
 	}
 

@@ -1227,7 +1227,8 @@ lbool Solver::search(int nof_conflicts)
 							printf("rebuild start!\n");
 							vec<Uid> new_allPoEC, new_icPoEC;
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
-							//replaceContent(icPoEC, new_icPoEC);
+							replaceVecContent(icPoEC, new_icPoEC);
+							replaceVecContent(allPoEC, new_allPoEC);
 							//rhombus.clear();
 							//GetUnsatCore(icPoEC, rhombus);
 							printf("rebuild end!\n");

@@ -161,6 +161,12 @@ static inline void replaceContent(S& toReplace, T& with) {
 	for (auto l : with)
 		toReplace.insert(l);
 }
+template <class S, class T>
+static inline void replaceVecContent(S& toReplace, T& with) {
+	toReplace.clear();
+	for (auto l : with)
+		toReplace.push(l);
+}
 template <class S, class T, class U>
 static inline void unionContnet(S& a, T& b, U& res) {
 	res.clear();

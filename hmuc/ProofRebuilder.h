@@ -11,29 +11,29 @@ typedef enum {//used in proof reconstruction when opt_blm_rebuild_proof is used
 
 typedef LitSet DeferredAllocation;
 
-typedef enum ClauseType {
-	Unknown, Ic, NonIc
+typedef enum ClauseAllocStatus {
+	Uninitialized, Allocated, Deferred
 };
 
 
 
 struct ClauseData {
-	//If clauseType is ic, then data will contain an uid,
+	//If status is ic, then data will contain an uid,
 	//otherwise, data will contain the literal content 
 	//of the clause (for the purpose of deferred allocation).
-	ClauseType clauseType;
+	ClauseAllocStatus status;
 	union {
 		Uid clauseUid;
 		LitSet* clauseContent;
 	};
-	ClauseData() : clauseType(Unknown){}
-	ClauseData(const ClauseData& other) :clauseType(other.clauseType){
-		switch (clauseType) {
-		case Ic:
-		case Unknown:
+	ClauseData() : status(Uninitialized){}
+	ClauseData(const ClauseData& other) :status(other.status){
+		switch (status) {
+		case Allocated:
+		case Uninitialized:
 			clauseUid = other.clauseUid;
 			break;
-		case NonIc:
+		case Deferred:
 			clauseContent = new LitSet();
 			replaceContent(*clauseContent, *other.clauseContent);
 			break;
@@ -43,21 +43,21 @@ struct ClauseData {
 
 	}
 	void setIc(Uid uid) {
-		assert(Unknown == clauseType);
-		clauseType = Ic;
+		assert(Uninitialized == status);
+		status = Allocated;
 		clauseUid = uid;
 	}
 	
 	template<class T>
 	void setNonIc(const T& lits)  {
-		assert(Unknown == clauseType);
-		clauseType = NonIc;
+		assert(Uninitialized == status);
+		status = Deferred;
 		clauseContent = new LitSet();
 		for (auto l : lits)
 			clauseContent->insert(l);
 	}
 	~ClauseData() {
-		if (clauseType == NonIc) 
+		if (status == Deferred) 
 				free(clauseContent);
 	}
 };

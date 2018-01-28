@@ -426,7 +426,7 @@ namespace Minisat
 
 			if (result == l_False) {
 
-				if (!m_Solver.m_bUnsatByPathFalsification || m_Solver.blm_rebuild_proof) {
+				if (!m_Solver.m_bUnsatByPathFalsification || (m_Solver.blm_rebuild_proof && m_Solver.rhombusValid)) {
 					if (m_Solver.verbosity == 1) printf("UNSAT \n");
 
 					// First get all the clauses in unsat core
