@@ -22,12 +22,13 @@ struct ClauseData {
 	//otherwise, data will contain the literal content 
 	//of the clause (for the purpose of deferred allocation).
 	ClauseAllocStatus status;
+	Lit origPiv;
 	union {
 		Uid clauseUid;
 		LitSet* clauseContent;
 	};
-	ClauseData() : status(Uninitialized){}
-	ClauseData(const ClauseData& other) :status(other.status){
+	ClauseData(const Lit& piv= mkLit(Var(var_Undef))) : status(Uninitialized),origPiv(piv){}
+	ClauseData(const ClauseData& other) :status(other.status), origPiv(other.origPiv){
 		switch (status) {
 		case Allocated:
 		case Uninitialized:
@@ -102,6 +103,7 @@ public:
 							std::list<ClauseData>& rebuiltparentsData);
 
 	void reconstructClause(
+							const Uid currUid,
 							const Lit& BL, 
 							const vec<Lit>& currPivots, 
 							ReconstructionResult& reconRes);

@@ -272,13 +272,13 @@ namespace Minisat
 					{
 						unsatClsUid1 = unsatClsUid;
 						//if (m_Solver.verbosity == 1)
-						//	m_Solver.printClause(unsatClsUid1, "unsatCls1");
+						//	m_Solver.printClauseByUid(unsatClsUid1, "unsatCls1");
 					}
 					else
 					{
 						unsatClsUid2 = unsatClsUid;
 						//if (m_Solver.verbosity == 1)
-						//	m_Solver.printClause(unsatClsUid2, "unsatCls2");
+						//	m_Solver.printClauseByUid(unsatClsUid2, "unsatCls2");
 					}
 				}
 				//else {
@@ -433,17 +433,11 @@ namespace Minisat
 					rhombus.clear();
 					vec<Uid>& icCore = vecUids;
 					m_Solver.GetUnsatCore(icCore, rhombus);
-					//if (m_Solver.verbosity == 1) {
-					//	printf("------------unsat core size %d-----------\n", rombus.elems());
-					//	vec<uint32_t> rombusVec;
-					//	rombus.copyTo(rombusVec);
-					//	for (int i = 0; i < rombusVec.size(); ++i)
-					//		printf("%d\n", rombusVec[i]);
-					//	printf("------------unsat core end-----------\n");
+					//if ((m_Solver.blm_rebuild_proof && m_Solver.rhombusValid)) {
+					//	printf("size of icPoEC: %d\n", m_Solver.icPoEC.size());
+					//	printf("size of icCore: %d\n", icCore.size());
 					//}
 
-					//printf("core size %d\n", vecUids.size());
-					// vecUids.removeDuplicated_();
 					// for each clause in vecUids check if it is ic
 					// and mark it as unknown. 
 
@@ -676,13 +670,13 @@ namespace Minisat
 						nIcForRemove = m_uidRotationBlockers.last();
 						m_uidRotationBlockers.pop();
 						//printf("removing %d\n", nIcForRemove);
-						//m_Solver.printClause(nIcForRemove, "");
+						//m_Solver.printClauseByUid(nIcForRemove, "");
 
 
 						//if(338861 == nIcForRemove)
-						//	m_Solver.printClause(338618, "other: (338618)");
+						//	m_Solver.printClauseByUid(338618, "other: (338618)");
 						//if (338618 == nIcForRemove)
-						//	m_Solver.printClause(338861, "other: (338861)");
+						//	m_Solver.printClauseByUid(338861, "other: (338861)");
 						if (!find(vecNextUnknown, nIcForRemove))
 							nIcForRemove = CRef_Undef;
 					}
@@ -718,7 +712,7 @@ namespace Minisat
 					result = l_False;
 					goto end;
 				}
-				//m_Solver.printClause(nIcForRemove, "^^nIcForRemove");
+				//m_Solver.printClauseByUid(nIcForRemove, "^^nIcForRemove");
 			}
 #pragma endregion
 

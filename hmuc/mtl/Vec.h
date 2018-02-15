@@ -55,7 +55,7 @@ public:
     explicit vec(int size)      : data(NULL) , sz(0)   , cap(0)    { growTo(size); }
     vec(int size, const T& pad) : data(NULL) , sz(0)   , cap(0)    {  growTo(size, pad); }
 	vec(std::initializer_list<T> il):
-		vec(il.size()) {
+		vec() {
 		for (auto i : il)
 			push(i);
 	}
@@ -274,15 +274,7 @@ public:
 
 
 
-template<typename T>
-static void printfVec(T& v, char *msg) {
-	//if (v == NULL) printf("NULL\n");
-	printf("%s (", msg);	
-	for (int i = 0; i < v.size(); ++i) {
-		printf("%d ", v[i]);
-	}
-	printf(")\n");
-}
+
 
 template<class T>
 void vec<T>::capacity(int min_cap) {

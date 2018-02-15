@@ -34,7 +34,7 @@ namespace Minisat {
 		return seenClauses.find(uid) != seenClauses.end();
 	}
 	bool RebuilderContext::arePivotsKnown(Uid uid) {
-		return seenPivots.find(uid) != seenPivots.end();
+		return  seenPivots.find(uid) != seenPivots.end();
 	}
 	bool RebuilderContext::isClauseUpdated(Uid oldUid) {
 		return clausesUpdates.find(oldUid) != clausesUpdates.end();

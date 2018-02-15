@@ -19,14 +19,23 @@ namespace Minisat
 class ParentIter;
 class Resol
 {
+#define IC_OFFSET 1
+#define NON_IC_OFFSET 1
 public:
+
+	//a vec<Uid> containing the Uids of the children of this node.
+	//Note that unlike the parents, child nodes are dynamically added and 
+	//therefore cannot be declared at construction - the solution is to 
+	//use a vec<Uid> object that is able to grow dynamically, 
+	//and will not be allocated in advance. 
+	//Takes up 4 32-bit words in memory
     vec<uint32_t> m_Children;
 	struct {
 		unsigned ic : 1;
-		unsigned hasRemParents : 1; //if this flag is turned on, then this node containes some remainder clauses as parents (in m_Parents below) - can only active when using opt-blm-rebuild-proof to findParentsUsed a proof in a BLM calc
+		unsigned hasRemParents : 1; //if this flag is turned on, then this node contains some remainder clauses as parents (in m_Parents below) - can only active when using opt-blm-rebuild-proof to findParentsUsed a proof in a BLM calc
 		unsigned m_nRefCount : 30; // the number of nodes (this node + children) known to be ic by this node. Basically the count of all the ic children and (if this node is ic) itself
 
-	} header;
+	} header; //take up 1 32-bit words in memory
     union {
 		uint32_t icSize;
         uint32_t icParent;
@@ -44,38 +53,36 @@ public:
 
 
     uint32_t* IcParents(){
-       return &m_Parents[1].icParent;
+       return &m_Parents[IC_OFFSET].icParent;
     }
 	uint32_t* RemParents(){
-		assert(header.hasRemParents);
-		return (header.hasRemParents) ? &m_Parents[2 + IcParentsSize()].remParent : NULL;
+		return (header.hasRemParents) ? &m_Parents[IC_OFFSET + icParentsSize() + NON_IC_OFFSET].remParent : NULL;
 	}
-    inline int IcParentsSize() const
-    {
+    inline int icParentsSize() const{
         return m_Parents[0].icSize;
     }
-	inline int remParentsSize() const
-	{
-		return (header.hasRemParents) ? m_Parents[IcParentsSize() + 1].remSize : 0;
+	inline int nonIcParentsSize() const{
+		return (!header.hasRemParents) ? 0 : m_Parents[IC_OFFSET + icParentsSize()].remSize;
 	}
 	
 	//this function returns the size of the addidtional data in case remainder clases are saved in a resol node, in units of 32-bit words
-	inline int additionalRemDataSize() const
-	{
+	inline int additionalRemDataSize() const {
 		if (!header.hasRemParents)
 			return 0;
-		int totalParentsNum = IcParentsSize() + remParentsSize();
-		return  1 + (totalParentsNum / 32) + (int)((totalParentsNum % 32) != 0); //the +1 is for the cell holding the number of remainders - all the rest are for the size of the flag array
+		int totalParentsNum = icParentsSize() + nonIcParentsSize();
+		//the +1 is for the cell holding the number of remainders - 
+		//all the rest are for the size of the flag array
+		return  1 + (totalParentsNum / 32) + (int)((totalParentsNum % 32) != 0); 
 	}
-    uint32_t Size() const
+    uint32_t sizeIn32Bit() const
     {
-		int totalParentsNum = IcParentsSize() + remParentsSize();
+		int totalParentsNum = icParentsSize() + nonIcParentsSize();
 		
         return SIZE + totalParentsNum + additionalRemDataSize(); //if remainders exists, add 1 for their header
     }
 	uint32_t size() const
 	{
-		return Size();
+		return icParentsSize() + nonIcParentsSize();
 	}
 
     friend class ResolAllocator;
@@ -83,12 +90,12 @@ public:
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
     Resol(const vec<Uid>& icParents,const vec<Uid>& remParents, const vec<Uid>& allParents,bool ic){
-		assert(allParents.size() == 0 || icParents.size() + remParents.size() == allParents.size());
+		assert(icParents.size() + remParents.size() == allParents.size());
 		header.ic = (int)ic;
 		header.m_nRefCount = 1;
 
         m_Parents[0].icSize = icParents.size();
-		uint32_t* ics = &(m_Parents[1].icParent);
+		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
 		if (0 == remParents.size()) {
 			header.hasRemParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
@@ -97,9 +104,9 @@ public:
 		}
 		else { // remParents.size() > 0
 			header.hasRemParents = 1;
-			m_Parents[icParents.size() + 1].remSize = remParents.size();
-			uint32_t * rems = &(m_Parents[icParents.size() + 2].remParent);
-			uint32_t * flags = &(m_Parents[icParents.size() + 2 + remParentsSize()].guideFlags);
+			m_Parents[IC_OFFSET + icParents.size()].remSize = remParents.size();
+			uint32_t * rems = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET].remParent);
+			uint32_t * flags = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET + nonIcParentsSize()].guideFlags);
 			uint32_t i, j; i = j = 0;
 			BitArray ba = BitArray(flags);
 			for (uint32_t idx = 0; idx < allParents.size(); ++idx) {	
@@ -129,29 +136,41 @@ public:
 		void initFlags() {
 			f_mask = 1 << (idx % 32);
 			f_word = flags[idx / 32];
-			updateIdxsUsingFlags();
+			
 		}
 		//f_mask is a 32-bit word with a single bit on, incrementing it will bit-shift the bit towards the MSB. If overflowing, rotate back to LSB.
 		void incFlagData() {
+			//printf("before - f_mask: %u, f_word: %u\n", f_mask, f_word);
 			if (f_mask < MAX_MASK)
 				f_mask = f_mask << 1;
 			else {
 				f_mask = MIN_MASK;
 				f_word = flags[idx / 32];
 			}
+			//printf("after - f_mask: %u, f_word: %u\n\n", f_mask, f_word);
 
 		}
 		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
-		void updateIdxsUsingFlags() {
-			if (f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
+		void updateIdxs() {
+			//printf("before - icIdx: %d, remIdx: %d\n", icIdx, remIdx);
+			if (!r.header.hasRemParents | (f_mask & f_word)) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
 				icIdx++;
 			else
 				remIdx++;
+			//printf("after - icIdx: %d, remIdx: %d\n\n", icIdx, remIdx);
 		}
 	public:
-		ParentIter(const Resol& _r, uint32_t _idx = 0) : r(_r), size(_r.IcParentsSize() + _r.remParentsSize()), idx(_idx), icIdx(-1),remIdx(-1), flags( (_r.header.hasRemParents) ? &(_r.m_Parents[2 + _r.IcParentsSize() + _r.remParentsSize()].guideFlags) : NULL ){
-			if (r.header.hasRemParents) 
+		ParentIter(const Resol& _r, uint32_t _idx = 0) : 
+			r(_r), 
+			size(_r.icParentsSize() + _r.nonIcParentsSize()), 
+			idx(_idx), 
+			icIdx(-1),
+			remIdx(-1), 
+			flags( (_r.header.hasRemParents) ? &(_r.m_Parents[IC_OFFSET + _r.icParentsSize() +NON_IC_OFFSET+ _r.nonIcParentsSize()].guideFlags) : NULL ){
+			if (r.header.hasRemParents) {
 				initFlags();
+			}
+			updateIdxs();
 		}
 		bool operator!=(const ParentIter& other) {
 			return &r != &other.r || idx != other.idx;
@@ -159,17 +178,14 @@ public:
 		const ParentIter& operator++() {
 			idx++;
 			if (idx > size)
-				//if already at the end of the interator, do nothing to actually increment it.
+				//if already at the end of the iterator, do nothing to actually increment it.
 				idx = size;
 			else {
-				if (!r.header.hasRemParents)
-					//no remainder parents, iterate only on ic parents.
-					icIdx++; 
-				else {
-					//remainder parents exist, use flag array to increment between ic and rem parents.
+				if (r.header.hasRemParents) {
+					//remainder parents exist, use flag array to increment between ic and rem parents
 					incFlagData();
-					updateIdxsUsingFlags();
 				}
+				updateIdxs();
 			}
 			return *this;
 		}
@@ -177,9 +193,10 @@ public:
 			if (idx >= size)
 				return CRef_Undef;
 			else if (r.header.hasRemParents && !(f_mask & f_word)) //next parent is a remainder parent
-				return r.m_Parents[2 + r.IcParentsSize() + remIdx].remParent;
-			else //next parent is an ic parent
-				return r.m_Parents[1 + icIdx].icParent;
+				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
+			else {
+				return r.m_Parents[IC_OFFSET + icIdx].icParent;
+			}
 		}
 	};
 
@@ -197,7 +214,6 @@ public:
 		void initFlags() {
 			f_mask = 1 << (idx % 32);
 			f_word = flags[idx / 32];
-			updateIdxsUsingFlags();
 		}
 		//f_mask is a 32-bit word with a single bit on, incrementing it will bit-shift the bit towards the MSB. If overflowing, rotate back to LSB.
 		void decFlagData() {
@@ -210,34 +226,38 @@ public:
 
 		}
 		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
-		void updateIdxsUsingFlags() {
-			if (f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
-				icIdx--;
+		void updateIdxs() {
+			if (!r.header.hasRemParents || f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
+				--icIdx;
 			else
-				remIdx--;
+				--remIdx;
 		}
 	public:
-		RevParentIter(const Resol& _r, uint32_t _idx) : r(_r), size(_r.IcParentsSize() + _r.remParentsSize()), idx(_idx), icIdx(_r.IcParentsSize()), remIdx(_r.remParentsSize()), flags((_r.header.hasRemParents) ? &(_r.m_Parents[2 + _r.IcParentsSize() + _r.remParentsSize()].guideFlags) : NULL) {
+		RevParentIter(const Resol& _r, int _idx) : 
+			r(_r), 
+			size(_r.icParentsSize() + _r.nonIcParentsSize()), 
+			idx(_idx), 
+			icIdx(_r.icParentsSize()), 
+			remIdx(_r.nonIcParentsSize()), 
+			flags((_r.header.hasRemParents) ? &(_r.m_Parents[IC_OFFSET + _r.icParentsSize()+NON_IC_OFFSET + _r.nonIcParentsSize()].guideFlags) : NULL) {
 			if (r.header.hasRemParents)
 				initFlags();
+			updateIdxs();
 		}
 		bool operator!=(const RevParentIter& other) {
 			return &r != &other.r || idx != other.idx;
 		}
 		const RevParentIter& operator--() {
-			idx--;
+			--idx;
 			if (idx < -1)
 				//if already at the start of the iterator, do nothing to actually decrement it.
 				idx = -1;
 			else {
-				if (!r.header.hasRemParents)
-					//no remainder parents, iterate only on ic parents.
-					icIdx--;
-				else {
+				if (r.header.hasRemParents) {
 					//remainder parents exist, use flag array to decrement between ic and rem parents.
 					decFlagData();
-					updateIdxsUsingFlags();
 				}
+				updateIdxs();
 			}
 			return *this;
 		}
@@ -245,9 +265,10 @@ public:
 			if (idx <= -1)
 				return CRef_Undef;
 			else if (r.header.hasRemParents && !(f_mask & f_word)) //next parent is a remainder parent
-				return r.m_Parents[2 + r.IcParentsSize() + remIdx].remParent;
-			else //next parent is an ic parent
-				return r.m_Parents[1 + icIdx].icParent;
+				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
+			else { //next parent is an ic parent
+				return r.m_Parents[IC_OFFSET + icIdx].icParent;
+			}
 		}
 	};
 
@@ -257,13 +278,12 @@ public:
 		return ParentIter(*this, 0);
 	}
 	const RevParentIter rbegin() const {
-		printf("size: %d\n", IcParentsSize() + remParentsSize() - 1);
-		return RevParentIter(*this, IcParentsSize() + remParentsSize() - 1);
+		return RevParentIter(*this, icParentsSize() + nonIcParentsSize()-1);
 	}
 
 
 	const ParentIter end() const {
-		return ParentIter(*this, IcParentsSize() + remParentsSize());
+		return ParentIter(*this, icParentsSize() + nonIcParentsSize());
 	}
 	 const RevParentIter rend() const {
 		return RevParentIter(*this, -1);
@@ -273,15 +293,15 @@ public:
 class ResolAllocator : public RegionAllocator<uint32_t>
 {
 public:
-    CRef alloc(const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic)
+    RRef alloc(const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic)
     {
 
 		int additionalSize = (remParents.size() == 0) ? 0 : (1 + remParents.size() + (allParents.size() / 32) + (int)((allParents.size() % 32) > 0));
-		CRef cid = RegionAllocator<uint32_t>::alloc(Resol::SIZE + icParents.size() + additionalSize);
+		RRef rRef = RegionAllocator<uint32_t>::alloc(Resol::SIZE + icParents.size() + additionalSize);
 
-        new (lea(cid)) Resol(icParents,remParents,allParents,ic);
+        new (lea(rRef)) Resol(icParents,remParents,allParents,ic);
 
-        return cid;
+        return rRef;
     } 
 
     // Deref, Load Effective Address (LEA), Inverse of LEA (AEL):
@@ -295,7 +315,7 @@ public:
     {
         Resol& r = operator[](rref);
         r.m_Children.clear(true);
-        RegionAllocator<uint32_t>::free(r.Size());
+        RegionAllocator<uint32_t>::free(r.sizeIn32Bit());
     }
 
     void StartReloc()
@@ -307,7 +327,7 @@ public:
     {
         if (from == CRef_Undef)
             return;
-        uint32_t size = operator[](from).Size();
+        uint32_t size = operator[](from).sizeIn32Bit();
 
         if (from == m_LastRelocLoc) {  // the same clause no need to copy
             m_LastRelocLoc += size;
@@ -368,13 +388,12 @@ public:
         return m_UidToData[nUid].m_ClauseRef;
     }
 
-    CRef GetResolRef(uint32_t nUid) // Formerly 'GetResolId'
+    RRef GetResolRef(uint32_t nUid) // Formerly 'GetResolId'
     { 
         return m_UidToData[nUid].m_ResolRef;
     }
 
     void DeleteClause(uint32_t nUid) {
-
         DecreaseReference(nUid);
         m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
@@ -395,7 +414,7 @@ public:
 
     int GetParentsNumber(uint32_t nUid)
     {
-        return GetResol(GetResolRef(nUid)).IcParentsSize();
+        return GetResol(GetResolRef(nUid)).icParentsSize();
     }
 
     void AddNewRemainderUidsFromCone(Set<uint32_t>& good, vec<uint32_t>& start);

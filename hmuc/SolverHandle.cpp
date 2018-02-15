@@ -29,7 +29,11 @@ vec<Lit>& SolverHandle::getDelayedRemoval(Uid uid) {
 
 Resol& SolverHandle::getResol(Uid uid) {
 	CResolutionGraph& g = s->resolGraph;
-	return g.GetResol(g.GetResolRef(uid));
+	return s->resolGraph.GetResol(getResolRef(uid));
+}
+
+RRef SolverHandle::getResolRef(Uid uid) {
+	return s->resolGraph.GetResolRef(uid);
 }
 CRef SolverHandle::allocClause(vec<Lit>& lits, bool isLearned, bool isIc) {
 	return s->ca.alloc(lits, isLearned, isIc);
@@ -56,7 +60,7 @@ vec<Lit>& SolverHandle::getPoEC_Piv() {
 	return s->allPoEC_pivots;
 }
 bool SolverHandle::inRhombus(Uid uid) {
-	return s->map_cls_to_Tclause.find(uid) != s->map_cls_to_Tclause.end();
+	return CRef_Undef == uid || s->map_cls_to_Tclause.find(uid) != s->map_cls_to_Tclause.end();
 }
 
 //template <class T>

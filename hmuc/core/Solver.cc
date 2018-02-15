@@ -33,6 +33,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include<string>
 #include "SolverHandle.h"
 #include "ProofRebuilder.h"
+#include "Printer.h"
 using namespace Minisat;
 
 
@@ -214,7 +215,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* icParentsPtr)
 
     if (ic) {
         resolGraph.AddNewResolution(ca[cr].uid(), cr, ((icParentsPtr == NULL) ? icParents : *icParentsPtr));
-    }
+	}
 
     return true;
 }
@@ -541,10 +542,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
 |    stores the result in 'out_conflict'.
 |________________________________________________________________________________________________@*/
 void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents) {
-	printf("analyze\n");
 	out_conflict.clear();
-
-
     out_conflict.push(~p);
     if (decisionLevel() == 0)
         return;
@@ -553,14 +551,12 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
     for (int i = trail.size()-1; i >= trail_lim[cutoffLevel]; i--) {
         Var x = var(trail[i]);
         if (seen[x]) {
-			//printf("%d trail is %d, reason is %u\n", i, todimacsLit(trail[i]), reason(x));
             if (reason(x) == CRef_Undef) {
                 assert(cutoffLevel == 0 || level(x) > 1);
                 out_conflict.push(~trail[i]);
             } 
 			else {
                 Clause& c = ca[reason(x)];
-				//printClause(c, ("clause " + std::to_string(reason(x))));
 				if (opt_blm_rebuild_proof) {
 					uint32_t uid = c.uid();
 					if (c.ic()) {
@@ -571,7 +567,6 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
 							c.setIsParentToIc(true);
 							resolGraph.AddRemainderResolution(uid, reason(x));
 							setGood.insert(uid);
-							//printf("added remainder %d\n", reason(x));
 						}
 						out_remParents.push(uid);
 					}
@@ -585,11 +580,8 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
             }
             seen[x] = 0;
         }
-		//else
-		//	printf("not seen\n");
     }
-	printf("original conflict %d\n", todimacsLit(p));
-	printClause(out_conflict, "conflicts");
+
     seen[var(p)] = 0;
 }
 
@@ -906,15 +898,6 @@ bool Solver::simplify()
 }
 
 
-template<typename T>
-static void printfVec(T& v, char *msg) {
-	if (v == NULL) printf("NULL\n");
-	printf("%s (", msg);	
-	for (int i = 0; i < v.size(); ++i) {
-		printf("%d ", v[i]);
-	}
-	printf(")\n");
-}
 
 bool Solver::pf_early_unsat_terminate() { // default is true
 	if ((opt_always_prove && (pf_zombie_iter <= opt_pf_z_budget)) 
@@ -1224,7 +1207,6 @@ lbool Solver::search(int nof_conflicts)
 							SolverHandle sh = SolverHandle(this);
 							RebuilderContext ctx;
 							ProofRebuilder pr = ProofRebuilder(&sh,&ctx);
-							printf("rebuild start!\n");
 							vec<Uid> new_allPoEC, new_icPoEC;
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
 							replaceVecContent(icPoEC, new_icPoEC);
@@ -1252,19 +1234,10 @@ lbool Solver::search(int nof_conflicts)
 				if ((next = pickBranchLit()) == lit_Undef) {
 					return l_True; // Model found:				
 				}
-				//else
-				//	if (verbosity == 1)
-				//		printf("#%d\n", todimacsLit(next));
-
             }
             // Increase decision level and enqueue 'next'
             newDecisionLevel(conflictC);
-			//if (verbosity == 1 && propagations == 50594638) {
-			//	printf("**************enqueuing decision lit %d**************\n", todimacsLit(next));
-			//}
             uncheckedEnqueue(next);
-			/*if (verbosity == 1)
-				printf("dec: %d\n", next);*/
         }
 #pragma endregion
 
@@ -1564,9 +1537,6 @@ void Solver::relocAll(ClauseAllocator& to)
 
     for (int i = 0; i < icUnitClauses.size(); i++)
     {
-		//if (icUnitClauses[i] == 57364) {
-		//	printf("-------- %d unit clause ----------\n", 57364);
-		//}
         ca.reloc(icUnitClauses[i], to);
         Clause& c = to[icUnitClauses[i]];
 		Uid uid = c.uid();
@@ -1656,7 +1626,7 @@ void Solver::findConflictICReasons(CRef origConfl) {
 void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus)
 {
 	icCore.clear();
-
+	
 	for (auto uid : icPoEC) {
 		assert(resolGraph.GetResol(resolGraph.GetResolRef(uid)).header.ic); // may fail if we do not filter out non-ic parents-of-e.c.
 		if (rhombus.insert(uid)) {
@@ -1915,11 +1885,6 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
 }
 
 
-int Solver::todimacsLit(Lit l) {
-	int res = var(l) + 1;
-	return sign(l) ? -res : res; 
-}
-
 void Solver::printLearntsDB() {
 	printf("---- learned start-----\n");
 	for (int i = 0; i < learnts.size(); ++i) {
@@ -1932,25 +1897,13 @@ void Solver::printTrail() {
 }
 
 
-void Solver::printClause(const Clause& c, std::string text)
-{
-	std::cout << text << std::endl;
-	for (int i = 0; i < c.size(); i++)
-		std::cout << (todimacsLit(c[i])) << " ";
-	std::cout << "0" << std::endl;
-}
 
-void Solver::printClause(const vec<Lit>& v, std::string text)
-{
-	std::cout <<  text << std::endl;
-	for (int i = 0; i < v.size(); i++)
-		std::cout << (todimacsLit(v[i])) << " ";
-	std::cout << "0" << std::endl;
-}
-void Solver::printClause(uint32_t uid, std::string text) {
-	CRef cref = GetClauseIndFromUid(uid);
-	if(uid == CRef_Undef)
+void Solver::printClauseByUid(uint32_t uid, std::string text) {
+	if (uid == CRef_Undef) {
 		std::cout << "CRef_Undef" << std::endl;
+		return;
+	}
+	CRef cref = GetClauseIndFromUid(uid);
 	if (cref == CRef_Undef) {
 		if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end(uid)) {
 			printClause(*resolGraph.icDelayedRemoval[uid], text);
@@ -2045,7 +1998,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
         }
     }
 	
-	if (verbosity == 1) printfVec(LiteralsFromPathFalsification,"literals from pf");
+	if (verbosity == 1) printClause(LiteralsFromPathFalsification,"literals from pf");
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
 }
@@ -2170,17 +2123,6 @@ int currUid,m;
 
 
 void Solver::ResGraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions,const char* filename) {
-	
-	//sort(ps);
-	//Lit currBL; int i, j;
-	//for (i = j = 0, currBL = lit_Undef; i < ps.size(); i++)
-	//	if (value(ps[i]) == l_True || ps[i] == ~currBL)
-	//		return true;
-	//	else if (value(ps[i]) != l_False && ps[i] != currBL)
-	//		ps[j++] = currBL = ps[i];
-	//ps.shrink(i - j);
-	
-
 
 	int currUid,m;
 	vec<uint32_t> sorted_roots;
@@ -2200,12 +2142,10 @@ void Solver::ResGraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& parents_of_empt
 
 	std::queue<uint32_t> q; 
 	// compute number of allParentsCRef in the cone of cr
-	Map<uint32_t,uint32_t> mapRealParents;
 	for (int i = 0; i < sorted_roots.size(); ++i) {
 		uint32_t uid = roots[i];
 		q.push(uid);
 		seenDecsendents.insert(uid);
-		mapRealParents.insert(uid, 0);
 	}
 	FILE *dot;
 	std::stringstream edges;
@@ -2271,23 +2211,17 @@ void Solver::ResGraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& parents_of_empt
 				continue;
 
 			setEdges.insert(std::pair<uint32_t, uint32_t>(currUid, r.m_Children[m]));
-			//edges << "n" << currUid << " -> n" << r.m_Children[m] << ";" << std::endl;
 			if (seenDecsendents.insert(r.m_Children[m]).second) {
 				q.push(r.m_Children[m]);
 			}
 		}
-		//printClause(currUid, "\nCurrClause "+ std::to_string(currUid));
-		//printf("*******%d parents**********\n", currUid);
 		for (uint32_t  pUid : r) {
-			//printClause(pUid, "");
 			if (seenDecsendents.find(pUid) == seenDecsendents.end()) {
 				additionalParents.insert(pUid);
 
 			}
 			setEdges.insert(std::pair<uint32_t, uint32_t>(pUid, currUid));
-			//edges << "n" << pUid << " -> n" << currUid << ";" << std::endl;
 		}
-		//printf("*******end**********\n");
 
 
 	}
@@ -2334,122 +2268,11 @@ void Solver::ResGraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& parents_of_empt
 	fclose(dot);
 }
 
-//void Solver::ResSubgraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& icPoEC, Set<uint32_t>& subgraph, vec<Lit>& assumptions, const char* filename) // uidClauseToUpdate is either cr itself, or the clause at the bottom of a chain
-//{
-//	int currUid, m;
-//	vec<uint32_t> sorted_roots;
-//	vec<uint32_t> sorted_parents;
-//	vec<Lit> sorted_assumptions;
-//	icPoEC.copyTo(sorted_parents);
-//	roots.copyTo(sorted_roots);
-//	assumptions.copyTo(sorted_assumptions);
-//	sort(sorted_parents);
-//	sort(sorted_roots);
-//	sort(sorted_assumptions);
-//
-//	std::queue<uint32_t> q;
-//	// compute number of allParentsCRef in the cone of cr
-//	Map<uint32_t, uint32_t> mapRealParents;
-//	for (int i = 0; i < sorted_roots.size(); ++i) {
-//		uint32_t uidClauseToUpdate = roots[i];
-//		q.push(uidClauseToUpdate);
-//		mapRealParents.insert(uidClauseToUpdate, 0);
-//	}
-//	FILE *dot;
-//	std::stringstream edges;
-//	edges << " ";
-//
-//	dot = fopen(filename, "w");
-//	fprintf(dot, "digraph tclause {\n");
-//
-//	while (!q.empty()) {
-//		currUid = q.front();
-//		if (!subgraph.has(currUid))
-//			continue;
-//
-//		fprintf(dot, "node[");
-//
-//		if (sorted_parents.binary_search(currUid))
-//			fprintf(dot, "color=green,");
-//		else if (sorted_roots.binary_search(currUid))
-//			fprintf(dot, "color=blue,");
-//		else fprintf(dot, "color=black,");
-//
-//		CRef cr = resolGraph.GetClauseRef(currUid); // the clause reference of currUid
-//		if (cr == CRef_Undef) {
-//
-//
-//			//fprintf(dot, "label=\"");
-//			//vec<Lit>& vecLit = *resolGraph.icDelayedRemoval[currUid];
-//			//sort(vecLit);
-//			//for (int i = 0; i < vecLit.size(); i++) {  // initially parent = cr							
-//			//	if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(vecLit[i]))
-//			//		fprintf(dot, "*");
-//			//	fprintf(dot, "%d ", todimacsLit(vecLit[i]));
-//			//}
-//			//fprintf(dot, "\"");
-//
-//
-//			fprintf(dot, "label=\"D\"");
-//			//if (resolGraph.icDelayedRemoval.find(currUid) == resolGraph.icDelayedRemoval.end())
-//			//	printf("deleted %d not in icDelayed map\n", currUid);
-//
-//		}
-//		else {
-//			const Clause& c = ca[cr]; // the actual clause
-//
-//
-//			fprintf(dot, "label=\"");
-//			for (int i = 0; i < c.size(); i++) {  // initially parent = cr							
-//				if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(c[i]))
-//					fprintf(dot, "*");
-//				fprintf(dot, "%d ", todimacsLit(c[i]));
-//			}
-//			fprintf(dot, "\"");
-//
-//
-//		}
-//		fprintf(dot, "]; n%d;\n", currUid);
-//		q.pop();
-//
-//		CRef curr_ref = resolGraph.GetResolRef(currUid);
-//		const Resol& r = resolGraph.GetResol(curr_ref);
-//		if (r.m_Children.size() == 0) {  // no more children		
-//			continue;
-//		}
-//		for (m = 0; m < r.m_Children.size(); m++) {
-//			if (!subgraph.has(r.m_Children[m]))
-//				continue;
-//			if (!resolGraph.ValidUid(r.m_Children[m])) 
-//				continue;
-//			edges << "n" << currUid << " -> n" << r.m_Children[m] << ";" << std::endl;
-//
-//			if (!mapRealParents.has(r.m_Children[m]))
-//			{
-//				mapRealParents.insert(r.m_Children[m], 0);
-//				q.push(r.m_Children[m]);
-//			}
-//		}
-//	}
-//
-//	fprintf(dot, "%s};\n", edges.str().c_str());
-//	edges.clear();
-//	fclose(dot);
-//}
 
 
 
-//// for best performance send the smaller vector via 'a'. a should be sorted (b not).
-//static inline void Intersection_nonSorted(vec<Lit>& a, vec<Lit>& b, vec<Lit>& intersection)
-//{
-//	int b_itr = 0;
-//	int lb = 0;
-//	while (b_itr != b.size()) {
-//		if (a.binary_search_inc(b[b_itr], lb)) intersection.push(b[b_itr]);
-//		++b_itr;
-//	}
-//	return;
-//}
+
+
 
 /************************************************************************/
 /* Literal-based Path-falsification. 
@@ -2650,257 +2473,5 @@ void Solver::LPF_get_assumptions(
 	}
 }
 
-
-
-//Given that we located a conflict in a BL assumption (initConfBL) and we have a previous proof of unsat that 
-//explains the BL, we build a proof of all the BLs (-p0),...,(-pn) that are in conflict, as well as (p0,...,pn).
-//left pre condition assumed is that for the previously found refutation, the parents of the empty clause have been 
-//found, and their pivotsMap were calculated at that time. Those pivotsMap of PoEC are literals that for each two neighbouring
-//parents, belong to the 'currParentUid' parent (the one with a higher position index), and the negation of the pivot belong to the 'left' parent.
-//void Solver::RebuildProof(Lit initConfBL) {
-//	assert(rhombusValid);
-//	vec<Uid> new_icPoEC;
-//	vec<Uid> new_remPoEC;
-//	vec<Uid> new_allPoEC;
-//	
-//	/********************************************************************
-//	Build the 'easy' half of the new proof here.
-//	Define p0 := -initConfBL (the negation of a backbone literal). We
-//	prove newC = (p0 v p1 v ... v pn), and add it to 
-//	'ic_parents_of_empty_clause' (if it's ic), where negConflAssump are 
-//	{p0, p1,...,pn}. Note that -p0, -p1,...,-pn will all be backbones, as
-//	they are assumption that are in conflict.
-//	*********************************************************************/
-//	//the negations of the assumptions in conflict (the negations of the backbones)
-//	vec<Lit> negConflAssump; 
-//	vec<Uid> pbl_icParents;
-//	vec<Uid> pbl_remParents;
-//	vec<Uid> pbl_allParents;
-//	analyzeFinal(initConfBL, negConflAssump, pbl_icParents, pbl_remParents, pbl_allParents);
-//	//after analyzeFinal the vector negConflAssump contains all the set of negated BL that are in conflict - they are the reason for the current conflict - we will prove the  assumption (backbones) below.
-//	//pbl_icParents, pbl_remParents, pbl_allParents will contain all the reason clauses for the conflict - used in the resolution graph, as it is needed to allocate new resolution nodes.
-//	CRef newCr = ca.alloc(negConflAssump, true, pbl_icParents.size() > 0);
-//	Uid uid = ca[newCr].uid();
-//	resolGraph.AddNewResolution(uid, newCr, pbl_icParents, pbl_remParents, pbl_allParents);
-//	
-//	
-//	if (pbl_icParents.size() > 0)
-//		new_icPoEC.push(uid);
-//	else
-//		new_remPoEC.push(uid);
-//	new_allPoEC.push(uid);
-//
-//
-//
-//
-//	/********************************************************************
-//	Now we build proofs for the clasues (-p0), (-p1), ..., (-pn) 
-//	using backwards proof traveral on the rhombus of c (while 
-//	cutting off all dependencies on c) and add the clauses to 
-//	'new_icPoEC' (if they're ic).
-//	*********************************************************************/
-//	//This map will contain all the pivotsMap for nodes that will be visited in the backwards traversal,
-//	//every 'key' is the uid of a node, and it maps to a vector of literals - each literal is a pivot 
-//	//between two consecutive parents of the node 'key'. Every pivot should be a member of the 'currParentUid'
-//	//parent (higher index), and the negation of the pivot will belong to the 'left' parent.00
-//	UidToLitVec pivots;
-//
-//	//the empty clause doesn't have a Uid, in the pivot mapping it will be reference by CRef_Undef
-//	pivots[CRef_Undef] = allPoEC_pivots;
-//
-//	//for each -BL in the confliction assumption (i.e., for each negated backbone literal)
-//	//we reconstcut a proof of the backbone literal BL
-//	for(Lit negBL : negConflAssump) {
-//		
-//		//the backbone literal itself
-//		Lit BL = ~negBL;
-//		//will contain a mapping between an old, unreconstructed clause uid, and the uid of it's updated version.
-//		UidToUid clausesUpdates;
-//		//will contain a mapping between a new, reconstructed, clause uid, and it's literal content (sorted) -
-//		//will be used for future membership queries (might be more efficient to use sets instead, but not necessarily as the clauses might be small enough in genral -
-//		//will need to be tested)
-//		UidToLitSet newClauses_lits;
-//		//will store the uids of the constructed parents of the currently proved -pi backbone
-//		//if an old PoEC is replaced with CRef_Undef here, it means that the old parent will not participate in the resolution of the BL in the graph.
-//		std::list<Uid> parents_of_backbone;
-//		int j = BackwardsTraversal(CRef_Undef, allPoEC, BL, pivots, clausesUpdates, newClauses_lits, parents_of_backbone);
-//		
-//
-//
-//
-//
-//
-//	
-//
-//
-//
-//	}
-//}
-//template<class T>
-//int Solver::BackwardsTraversal	(	
-//		const Uid currUid,const T& initParents,const Lit BL, //inputs
-//		UidToLitVec& pivots, UidToUid& clausesUpdates, UidToLitSet& newClauses_lits, // inputs and outputs
-//		std::list<Uid>& outParentsUpdate //output
-//		) {
-//	Lit negBL = ~BL;
-//	if (pivots.find(currUid) == pivots.end()) {
-//		//no pivots found - extract pivots using currUid's parents, result inserted to 'pivots'.
-//	}
-//
-//	vec<Lit>& currPivots = pivots[currUid];
-//	int j = currPivots.size() - 1;
-//	assert(currPivots.size() + 1 == initParents.size());
-//
-//	auto rIter = initParents.rbegin();
-//	for (; j >= 0; --j, --rIter) {
-//		Uid pUid = *rIter;//current parent uid
-//		Lit currPiv = currPivots[j];//current pivot literal
-//		if (currPiv == negBL)
-//			outParentsUpdate.push_back(CRef_Undef);// cut off the 'currParentUid' parent
-//		else {	//currPiv != negBL 
-//				//if the current pivot isn't -BL, then -BL isn't a member of the 'currParentUid' parent
-//				// newPUid is the uid of the updated parent clause
-//			Uid newPUid = updateClause(pUid, BL, pivots, clausesUpdates, newClauses_lits);
-//			outParentsUpdate.push_back(newPUid);
-//			if (currPiv == BL) {//this means that the 'left' parent contains -BL, in which case there is no point in continuing up this brach.
-//				outParentsUpdate.push_back(CRef_Undef);
-//				break;
-//			}
-//		}
-//	}
-//	/*
-//	rebuild the last, 0, clause here.
-//	only done if we didn't cut off the branch before that (j=0)
-//	and also the clause in allpoec[0] doesn't contain negbl -
-//	which only happens if the leftmost, 0, pivot isn't bl (if bl
-//	were the pivot, then it would have been be a member of the 'currParentUid'
-//	parent, and the 'left' parent would have contained negbl). in the
-//	case that the last, 0, parent contains negbl, we would already have
-//	used push_back(cref_undef) to represent the'left ' parent being cut off.
-//	*/
-//	if (0 == j && currPivots[0] != BL) {
-//		Uid newPUid = updateClause(*(initParents.begin()), BL, pivots, clausesUpdates, newClauses_lits);
-//		outParentsUpdate.push_back(newPUid);
-//	}
-//	return j;
-//
-//}
-//Uid Solver::reconstructClause(
-//	const Uid currUid,//Initial clause uid (before updating the clause), input only.
-//	const vec<Lit>& pivots,//The pivots used to resolve the parents of the original clause, input only.
-//	const int initPivIdx,//The index of the first pivot actually used in reconstruction (corrolates to the first updated parnet in the list 'parentsUpdate'), input only.
-//	const std::list<Uid>& parentsUpdate, //The uids of the previously updated parnet, along with the pivots used on the un-updated parents, will construct a new clause with some subset of these parents, input only.
-//	UidToUid& clausesUpdates,//The resulting uid will be entered here, where 'currUid' (i.e. the old clause uid) will map to it, output only.
-//	UidToLitSet& newClauses_lits//The resulting clause literals will be entered here, where the new uid will map to them, output only.
-//	) {
-//	//now we need to rebuild the clause given all the parents_of_backbone we already rebuilt.
-//	//the resulting (BL) clause will be added to the new parents of the empty clause.
-//	vec<Uid> icParents;
-//	vec<Uid> remParents;
-//	vec<Uid> allParents;
-//	auto i = parentsUpdate.begin();
-//	int j = initPivIdx;
-//
-//	Uid  currParentUid = *i;
-//	if (CRef_Undef == currParentUid) {
-//		currParentUid = *(++i);
-//		j++;
-//	}
-//	LitSet* currLitSetPtr = &newClauses_lits[currParentUid];
-//	allParents.push(currParentUid);
-//
-//	LitSet newClause;
-//	for (; i != parentsUpdate.end(); ++i) {
-//		currParentUid = *i;
-//		Lit piv = pivots[j++];
-//		Lit negPiv = ~piv;
-//		switch (findParentsUsed(*currLitSetPtr, currParentUid, piv, newClauses_lits)) {
-//			//case ParentUsed::Left: //do nothing, the right parent is skipped
-//			//	break;
-//		case ParentUsed::Either:
-//			if (currLitSetPtr->size() <= newClauses_lits[currParentUid].size())//hueristic check - choose the smaller set of literals
-//				break;//continue using the left parent, skipping the right parent entirely
-//					  //else we use to 'right' parent instead (below)
-//		case ParentUsed::Right:
-//			allParents.clear();
-//			allParents.push(currParentUid);
-//			currLitSetPtr = &newClauses_lits[currParentUid];
-//			break;
-//		case ParentUsed::Both:
-//			assert(allParents.size() > 0);
-//			if (allParents.size() == 1) {
-//				newClause.clear();
-//				for (auto l : *currLitSetPtr)
-//					if (l != negPiv)
-//						newClause.insert(l);
-//			}
-//			allParents.push(currParentUid);
-//			for (auto l : newClauses_lits[currParentUid])
-//				if (l != piv)
-//					newClause.insert(l);
-//			break;
-//		}
-//	}
-	//TODO:
-	//1. populate icParents and remParents
-	//2. create clause in clasue allocator (note ic status), and get new CRef+Uid
-	//3. create resol node in resolution graph
-	//4. map old uid to new uid in 'clausesUpdates'
-	//5. map new uid to new lits in 'newClauses_lits'
-	//6. return new uid.
-//}
-
-
-//Uid Solver::updateClause(Uid uidClauseToUpdate, Lit BL, UidToLitVec& pivots, UidToUid& clauseUpdates, UidToLitSet& newClauses_lits) {
-//	//if clause was already updated (it was visited befor in the backwards traversal), then return it's known update.
-//	if (clauseUpdates.find(uidClauseToUpdate) != clauseUpdates.end())
-//		return clauseUpdates[uidClauseToUpdate];
-//	Uid uidClauseUpdated;
-//	//if the clause to update isn't in the rhombus, then don't change it (no recursive update is necessary here)
-//	if (!inRhombus(uidClauseToUpdate))
-//		uidClauseUpdated = uidClauseToUpdate;
-//	else 
-//		//else (it's in the rhombus but wasn't updated), then a new clause
-//		//will be added to the solver and to the resolution graph. This updated will be recorded in 
-//		//clauseUpdates and it's sorted contnet will be added to newClauses_sorted
-//		uidClauseUpdated = ProveBackboneLiteral(uidClauseToUpdate, BL, pivots, clauseUpdates, newClauses_lits);//rebuild clause and record the resulting update
-//	updateClauseLits(uidClauseUpdated, newClauses_lits);
-//	return clauseUpdates[uidClauseToUpdate] = uidClauseUpdated;
-//}
-//uses map_cls_to_Tclause for membership queries on rhombus(c).
-//bool Solver::inRhombus(Uid uid) {
-//	assert(rhombusValid);
-//	return map_cls_to_Tclause.find(uid) != map_cls_to_Tclause.end();
-//}
-//void Solver::updateClauseLits(Uid newUid, UidToLitSet& newClauses_lits) {
-//	LitSet& s = newClauses_lits[newUid] = LitSet();
-//	insertAll(ca[resolGraph.GetClauseRef(newUid)], s);
-//};
-
-
-
-//ParentUsed Solver::findParentsUsed(LitSet& leftLits, uint32_t rightParentUid, Lit piv, UidToLitSet& newClauses_lits) {
-//	if (CRef_Undef == rightParentUid)
-//		return ParentUsed::Left;
-//	LitSet& rightLits = newClauses_lits[rightParentUid];
-//	bool inLeft = (leftLits.find(~piv) != leftLits.end());
-//	bool inRight = (rightLits.find(piv) != rightLits.end());
-//	if (inLeft && inRight)
-//		return ParentUsed::Both;
-//	else if (inLeft && !inRight) 
-//		return ParentUsed::Right;
-//	else if(!inLeft && inRight)
-//		return ParentUsed::Left;
-//	else //!inLeft && !inRight
-//		return ParentUsed::Either;
-//}
-
-
-//
-////Rebuild a clause nodeId with regards to a current backbone literal BL
-//Uid Solver::ProveBackboneLiteral(Uid nodeId, Lit backbone, UidToLitVec& pivots, UidToUid& clauseUpdates, UidToLitSet& newClauses_lits) {
-//	return CRef_Undef;
-//}
-//
 
 

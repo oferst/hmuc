@@ -79,6 +79,7 @@ static void parse_DIMACS_main(B& in_param, CMinimalCore& core) {
 
             Clause::SetUid(cnt-1);
             S.addClause_(lits, true);
+
             if (!S.okay())
             {
                 S.CreateResolVertex(cnt-1);
@@ -95,7 +96,10 @@ static void parse_DIMACS_main(B& in_param, CMinimalCore& core) {
         fprintf(stderr, "WARNING! DIMACS header mismatch: wrong number of clauses.\n");
 }
 
-
+static int todimacsLit(Lit l) {
+	int res = var(l) + 1;
+	return sign(l) ? -res : res;
+}
 // Inserts problem into solver.
 //
 static void parse_DIMACS(FILE* input_stream, CMinimalCore& core) {

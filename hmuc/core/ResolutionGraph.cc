@@ -4,26 +4,16 @@
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
-
+#include "Printer.h"
 namespace Minisat
 {
 
 void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents){
 	m_UidToData.growTo(nNewClauseUid + 1);
-	if (verbose == 1) {
-		printf("AddNewResolution - alloc. res\n");
-		printf("AddNewResolution - uid = %d\n", nNewClauseUid);
-		printf("AddNewResolution - CRef = %d\n", ref);
-		printfVec(icParents, "ic parents");
-		printfVec(remParents, "rem parents");
-		printfVec(allParents, "all parents");
-	}
 	RRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
     // increase reference count for all the icparents
 	if (remParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
-		if (verbose == 1)
-			printf("AddNewResolution - rem parents present");
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			CRef resRef = GetResolRef(allParents[nInd]);
 			if (resRef == CRef_Undef)
@@ -40,7 +30,7 @@ void CResolutionGraph::AddNewResolution
 	//easy regression testing
 	else {
 		for (int nInd = 0; nInd < icParents.size(); ++nInd) {
-			CRef resRef = GetResolRef(icParents[nInd]);
+			RRef resRef = GetResolRef(icParents[nInd]);
 			if (resRef == CRef_Undef)
 				continue;
 			Resol& res = GetResol(resRef);
@@ -68,23 +58,23 @@ void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) 
 	m_RA[refResol].header.m_nRefCount = 0;
 }
 void CResolutionGraph::DecreaseReference(uint32_t nUid){
-    RRef& ref = m_UidToData[nUid].m_ResolRef;
+	RRef& ref = m_UidToData[nUid].m_ResolRef;
 	if (ref == CRef_Undef)
 		return;
     Resol& res = GetResol(ref);
-    --res.header.m_nRefCount;
+	--res.header.m_nRefCount;
     if (res.header.m_nRefCount <= 0) {
 
         // first decrease reference count for all the icParents
         uint32_t* parents = res.IcParents();
-        for (int pUid = 0; pUid < res.IcParentsSize(); ++pUid) {
+        for (int pUid = 0; pUid < res.icParentsSize(); ++pUid) {
             DecreaseReference(parents[pUid]);
         }
 		// also decrease reference count for all the remParents (if any exist)
 		if (res.header.hasRemParents) {
 			parents = res.RemParents();
 
-			for (int pUid = 0; pUid < res.remParentsSize(); ++pUid) {
+			for (int pUid = 0; pUid < res.nonIcParentsSize(); ++pUid) {
 				DecreaseReference(parents[pUid]);
 			}
 		}
@@ -107,7 +97,7 @@ void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcParents, 
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
 	assert(resol.header.ic);
-    int nParentsSize = resol.IcParentsSize();
+    int nParentsSize = resol.icParentsSize();
 
     if (nParentsSize == 0) {
         allIcParents.push(nUid);
@@ -228,7 +218,7 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 			Resol& resol = GetResol(resolRef);
 
 			int j = 0;
-			int nParents = resol.IcParentsSize(); 
+			int nParents = resol.icParentsSize(); 
 			uint32_t* parents = resol.IcParents();
 			for (; j < nParents; ++j) {
 				if (!NewRemainders.has(parents[j])) // stop visiting parents if at least one of them is currently not a remainder

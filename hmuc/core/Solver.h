@@ -277,12 +277,9 @@ public:
 	//void calcRhombus(vec<uint32_t>& inRoots, vec<uint32_t>& inLeaves, Set<uint32_t>& outRhombus);
 	//________________________________________________________________________________________________
 	
-	int todimacsLit(Lit l);
 	void printLearntsDB();
 	void printTrail();
-	void printClause(const Clause & c, std::string text);
-	void printClause(const vec<Lit>& v, std::string text);
-	void printClause(uint32_t uid, std::string text);
+	void printClauseByUid(uint32_t uid, std::string text);
  //   void printClause(FILE* f, Clause& c);
 	//	
 	//void printClause(FILE * f, vec<Lit>& v, std::string text="");	
