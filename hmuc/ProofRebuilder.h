@@ -43,7 +43,7 @@ struct ClauseData {
 		}
 
 	}
-	void setIc(Uid uid) {
+	void setAllocatedClauseData(Uid uid) {
 		assert(Uninitialized == status);
 		status = Allocated;
 		clauseUid = uid;
@@ -110,7 +110,8 @@ public:
 	void allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids, vec<Uid>& nonIcUids);
 	Uid allocReconstructedClause(
 								const Uid& currUid, 
-								ReconstructionResult& reconRes);
+								ReconstructionResult& reconRes,
+								const Lit& BL);
 	
 	template<class T>
 	void recordClausePivots(Uid uid, const T& parents);

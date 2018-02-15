@@ -27,6 +27,11 @@ namespace Minisat {
 	
 	void RebuilderContext::clearUpdates() {
 		clausesUpdates.clear();
+		//seenPivots.clear();
+		//seenClauses.clear();
+		//areIcs.clear();
+		
+
 	}
 
 

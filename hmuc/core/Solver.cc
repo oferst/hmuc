@@ -1209,6 +1209,9 @@ lbool Solver::search(int nof_conflicts)
 							ProofRebuilder pr = ProofRebuilder(&sh,&ctx);
 							vec<Uid> new_allPoEC, new_icPoEC;
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
+
+
+
 							replaceVecContent(icPoEC, new_icPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
 							//rhombus.clear();
