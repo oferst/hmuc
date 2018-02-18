@@ -212,9 +212,12 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* icParentsPtr)
         clauses.push(cr);
         attachClause(cr);
     }
-
+	Uid newUid = ca[cr].uid();
     if (ic) {
-        resolGraph.AddNewResolution(ca[cr].uid(), cr, ((icParentsPtr == NULL) ? icParents : *icParentsPtr));
+		if (5016 == newUid) {
+			printf("SOLVER addClause_ %d\n", newUid);
+		}
+        resolGraph.AddNewResolution(newUid, cr, ((icParentsPtr == NULL) ? icParents : *icParentsPtr));
 	}
 
     return true;
@@ -1049,7 +1052,6 @@ lbool Solver::search(int nof_conflicts)
             learnt_clause.clear();
 
 
-
             analyze(confl, learnt_clause, backtrack_level, icParents,remParents,allParents);
 
 
@@ -1090,8 +1092,6 @@ lbool Solver::search(int nof_conflicts)
                 newDecisionLevel(conflictC);
                 uncheckedEnqueue(opt_dec_l1 ? l : learnt_clause[0]);
             }
-            
-			
 			else { //oferg: This is the defualt case
 				if (learnt_clause.size() == 1) { //oferg: learnt  unit clause
 					if (icParents.size() > 0) {//oferg: and it's dependents on some ics
@@ -1127,6 +1127,9 @@ lbool Solver::search(int nof_conflicts)
 					else
 						ca[cr].activity() = calculateDecisionLevels(learnt_clause);
 					if (cl.ic()) {
+						if (5016 == cl.uid()) {
+							printClause(learnt_clause, "learnt_clause " + std::to_string(cl.uid()));
+						}
 						updateResolutionGraph(cl, cr);
 					}
 					uncheckedEnqueue(learnt_clause[0], cr);
@@ -1250,8 +1253,17 @@ lbool Solver::search(int nof_conflicts)
 }
 
 void Solver::updateResolutionGraph(Clause& cl, CRef cr) {
+	Uid uidToUpdate = cl.uid();
+	if (5016 == uidToUpdate) {
+		printf("SOLVER updateResolutionGraph %d\n", uidToUpdate);
+		printClause(cl, "Original " + std::to_string(uidToUpdate));
+		
+		for (auto& p : allParents) {
+			printClauseByUid(p, "parent " + std::to_string(p));
+		}
+	}
 	//printf("%d %d %d\n", cl.uidClauseToUpdate(), cr,out_icParents.size());
-	resolGraph.AddNewResolution(cl.uid(), cr, icParents,remParents,allParents);
+	resolGraph.AddNewResolution(uidToUpdate, cr, icParents,remParents,allParents);
 }
 double Solver::progressEstimate() const
 {
@@ -1923,7 +1935,9 @@ void Solver::CreateResolVertex(uint32_t uid)
     assert(icParents.size() == 0);
 	assert(remParents.size() == 0);
 	assert(allParents.size() == 0);
-
+	if (5016 == uid) {
+		printf("SOLVER parse adding %d\n", uid);
+	}
     resolGraph.AddNewResolution(uid, CRef_Undef, icParents);
 }
 

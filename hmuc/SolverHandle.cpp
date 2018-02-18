@@ -42,8 +42,11 @@ CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc) {
 	return s->ca.alloc(lits, isLearned, isIc);
 }
 void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents, vec<Uid>& remParents) {
-		s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, remParents, allParents);
-	
+	Uid uid = CRefToUid(cref);
+	if (5016 == uid) {
+		printf("SH adding %d\n", uid);
+	}
+	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, remParents, allParents);
 }
 void SolverHandle::allocNonIcResol(CRef cref) {
 	s->resolGraph.AddRemainderResolution(CRefToUid(cref), cref);

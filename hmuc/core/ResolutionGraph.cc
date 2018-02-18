@@ -10,6 +10,11 @@ namespace Minisat
 
 void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents){
+	if (nNewClauseUid == 5016) {
+
+		printf("ADDING CLAUSE %d\n, CREF %d\n", nNewClauseUid, ref);
+
+	}
 	m_UidToData.growTo(nNewClauseUid + 1);
 	RRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
     // increase reference count for all the icparents
@@ -45,6 +50,8 @@ void CResolutionGraph::AddNewResolution
 void CResolutionGraph::AddNewResolution
 (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents) {
 	vec<uint32_t> dummy;
+	if (nNewClauseUid == 5016)
+		printf("ADDIDNG NON IC PARENT %d\n", nNewClauseUid);
 	AddNewResolution(nNewClauseUid, ref, icParents, dummy, dummy);
 }
 
