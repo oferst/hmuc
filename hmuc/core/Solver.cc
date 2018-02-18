@@ -359,8 +359,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 	CRef startCr = confl;
 	int pathC = 0;
 	Lit p = lit_Undef;
-	vec<CRef> deferredResolutionAllocParentsToIc;
-
+	vec<CRef> deferredResolutionAllocParentsToIc;//TODO: use this vector to save the rem parents in litRedundent calls
 	// Generate conflict clause:
 	//
 	out_learnt.push();      // (leave room for the asserting literal)
@@ -375,12 +374,9 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 		if (c.ic())  icParents.push(uid);
 		if (opt_blm_rebuild_proof) {
 			if (!c.ic()) {
-				if (!c.isParentToIc()) {
-					deferredResolutionAllocParentsToIc.push(confl);
-					//c.setIsParentToIc(true);
-					//resolGraph.AddRemainderResolution(uid, confl);
-					//setGood.insert(uid);
-				}
+				//if (!c.isParentToIc()) {
+				//	deferredResolutionAllocParentsToIc.push(confl);
+				//}
 				remParents.push(uid);
 			}
 			allParents.push(uid);
@@ -427,7 +423,18 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 				out_learnt[j++] = out_learnt[i];
 			}
 		}
-    }else if (ccmin_mode == 1){
+
+		//If an icParent exists, iterate over found remParents, and for each one, if it is not
+		//allocated in the resolution graph, add it now (it is a parent of ic), and label it as 
+		//a parent of an ic (in its header). Also, add it to setGood.
+		if (icParents.size() > 0) {
+			for (auto& p : remParents) {
+				
+			}
+		}
+	
+	
+	}else if (ccmin_mode == 1){//TODO: check if parents update is neccessary here.
         for (i = j = 1; i < out_learnt.size(); i++){
             Var x = var(out_learnt[i]);
 
@@ -438,7 +445,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
                 for (int k = 1; k < c.size(); k++)
                     if (!seen[var(c[k])] && level(var(c[k])) > 0){
                         out_learnt[j++] = out_learnt[i];
-                        break; }
+                        break; 
+					}
             }
         }
     } else
