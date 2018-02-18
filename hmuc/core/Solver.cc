@@ -359,6 +359,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 	CRef startCr = confl;
 	int pathC = 0;
 	Lit p = lit_Undef;
+	vec<CRef> deferredResolutionAllocParentsToIc;
 
 	// Generate conflict clause:
 	//
@@ -375,9 +376,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 		if (opt_blm_rebuild_proof) {
 			if (!c.ic()) {
 				if (!c.isParentToIc()) {
-					c.setIsParentToIc(true);
-					resolGraph.AddRemainderResolution(uid, confl);
-					setGood.insert(uid);
+					deferredResolutionAllocParentsToIc.push(confl);
+					//c.setIsParentToIc(true);
+					//resolGraph.AddRemainderResolution(uid, confl);
+					//setGood.insert(uid);
 				}
 				remParents.push(uid);
 			}
@@ -469,15 +471,16 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 }
 
 
-// Check if 'currBL' can be removed. 'abstract_levels' is used to abort early if the algorithm is
+//'abstract_levels' is used to abort early if the algorithm is
 // visiting literals at levels that cannot be removed later.
+// for details see "https://ie.technion.ac.il/~ofers/sat_smt/1_ofer_contrasat.pptx" (the first slides).
 bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents)
 {
     analyze_stack.clear(); analyze_stack.push(p);
-    int top = analyze_toclear.size();
-    int icTop = icParents.size();
-	int remTop = remParents.size();
-	int parentsTop = allParents.size();
+    const int top = analyze_toclear.size();
+    const int icTop = icParents.size();
+	const int remTop = remParents.size();
+	const int parentsTop = allParents.size();
     while (analyze_stack.size() > 0){
         Var v = var(analyze_stack.last());
         assert(reason(v) != CRef_Undef);
@@ -499,6 +502,9 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
 		if (opt_blm_rebuild_proof) {
 			if (!c.ic()) {
 				if (!c.isParentToIc()) {
+					//add to deferred here
+
+
 					c.setIsParentToIc(true);
 					resolGraph.AddRemainderResolution(uid, reason(v));
 					setGood.insert(uid);
@@ -509,6 +515,10 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
 			allParents.push(uid);
 		}
 
+
+		//The first literal in c is the only literal not assigned false in the current trail, and
+		//due to how minisat uses two watches, and the fact that watches should not guard literals 
+		//that are assigned 'false', this literal is located at index 0. 
         for (int i = 1; i < c.size(); i++){
             Lit p  = c[i];
             if (!seen[var(p)] && level(var(p)) > 0){
