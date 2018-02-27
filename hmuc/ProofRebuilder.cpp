@@ -2,6 +2,7 @@
 #include "ProofRebuilder.h"
 #include "core/SolverTypes.h"
 #include "Printer.h"
+#include "Graph.h"
 namespace Minisat {
 bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 	if (u == CRef_Undef)
@@ -17,6 +18,20 @@ bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 				return true;
 	}
 	return false;
+}
+bool ProofRebuilder::validateResolution(Uid uid, vec<Uid>& parents,vec<Lit>& pivots) {
+
+	vec<Lit>& pivots = ctx->getPivots(uid);
+	LitSet actualClause;
+	ResolValidation v = ResolValidation(ctx->getClauseLits(uid));
+	bool pivotsMatch = true;
+	int i = 0;
+	for (auto& p : parents) {
+		Lit piv = resolveWithOverwrite(actualClause, ctx->getClauseLits(p), v);
+		pivotsMatch = pivotsMatch && (piv == pivots[i++]);
+	}
+	return ((pivots.size() == i) && pivotsMatch && (actualClause == ctx->getClauseLits(uid)));
+
 }
 
 
@@ -36,7 +51,7 @@ are literals that for each two neighboring parents, belong to the
 the negation of the pivot belong to the 'left' parent.
 */
 void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC) {
-	
+	printf("REBUILDING PROOF\n");
 	//ctx->getPivots(CRef_Undef).clear();
 	//vec<Lit>& initPivots = ctx->getPivots(CRef_Undef) = vec<Lit>();
 	//initPivots.push(ctx->dummy);
@@ -423,6 +438,87 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 		}
 	}
 }
+
+template<class T>
+void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies) {
+	int i = 0;
+	assert(parents.size() == pivots.size());
+	std::unordered_map<Var, uint32_t> pivVar2Idx;
+	std::unordered_map<Uid, uint32_t> parent2Idx;
+	vec<Uid> idx2Parnet;
+	vec<Var> idx2PivVar;
+	printf("<FIND PARNET DEPENDENCIES>\n");
+	printClause(resultClause, "wantedResult");
+	for (auto& p : parents) {
+		//printf("<parent pre iteration = %d>\n", p);
+		//printf("pivots[%d] : %d\n", i,todimacsLit(pivots[i]));
+		//printf("var(pivots[%d]) : %d\n", i, var(pivots[i]));
+		//printf("parent idx : %d\n", i);
+		idx2Parnet.push(p);
+		//printf("idx2Parnet[%d] : %d\n", i, idx2Parnet[i]);
+		parent2Idx[p ] = i;
+		//printf("parent2Idx[%d] : %d\n", p, parent2Idx[p]);
+		Var pivVar = var(pivots[i]);
+		idx2PivVar.push(pivVar);
+		//printf("idx2PivVar[%d] : %d\n", i, idx2PivVar[i]);
+		pivVar2Idx[pivVar] = i;
+		//printf("pivVar2Idx[var(pivots[%d])] : %d\n", i, pivVar2Idx[var(pivots[i])]);
+		//sh->printClauseByUid(p, "\tparnet ");
+		++i;
+		//printf("<\\parent pre iteration= %d>\n", p);
+	}
+	assert(parents.size() == idx2Parnet.size());
+	assert(parents.size() == idx2PivVar.size());
+	assert(parents.size() == parent2Idx.size());
+	assert(parents.size() == pivVar2Idx.size());
+	i = 0;
+	for (auto& p : parents) {
+		printf("<parent NEXT iteration = %d>\n", p);
+		sh->printClauseByUid(p, "parnet p " +std::to_string(p));
+		assert(i == parent2Idx[p]);
+		assert(ctx->isClauseSeen(p));
+		//printClause(ctx->getClauseLits(p), "ctx->getClauseLits(p)");
+		for (auto& l : ctx->getClauseLits(p)) {
+
+			//printf("curr lit %d\n", todimacsLit(l));
+			int literal = todimacsLit(l);
+
+
+			//if (-1026 == literal) continue;
+
+			assert(var(l) == var(~l));
+			if (member(l, resultClause)) {
+				assert(!member(var(l), pivVar2Idx));
+				continue;
+			}
+			uint32_t pivIdx = pivVar2Idx[var(l)];
+			if (pivIdx == i) {
+				continue;
+			}
+
+			//if literal doesn't appear in the resulting clause, we check 
+			//for the pivot it's dependent  upon (i.e., the pivot that 
+			//removed the literal via resolution), and add the relevant 
+			//parent to the dependencies list
+			assert(member(var(l), pivVar2Idx));
+			//the pivot index is also the index of the (single) parent containing it
+			//i.e., this is a parent we are dependent on because of the literal l.
+			//printf("pivVar2Idx[var(%d)] = %d\n", todimacsLit(l), pivVar2Idx[var(l)]);
+			//printf("pivIdx = %d (sould be equal to pivVar2Idx[var(%d)]) \n", pivIdx, todimacsLit(l));
+			//printf("idx2Parnet[%d] = %d\n", pivIdx, idx2Parnet[pivIdx]);
+			//printClause(ctx->getClauseLits(idx2Parnet[pivIdx]), "ctx->getClauseLits(idx2Parnet[pivIdx])");
+			assert(pivIdx < idx2Parnet.size());
+			assert(member(~l, ctx->getClauseLits(idx2Parnet[pivIdx])));
+			dependencies[i].push(pivIdx);//the current parent is dependent on the pivot's location
+			printf("for lit %d added dependency (%d,%d)\n", todimacsLit(l), i, pivIdx);
+		}
+		i++;
+		printf("<\\nparent NEXT iteration = %d>\n", p);
+	}
+	printf("<\\FIND PARNET DEPENDENCIES>\n");
+}
+
+
 template<class T>
 Uid ProofRebuilder::proveBackboneLiteral(
 	const Uid currUid,
@@ -470,18 +566,64 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		Calculate pivot literals (if needed).
 	*****************************************/
 	
-
+	ResolValidation validation(ctx->getClauseLits(currUid));
 	if (!ctx->arePivotsKnown(currUid)) {
 		//no pivots found - extract pivots using currUid'
 		//clause parents, result recorded in 'RebuilderContext* ctx'.
-		recordClausePivots(currUid, parents);
+		recordClausePivots(currUid, parents, validation);
 	}
+
+
+
 	assert(ctx->arePivotsKnown(currUid));
 	vec<Lit>& currPivots = ctx->getPivots(currUid);
 
 	assert(currPivots.size() == parents.size());//first pivot is always a dummy literal, which allows us to assume that the size of the parents vector is the size of the pivots vector
 	//All candidates parents uids for the reconstructed parents 
 	//for the current node under reconstruction. Note that some 
+
+
+
+	//due to a simplification during learning of a clause, some parents might be
+	//out of order relative to the end result, we need to find a corrent ordering 
+	//of parents that results in the resolutiiion result. 
+	//we do that by constructing a dependency graph between parents (the analysis in 
+	//the solver ensures that we can construct a DAG from the current set of parent)
+	//according to pivots, and running a topological sorting on the graph.
+	//the resulting ordering must be written into the resolution node before
+	//continuing the proof reconstruction
+	//if (currUid == 5016) {
+	//}
+	if (!validation.valid) {
+		assert(CRef_Undef != currUid);
+		std::unordered_map<uint32_t, vec<uint32_t>> dependencies;
+		findParentDependencies(parents, currPivots, ctx->getClauseLits(currUid), dependencies);
+		Graph<uint32_t> g(parents.size());
+		for (auto& pair : dependencies) {
+			uint32_t idx1 = pair.first;
+			for (auto& idx2 : pair.second) {
+				g.addEdge(idx1, idx2);
+			}
+		}
+		vec<uint32_t> sortedParentsIdx;
+		g.topologicalSort(sortedParentsIdx);
+		
+
+		//if (currUid == 5016) {
+		//	vec<Uid> parentsVec;
+		//	for (auto& p : parents) {
+		//		parentsVec.push(p);
+		//	}
+		//	printf("++++++++TOPOLOGICAL+++++++++++++\n");
+		//	for (auto& idx : sortedParentsIdx) {
+		//		sh->printClauseByUid(parentsVec[idx],"parnet " + std::to_string(parentsVec[idx]));
+		//	}
+		//}
+
+		//updateResolutionParent(currUid, sortedParentsIdx);
+	}
+
+
 	//parents might not be ic, and therefore weren't allocated. In which case their
 	//in which case they weren't allocated in the solver and the resolution graph, 
 	//and instead their literals were stored in a ClauseData object. 
@@ -569,22 +711,155 @@ void ProofRebuilder::copyClauseLits(Uid from, LitSet& to) {
 }
 
 template<class T>
-void ProofRebuilder::recordClausePivots(Uid uid, const T& parents) {
+void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidation& validation) {
 	if (!ctx->arePivotsKnown(uid)) {
-		if (verbose) sh->printClauseByUid(uid, "CALC PIVOTS HERE");
+		//if(uid==5016) sh->printClauseByUid(uid, "CALC PIVOTS HERE");
 		LitSet clause;
+		//LitSet tempClause;
 		vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
 		assert(pivots.size() == 0);
 		pivots.push(ctx->dummy);
+
+
+		std::unordered_map<Var, uint32_t> piv2Idx;
+
 		for (auto& p : parents) {
-			Lit piv;
 			LitSet& rightClause = recordClause(p);
-			piv = resolveWithOverwrite(clause, rightClause);
+			Lit piv = resolveWithOverwrite(clause, rightClause,validation);
 			if (piv != ctx->dummy) {
 				pivots.push(piv);
+				validation.pivotVars.insert(var(piv));
 			}
-
 		}
+
+		//UidToUid parentDependencies;
+		//LitSet originalClause; copyClauseLits(uid, originalClause);
+		////if(uid == 5016) printClause(originalClause, "original clause");
+
+		//std::unordered_map<Uid, uint32_t> parent2Idx;
+		//vec<Uid> idx2Parent;
+		//struct Node {
+		//	uint32_t data;
+		//	Lit piv;
+		//	Node *prev, *next;
+		//	Node(uint32_t _data=CRef_Undef, Lit _piv = mkLit(Var(var_Undef)), Node* _prev = NULL, Node* _next = NULL) :data(_data), prev(_prev), next(_next) {}
+		//};
+		//vec<Node*> idx2ParentNode;
+		//for (auto& p : parents) {
+		//	//here we do the resolution step, along with a validation step: 
+		//	//For each literal l that appears in the rightLiterals set, 
+		//	//if it was already removed by a use of a pivot l or ~l, 
+		//	//BUT it doesn't appear in the clause calculated by the solver,
+		//	//we conclude that the current parent was added by a simplification 
+		//	//step in the solver (in which we add parents allow us to drop 
+		//	//literals that are already proved by other literals in the clause -
+		//	//for details see "https://ie.technion.ac.il/~ofers/sat_smt/1_ofer_contrasat.pptx")
+		//	//In this case the current parent's place in the parents ordering 
+		//	//is incorrect, and we need to locate the place to move the current parent - 
+		//	//the slot right before the pivot for l is the safest place. Note that 
+		//	//this might happen to several literals l in this parent, in which case 
+		//	//we will place the parent in the smallest slot found
+
+		//	LitSet& rightLits = rightClause;
+		//	//if (uid == 5016) {
+		//	//	printClause(rightClause, "rightClause " + std::to_string(p));
+		//	//	sh->printClauseByUid(p, "parent " + std::to_string(p));
+		//	//}
+		//	//will hold the first parent that the current parent p is dependent on (with the minimal idx)
+		//	uint32_t parentDependencyIdx = UINT32_MAX;
+		//	for (const Lit& l : rightLits) {
+		//	//	if the current literal was removed via resolution (i.e. it was a pivot before), and it isn't a member of the resulting clause, then the current parent isn't placed correctly and it's place is at least before the place where the pivot appears in
+		//		if((!member(l,originalClause)) && (member(var(l),piv2Idx))) {
+		//			//if (uid == 5016) {
+
+		//			//	printClause(vec<Lit>({ l }), "PROBLEM LIT ");
+		//			//	printf("!member(l,originalClause) %d\n", !member(l, originalClause));
+		//			//	printf("member(var(l),piv2Idx) %d\n", member(var(l), piv2Idx));
+		//			//}
+		//			parentDependencyIdx = minimum(parentDependencyIdx, piv2Idx[var(l)]);
+		//			//if (uid == 5016) {
+		//			//	printf("parentDependencyIdx %d\n", parentDependencyIdx);
+		//			//}
+		//		}
+		//	}
+		//	piv2Idx[var(piv)] = pivots.size()-1;
+		//	parent2Idx[p] = pivots.size()-1;
+		//	//if (uid == 5016) {
+		//	//	sh->printClauseByUid(p,"$$$p "+std::to_string(p));
+		//	//	printf("$$$parent2Idx[p] %d\n", parent2Idx[p]);
+
+		//	//}
+		//	idx2Parent.push(p);
+		//	idx2ParentNode.push(new Node(p,piv));
+
+		//	if (parentDependencyIdx != UINT32_MAX) {
+		//		assert(parentDependencyIdx > 0);
+		//		parentDependencies[p] = idx2Parent[parentDependencyIdx];
+		//	}
+		//}
+		//if (uid == 5016) {
+		//	printf("\nparent dependencies\n");
+		//	for (auto& pair : parentDependencies) {
+		//		sh->printClauseByUid(pair.first, "first");
+		//		sh->printClauseByUid(pair.second, "second");
+		//		printf("\n");
+		//	}
+		//	printf("\\parent dependencies\n");
+		//}
+		//assert(parent2Idx.size() == parents.size());
+		//assert(idx2Parent.size() == parents.size());
+		//assert(idx2ParentNode.size() == parents.size());
+		//assert(pivots.size() == parents.size());
+		//assert(pivots.size() >= parentDependencies.size());
+		//for (int i = 1; i < idx2ParentNode.size(); ++i) {
+		//	idx2ParentNode[i]->prev = idx2ParentNode[i - 1];
+		//	idx2ParentNode[i - 1]->next = idx2ParentNode[i];
+		//}
+
+		//if (uid == 5016) printf("\n\n******************************************\n");
+		//if (uid == 5016) printf("num dependencies %d\n", parentDependencies.size());
+
+		//for(auto& pair : parentDependencies){
+
+
+
+		//	Node* first = idx2ParentNode[parent2Idx[pair.first]];
+		//	if(uid == 5016) sh->printClauseByUid(first->data, "first");
+
+		//	Node* second = idx2ParentNode[parent2Idx[pair.second]];
+		//	if (uid == 5016) sh->printClauseByUid(second->data, "second");
+
+		//	Node* predecessor = second->prev;
+		//	first->next = second;
+		//	second->prev = first;
+		//	first->prev = predecessor;
+		//	if (NULL != predecessor)
+		//		predecessor->next = first;
+
+		//}
+		//vec<Uid> correctedParents;
+		//vec<Lit> correctedPivots;
+		//Node* curr = idx2ParentNode[0];
+
+		//std::unordered_set<Uid> seenParents;
+		//for (int i = 0; i < idx2ParentNode.size(); ++i) {
+		//}
+		//if (uid == 5016) printf("******************************************\n\n");
+
+		//////while (NULL != curr) {
+		//if (uid == 5016) sh->printClauseByUid(curr->data, "parent");
+
+		////	correctedParents.push(curr->data);
+		////	assert(seenParents.find(curr->data) == seenParents.end());
+		////	seenParents.insert(curr->data);
+		////	curr = curr->next;
+		////}
+
+		//for (Node* n : idx2ParentNode)
+		//	delete n;
+
+
+		//assert(correctedParents.size() == parents.size());
 	}
 }
 
@@ -612,7 +887,31 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits) {
 	}
 	return piv;
 }
+template<class T, class S>
+Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidation& validation) {
+	Lit piv = ctx->dummy;
+	for (auto l : rightLits) {
+		if (leftLits.find(~l) == leftLits.end())
+			leftLits.insert(l);
+		else {
+			leftLits.erase(~l);
+			if (piv != ctx->dummy) {
+				throw ResolutionException("First pivot assign should be to a dummy lit"); //should only be assigned once.
+			}
+			piv = l;
+			if (piv == ctx->dummy) {
+				throw ResolutionException("Pivot assigned cannot be a dummy literal");//and it should be assigned a different value than the dummy Lit.
+			}
+		}
 
+		if (validation.valid) {
+			if (!member(l, validation.targetClause) && member(var(l), validation.pivotVars)) {
+				validation.valid = false;
+			}
+		}
+	}
+	return piv;
+}
 //Finds the relevant parent to take between the left and right parents 
 //(represented by two sets of literals).
 //If piv == BL or there is no actual valid pivot lit (no left parent), 

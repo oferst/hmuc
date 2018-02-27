@@ -259,9 +259,15 @@ struct BitArray {
 	}
 };
 
+template<class T, class S>
+static inline bool member(const T& elem, const S& set) {
+	return set.find(elem) != set.end();
+}
 
-
-
+template<class T>
+static inline T minimum(const T& a, const T& b) {
+	return (a<=b) ? a : b;
+}
 
 
 //=================================================================================================

@@ -72,13 +72,19 @@ struct ReconstructionResult {
 	~ReconstructionResult() {}
 };
 
-
+struct ResolValidation {
+	const LitSet& targetClause;
+	bool valid;
+	std::unordered_set<Var> pivotVars;
+	ResolValidation(const LitSet& _targetClause) :targetClause(_targetClause), valid(true), pivotVars(std::unordered_set<Var>()){}
+};
 class ProofRebuilder{
 	//A handle for the underlaying solver used to create the resolution graph.
 	SolverHandle* sh;
 	//A DB containing the current state of the proof rebuilding process.
 	RebuilderContext* ctx;
 	bool memberOfClause(Uid u, const Lit& l);
+	bool validateResolution(Uid resultClause, vec<Uid>& parents,vec<Lit>& pivots);
 	void clearCandidateParents(ReconstructionResult& reconRes);
 	void addCandidateParent(Uid uid, bool isIc, ReconstructionResult& reconRes);
 public:
@@ -114,7 +120,7 @@ public:
 								const Lit& BL);
 	
 	template<class T>
-	void recordClausePivots(Uid uid, const T& parents);
+	void recordClausePivots(Uid uid, const T& parents, ResolValidation& validation);
 
 	LitSet&	recordClause(Uid newUid);
 
@@ -124,8 +130,11 @@ public:
 	
 	template<class S, class C>
 	Lit	resolveWithOverwrite(S& set, C& clause);
-
+	template<class S, class C>
+	Lit	resolveWithOverwrite(S& set, C& clause, ResolValidation& validation);
 	
+	template<class T>
+	void findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
 	
 	class ResolutionException : public std::exception {
 	public:

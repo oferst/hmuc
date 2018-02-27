@@ -356,15 +356,20 @@ Lit Solver::pickBranchLit()
 |________________________________________________________________________________________________@*/
 void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents)
 {
+
 	CRef startCr = confl;
 	int pathC = 0;
 	Lit p = lit_Undef;
-	vec<CRef> deferredResolutionAllocParentsToIc;//TODO: use this vector to save the rem parents in litRedundent calls
+	//vec<CRef> deferredResolutionAllocParentsToIc;//TODO: use this vector to save the rem parents in litRedundent calls
 	// Generate conflict clause:
 	//
 	out_learnt.push();      // (leave room for the asserting literal)
 	int index = trail.size() - 1;
+	if (startCr == 3236)
+		printf("===============start learning 5016==============\n");
 	do{
+		if (startCr == 3236)
+			printf("lit %d\n", todimacsLit(p));
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
         if (c.learnt() && !opt_glucose)
@@ -374,9 +379,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 		if (c.ic())  icParents.push(uid);
 		if (opt_blm_rebuild_proof) {
 			if (!c.ic()) {
-				//if (!c.isParentToIc()) {
-				//	deferredResolutionAllocParentsToIc.push(confl);
-				//}
+				if(!c.isParentToIc())
+					remParentsCRefsDeferredGraphAlloc.push(confl);
 				remParents.push(uid);
 			}
 			allParents.push(uid);
@@ -408,7 +412,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 
 
 
-
     // Simplify conflict clause:
     //
     int i, j;
@@ -427,11 +430,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 		//If an icParent exists, iterate over found remParents, and for each one, if it is not
 		//allocated in the resolution graph, add it now (it is a parent of ic), and label it as 
 		//a parent of an ic (in its header). Also, add it to setGood.
-		if (icParents.size() > 0) {
-			for (auto& p : remParents) {
-				
-			}
-		}
+
 	
 	
 	}else if (ccmin_mode == 1){//TODO: check if parents update is neccessary here.
@@ -492,7 +491,8 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
     while (analyze_stack.size() > 0){
         Var v = var(analyze_stack.last());
         assert(reason(v) != CRef_Undef);
-        Clause& c = ca[reason(v)]; analyze_stack.pop();
+		CRef cref = reason(v);
+        Clause& c = ca[cref]; analyze_stack.pop();
         if (!opt_ic_simplify && (c.ic())) { // don't perform simplification on ics - and c is an ic so we stop here
             for (int j = top; j < analyze_toclear.size(); j++)
                 seen[var(analyze_toclear[j])] = 0;
@@ -509,20 +509,12 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
             icParents.push(uid);
 		if (opt_blm_rebuild_proof) {
 			if (!c.ic()) {
-				if (!c.isParentToIc()) {
-					//add to deferred here
-
-
-					c.setIsParentToIc(true);
-					resolGraph.AddRemainderResolution(uid, reason(v));
-					setGood.insert(uid);
-				}
+				if (!c.isParentToIc())
+					remParentsCRefsDeferredGraphAlloc.push(cref);
 				remParents.push(uid);
-
 			}
 			allParents.push(uid);
 		}
-
 
 		//The first literal in c is the only literal not assigned false in the current trail, and
 		//due to how minisat uses two watches, and the fact that watches should not guard literals 
@@ -545,10 +537,9 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icPare
 					}
                     return false;
                 }
-            }
+			}
         }
     }
-
     return true;
 }
 
@@ -964,6 +955,7 @@ lbool Solver::search(int nof_conflicts)
 	if (opt_blm_rebuild_proof) {
 		allParents.clear();
 		remParents.clear();
+		remParentsCRefsDeferredGraphAlloc.clear();
 	}
 	int prev_trail_size = 0;	
 	int old_falsified_literals;
@@ -1134,6 +1126,7 @@ lbool Solver::search(int nof_conflicts)
 				}
 				else { //oferg: learnt clause is not a unit clause
 					cancelUntil(backtrack_level);
+
 					CRef cr = ca.alloc(learnt_clause, true, icParents.size() > 0);
 					learnts.push_back(cr);
 					attachClause(cr);
@@ -1147,6 +1140,12 @@ lbool Solver::search(int nof_conflicts)
 					if (cl.ic()) {
 						if (5016 == cl.uid()) {
 							printClause(learnt_clause, "learnt_clause " + std::to_string(cl.uid()));
+						}
+
+						if (opt_blm_rebuild_proof) {
+							for (auto& crDeferred : remParentsCRefsDeferredGraphAlloc) {
+								resolGraph.AddRemainderResolution(ca[crDeferred].uid(), crDeferred);
+							}
 						}
 						updateResolutionGraph(cl, cr);
 					}
@@ -1174,6 +1173,7 @@ lbool Solver::search(int nof_conflicts)
 			if (opt_blm_rebuild_proof) {
 				allParents.clear();
 				remParents.clear();
+				remParentsCRefsDeferredGraphAlloc.clear();
 			}
             confl = CRef_Undef;
 

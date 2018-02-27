@@ -390,10 +390,18 @@ protected:
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
     CRef     propagate        ();                                                      // Perform unit propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
+    
+	
+	void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-    bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
-    lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
+	bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
+	
+
+	//If in the analyze process we find a non-ic clause that participates in the resolution of a learned clause, then it might need to be allocated in the resolution graph as a remainder parent. This will take place in the case that the resulting learned clause has at least one icParent (meaning it's also an ic clause).
+	//We keep the CRefs and not just the Uids of these clauses so we could map back every allocated remainder clause back to its current place in the ClauseAllocator database.
+	vec<CRef> remParentsCRefsDeferredGraphAlloc;
+	
+	lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
     void     removeSatisfied  (vec<CRef>& cs);                                         // Called at decision level 0. Shrink 'cs' to contain only non-satisfied clauses.
