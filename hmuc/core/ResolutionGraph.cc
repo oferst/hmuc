@@ -10,11 +10,11 @@ namespace Minisat
 
 void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents){
-	if (nNewClauseUid == 5016) {
+	//if (nNewClauseUid == 5016) {
 
-		printf("ADDING CLAUSE %d\n, CREF %d\n", nNewClauseUid, ref);
+	//	printf("ADDING CLAUSE %d\n, CREF %d\n", nNewClauseUid, ref);
 
-	}
+	//}
 	m_UidToData.growTo(nNewClauseUid + 1);
 	RRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
     // increase reference count for all the icparents
@@ -212,7 +212,7 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 	for (int i = 0; i < start.size(); ++i) {
 		vecCurrCheck.push_back(start[i]);
 	}
-	
+
 	while (vecCurrCheck.size() > 0) {
 		for (int i = 0; i < vecCurrCheck.size(); ++i) {
 			int nUid = vecCurrCheck[i];
@@ -225,7 +225,7 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 			Resol& resol = GetResol(resolRef);
 
 			int j = 0;
-			int nParents = resol.icParentsSize(); 
+			int nParents = resol.icParentsSize();
 			uint32_t* parents = resol.IcParents();
 			for (; j < nParents; ++j) {
 				if (!NewRemainders.has(parents[j])) // stop visiting parents if at least one of them is currently not a remainder
@@ -263,6 +263,12 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 		vecNextCheck.clear();
 	}
 }
+	void CResolutionGraph::updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+		assert(CRef_Undef != uid);
+		RRef rRef = m_UidToData[uid].m_ResolRef;
+		assert(CRef_Undef != rRef);
+		m_RA.updateAllocated(rRef, icParents, remParents, allParents);
+	}
 
 
 }

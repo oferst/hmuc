@@ -96,7 +96,7 @@ public:
 
         m_Parents[0].icSize = icParents.size();
 		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
-		if (0 == remParents.size()) {
+		if (remParents.size() == 0) {
 			header.hasRemParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
 				ics[i] = icParents[i];
@@ -293,6 +293,9 @@ public:
 class ResolAllocator : public RegionAllocator<uint32_t>
 {
 public:
+	void updateAllocated(RRef rRef, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents) {
+		new (lea(rRef)) Resol(icParents, remParents, allParents, operator[](rRef).header.ic);
+	}
     RRef alloc(const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic)
     {
 
@@ -372,11 +375,11 @@ public:
 //________________________________________________________________________________________________
 
 
-    void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents);
-	void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<uint32_t>& icParents);
+	void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents);
+    void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 	void AddRemainderResolution(uint32_t nNewClauseId, CRef ref);
 	//Set<uint32_t> temp_ics;
-
+	void updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);

@@ -1220,11 +1220,13 @@ lbool Solver::search(int nof_conflicts)
 						count_true_assump++;
 					}
 					else if (value(currBL) == l_False) { 
+
 					// literals in LiteralsFromPathFalsification lead 
 					//to a contradiction by themselves, 
 					//i.e. ~currBL is part of the current assignment, 
 					//and is implied by some other backbones. 
 						if (opt_blm_rebuild_proof && rhombusValid) {
+							m_bUnsatByPathFalsification = true;
 							SolverHandle sh = SolverHandle(this);
 							RebuilderContext ctx;
 							ProofRebuilder pr = ProofRebuilder(&sh,&ctx);
@@ -1240,7 +1242,10 @@ lbool Solver::search(int nof_conflicts)
 							printf("rebuild end!\n");
 							return l_False;
 							
-							//exit(-6);
+						}
+						else if (pf_early_unsat_terminate()){ 
+							return l_False;
+
 						}
 						else break;
 
@@ -1995,7 +2000,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 	LiteralsFromPathFalsification.clear();
 	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay) {
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification);
-		//printClause(LiteralsFromPathFalsification, "new S set");
+		printClause(LiteralsFromPathFalsification, "new S set");
 		//printf("assumption: ");
 		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i)
 		//	printf("%d ", todimacsLit( LiteralsFromPathFalsification[i]));

@@ -9,7 +9,9 @@ SolverHandle::~SolverHandle()
 {
 }
 
-
+void SolverHandle::updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	s->resolGraph.updateExistingResolution(uid, icParents, remParents, allParents);
+}
 Uid SolverHandle::CRefToUid(CRef cref) {
 	return s->ca[cref].uid();
 }
@@ -43,9 +45,9 @@ CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc) {
 }
 void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents, vec<Uid>& remParents) {
 	Uid uid = CRefToUid(cref);
-	if (5016 == uid) {
-		printf("SH adding %d\n", uid);
-	}
+	//if (5016 == uid) {
+	//	printf("SH adding %d\n", uid);
+	//}
 	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, remParents, allParents);
 }
 void SolverHandle::allocNonIcResol(CRef cref) {

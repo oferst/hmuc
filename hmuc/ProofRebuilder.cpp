@@ -21,7 +21,6 @@ bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 }
 bool ProofRebuilder::validateResolution(Uid uid, vec<Uid>& parents,vec<Lit>& pivots) {
 
-	vec<Lit>& pivots = ctx->getPivots(uid);
 	LitSet actualClause;
 	ResolValidation v = ResolValidation(ctx->getClauseLits(uid));
 	bool pivotsMatch = true;
@@ -30,7 +29,7 @@ bool ProofRebuilder::validateResolution(Uid uid, vec<Uid>& parents,vec<Lit>& piv
 		Lit piv = resolveWithOverwrite(actualClause, ctx->getClauseLits(p), v);
 		pivotsMatch = pivotsMatch && (piv == pivots[i++]);
 	}
-	return ((pivots.size() == i) && pivotsMatch && (actualClause == ctx->getClauseLits(uid)));
+	return ((pivots.size() == i) && pivotsMatch && (actualClause == ctx->getClauseLits(uid)) && v.valid);
 
 }
 
@@ -90,15 +89,17 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 	//confLits_icParents, confLits_remParents, confLits_allParents will contain all the reason clauses for the conflict - used in the resolution graph, as it is needed to allocate new resolution nodes.
 	allParents.push_front(ClauseData());
 	ClauseData& newParent = allParents.front();
+	printf("negConflAssumptions is ic: %d\n", confLits_icParents.size() > 0);
 	if (confLits_icParents.size() == 0) {
 		newParent.setNonIc(negConflAssumptions);
 	}
 	else {
 		CRef newCr = sh->allocClause(negConflAssumptions, true, confLits_icParents.size() > 0);
 		sh->allocResol(newCr, confLits_allParents, confLits_icParents, confLits_remParents);
-		newParent.setAllocatedClauseData(sh->CRefToUid(newCr));
+		Uid uid = sh->CRefToUid(newCr);
+		newParent.setAllocatedClauseData(uid);
+		ctx->isIc(uid) = true;
 		result.isIc = true; // a parent is ic, and therefore the resulting node is also ic.
-
 	}
 	printClause(negConflAssumptions, "negConflAssumptions");
 
@@ -128,7 +129,6 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		*******************************************************/
 		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
 		result.isIc = result.isIc || Allocated == newUnitParent.status;
-
 		if (newUnitParent.status == Allocated)
 			sh->printClauseByUid(newUnitParent.clauseUid, "------newParent Allocated");
 		else if (newUnitParent.status == Deferred)
@@ -150,6 +150,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 				assert(CRef_Undef != newCr);
 				sh->allocNonIcResol(newCr);
 				unitUid = sh->CRefToUid(newCr);
+				ctx->isIc(unitUid) = false;
 				assert(CRef_Undef != unitUid);
 				break;
 			case Allocated:
@@ -164,6 +165,13 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 			new_allPoEC.push(unitUid);
 		}
 	}
+	for (auto& p : new_allPoEC) {
+		sh->printClauseByUid(p, "new PoEC " + std::to_string(p) + " ic: " + std::to_string(ctx->isIc(p)));
+	}
+	for (auto& p : new_icPoEC) {
+		sh->printClauseByUid(p, "new icPoEC " + std::to_string(p));
+	}
+
 }
 
 /*
@@ -445,7 +453,7 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 	assert(parents.size() == pivots.size());
 	std::unordered_map<Var, uint32_t> pivVar2Idx;
 	std::unordered_map<Uid, uint32_t> parent2Idx;
-	vec<Uid> idx2Parnet;
+	vec<Uid> idx2Parent;
 	vec<Var> idx2PivVar;
 	printf("<FIND PARNET DEPENDENCIES>\n");
 	printClause(resultClause, "wantedResult");
@@ -454,8 +462,8 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 		//printf("pivots[%d] : %d\n", i,todimacsLit(pivots[i]));
 		//printf("var(pivots[%d]) : %d\n", i, var(pivots[i]));
 		//printf("parent idx : %d\n", i);
-		idx2Parnet.push(p);
-		//printf("idx2Parnet[%d] : %d\n", i, idx2Parnet[i]);
+		idx2Parent.push(p);
+		//printf("idx2Parent[%d] : %d\n", i, idx2Parent[i]);
 		parent2Idx[p ] = i;
 		//printf("parent2Idx[%d] : %d\n", p, parent2Idx[p]);
 		Var pivVar = var(pivots[i]);
@@ -467,7 +475,7 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 		++i;
 		//printf("<\\parent pre iteration= %d>\n", p);
 	}
-	assert(parents.size() == idx2Parnet.size());
+	assert(parents.size() == idx2Parent.size());
 	assert(parents.size() == idx2PivVar.size());
 	assert(parents.size() == parent2Idx.size());
 	assert(parents.size() == pivVar2Idx.size());
@@ -505,10 +513,10 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 			//i.e., this is a parent we are dependent on because of the literal l.
 			//printf("pivVar2Idx[var(%d)] = %d\n", todimacsLit(l), pivVar2Idx[var(l)]);
 			//printf("pivIdx = %d (sould be equal to pivVar2Idx[var(%d)]) \n", pivIdx, todimacsLit(l));
-			//printf("idx2Parnet[%d] = %d\n", pivIdx, idx2Parnet[pivIdx]);
-			//printClause(ctx->getClauseLits(idx2Parnet[pivIdx]), "ctx->getClauseLits(idx2Parnet[pivIdx])");
-			assert(pivIdx < idx2Parnet.size());
-			assert(member(~l, ctx->getClauseLits(idx2Parnet[pivIdx])));
+			//printf("idx2Parent[%d] = %d\n", pivIdx, idx2Parent[pivIdx]);
+			//printClause(ctx->getClauseLits(idx2Parent[pivIdx]), "ctx->getClauseLits(idx2Parent[pivIdx])");
+			assert(pivIdx < idx2Parent.size());
+			assert(member(~l, ctx->getClauseLits(idx2Parent[pivIdx])));
 			dependencies[i].push(pivIdx);//the current parent is dependent on the pivot's location
 			printf("for lit %d added dependency (%d,%d)\n", todimacsLit(l), i, pivIdx);
 		}
@@ -616,9 +624,54 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		//	}
 		//	printf("++++++++TOPOLOGICAL+++++++++++++\n");
 		//	for (auto& idx : sortedParentsIdx) {
-		//		sh->printClauseByUid(parentsVec[idx],"parnet " + std::to_string(parentsVec[idx]));
+		//		sh->printClauseByUid(parentsVec[idx], "parnet " + std::to_string(parentsVec[idx]));
 		//	}
 		//}
+
+
+		vec<Uid> parentsVec;
+		for (auto& p : parents) {
+			parentsVec.push(p);
+		}
+		vec<Uid> updatedParents;
+		vec<Lit> updatePivots;
+		for (uint32_t idx : sortedParentsIdx) {
+			updatedParents.push(parentsVec[idx]);
+			updatePivots.push(currPivots[idx]);
+		}
+		replaceVecContent(currPivots, updatePivots);
+
+		assert(validateResolution(currUid, updatedParents, currPivots));
+
+		vec<Uid> icParents;
+		vec<Uid> remParent;
+		vec<Uid>& allParents = updatedParents;
+		for (auto& p : allParents) {
+			assert(ctx->isClauseSeen(p));
+			if (ctx->isIc(p)) {
+				icParents.push(p);
+			}
+			else {
+				remParent.push(p);
+			}
+		}
+		
+		
+		sh->updateExistingResolution(currUid, icParents, remParent, allParents);
+		assert(validateResolution(currUid,updatedParents, updatePivots));
+
+		if (currUid == 5016) {
+			printf("++++++++TOPOLOGICAL+++++++++++++\n");
+			for (auto& p : parents) {
+				sh->printClauseByUid(p, "parnet " + std::to_string(p));
+			}
+		}
+
+
+
+
+		//& currResol = sh->getResol(currUid);
+
 
 		//updateResolutionParent(currUid, sortedParentsIdx);
 	}

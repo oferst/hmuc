@@ -28,6 +28,7 @@ namespace Minisat {
 		virtual void allocNonIcResol(CRef cref);
 		virtual void analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents);
 		virtual bool inRhombus(Uid uid);
+		virtual void updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 		
 		void printClauseByUid(Uid uid, const std::string& msg) { 
 			s->printClauseByUid(uid, msg); 
