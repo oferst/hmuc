@@ -84,7 +84,10 @@ class ProofRebuilder{
 	//A DB containing the current state of the proof rebuilding process.
 	RebuilderContext* ctx;
 	bool memberOfClause(Uid u, const Lit& l);
-	bool validateResolution(Uid resultClause, vec<Uid>& parents,vec<Lit>& pivots);
+	
+	template<class T>
+	bool validateResolution(Uid resultClause, T& parents,vec<Lit>& pivots);
+
 	void clearCandidateParents(ReconstructionResult& reconRes);
 	void addCandidateParent(Uid uid, bool isIc, ReconstructionResult& reconRes);
 public:

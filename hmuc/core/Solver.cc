@@ -214,9 +214,9 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* icParentsPtr)
     }
 	Uid newUid = ca[cr].uid();
     if (ic) {
-		if (5016 == newUid) {
-			printf("SOLVER addClause_ %d\n", newUid);
-		}
+		//if (5016 == newUid) {
+		//	printf("SOLVER addClause_ %d\n", newUid);
+		//}
         resolGraph.AddNewResolution(newUid, cr, ((icParentsPtr == NULL) ? icParents : *icParentsPtr));
 	}
 
@@ -365,11 +365,11 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 	//
 	out_learnt.push();      // (leave room for the asserting literal)
 	int index = trail.size() - 1;
-	if (startCr == 3236)
-		printf("===============start learning 5016==============\n");
+	//if (startCr == 3236)
+	//	printf("===============start learning 5016==============\n");
 	do{
-		if (startCr == 3236)
-			printf("lit %d\n", todimacsLit(p));
+		/*if (startCr == 3236)
+			printf("lit %d\n", todimacsLit(p));*/
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
         if (c.learnt() && !opt_glucose)
@@ -1138,9 +1138,9 @@ lbool Solver::search(int nof_conflicts)
 					else
 						ca[cr].activity() = calculateDecisionLevels(learnt_clause);
 					if (cl.ic()) {
-						if (5016 == cl.uid()) {
-							printClause(learnt_clause, "learnt_clause " + std::to_string(cl.uid()));
-						}
+						//if (5016 == cl.uid()) {
+						//	printClause(learnt_clause, "learnt_clause " + std::to_string(cl.uid()));
+						//}
 
 						if (opt_blm_rebuild_proof) {
 							for (auto& crDeferred : remParentsCRefsDeferredGraphAlloc) {
@@ -1233,13 +1233,29 @@ lbool Solver::search(int nof_conflicts)
 							vec<Uid> new_allPoEC, new_icPoEC;
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
 
-
+							
+							//printf("icPoEC.size() %d\n", icPoEC.size());
+							//printf("new_icPoEC.size() %d\n", new_icPoEC.size());
+							//printf("allPoEC.size() %d\n", allPoEC.size());
+							//printf("new_allPoEC.size() %d\n", new_allPoEC.size());
+							vec<Uid> icCore;
+							Set<Uid> rhombus;
+							GetUnsatCore(icCore, rhombus);
+							//printf("icCore.size() %d\n", icCore.size());
+							//printf("rhombus.size() %d\n", rhombus.elems());
 
 							replaceVecContent(icPoEC, new_icPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
-							//rhombus.clear();
-							//GetUnsatCore(icPoEC, rhombus);
-							printf("rebuild end!\n");
+							//printf("updated icPoEC.size() %d\n", icPoEC.size());
+							//printf("updated allPoEC.size() %d\n", allPoEC.size());
+							
+							icCore.clear();
+							rhombus.clear();
+							GetUnsatCore(icCore, rhombus);
+							//printf("updated icCore.size() %d\n", icCore.size());
+							//printf("updated rhombus.size() %d\n", rhombus.elems());
+							
+							//printf("rebuild end!\n");
 							return l_False;
 							
 						}
@@ -1277,14 +1293,14 @@ lbool Solver::search(int nof_conflicts)
 
 void Solver::updateResolutionGraph(Clause& cl, CRef cr) {
 	Uid uidToUpdate = cl.uid();
-	if (5016 == uidToUpdate) {
-		printf("SOLVER updateResolutionGraph %d\n", uidToUpdate);
-		printClause(cl, "Original " + std::to_string(uidToUpdate));
-		
-		for (auto& p : allParents) {
-			printClauseByUid(p, "parent " + std::to_string(p));
-		}
-	}
+	//if (5016 == uidToUpdate) {
+	//	printf("SOLVER updateResolutionGraph %d\n", uidToUpdate);
+	//	printClause(cl, "Original " + std::to_string(uidToUpdate));
+	//	
+	//	for (auto& p : allParents) {
+	//		printClauseByUid(p, "parent " + std::to_string(p));
+	//	}
+	//}
 	//printf("%d %d %d\n", cl.uidClauseToUpdate(), cr,out_icParents.size());
 	resolGraph.AddNewResolution(uidToUpdate, cr, icParents,remParents,allParents);
 }
@@ -1958,9 +1974,9 @@ void Solver::CreateResolVertex(uint32_t uid)
     assert(icParents.size() == 0);
 	assert(remParents.size() == 0);
 	assert(allParents.size() == 0);
-	if (5016 == uid) {
-		printf("SOLVER parse adding %d\n", uid);
-	}
+	//if (5016 == uid) {
+	//	printf("SOLVER parse adding %d\n", uid);
+	//}
     resolGraph.AddNewResolution(uid, CRef_Undef, icParents);
 }
 
@@ -2000,7 +2016,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 	LiteralsFromPathFalsification.clear();
 	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay) {
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification);
-		printClause(LiteralsFromPathFalsification, "new S set");
+		//printClause(LiteralsFromPathFalsification, "new S set");
 		//printf("assumption: ");
 		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i)
 		//	printf("%d ", todimacsLit( LiteralsFromPathFalsification[i]));

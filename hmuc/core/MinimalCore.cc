@@ -430,9 +430,21 @@ namespace Minisat
 					if (m_Solver.verbosity == 1) printf("UNSAT \n");
 
 					// First get all the clauses in unsat core
+					
+					//vec<Uid> icCore1;
+					//Set<Uid> rhombus1;
+					//m_Solver.GetUnsatCore(icCore1, rhombus1);
+					//printf("again2 icCore.size() %d\n", icCore1.size());
+					//printf("again2 rhombus.size() %d\n", rhombus1.elems());
+					
+					
 					rhombus.clear();
 					vec<Uid>& icCore = vecUids;
 					m_Solver.GetUnsatCore(icCore, rhombus);
+
+					//printf("actual icCore.size() %d\n", icCore.size());
+					//printf("actual rhombus.size() %d\n", rhombus.elems());
+
 					//if ((m_Solver.blm_rebuild_proof && m_Solver.rhombusValid)) {
 					//	printf("size of icPoEC: %d\n", m_Solver.icPoEC.size());
 					//	printf("size of icCore: %d\n", icCore.size());
@@ -480,7 +492,8 @@ namespace Minisat
 					// Both vecNextUnknown and vecCurrentUnknown are sorted (via removeDuplicated_). For nIteration > 0, we go over those clauses in 
 					// vecCurrentUnknown, and check if they are also in vecNextUnknown. If not, then we enter them to vecUidsToRemove.
 					// vecNextUnknown is reset to 0 in the end of the big loop, and then populated with clauses in the core. 
-
+					//printf("vecNextUnknown.size() %d\n", vecNextUnknown.size());
+					//printf("vecCurrentUnknown.size() %d\n", vecCurrentUnknown.size());
 					assert(vecNextUnknown.size() != vecCurrentUnknown.size());
 					int nIndUnknown = 0;
 					int nSize = nIteration == 0 ? m_nICSize : vecCurrentUnknown.size();

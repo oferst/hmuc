@@ -50,8 +50,8 @@ void CResolutionGraph::AddNewResolution
 void CResolutionGraph::AddNewResolution
 (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents) {
 	vec<uint32_t> dummy;
-	if (nNewClauseUid == 5016)
-		printf("ADDIDNG NON IC PARENT %d\n", nNewClauseUid);
+	//if (nNewClauseUid == 5016)
+	//	printf("ADDIDNG NON IC PARENT %d\n", nNewClauseUid);
 	AddNewResolution(nNewClauseUid, ref, icParents, dummy, dummy);
 }
 
@@ -100,22 +100,21 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 	
 }
 
-void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcParents, Set<Uid>& checked)
+void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcParents, Set<Uid>& rhombus)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
 	assert(resol.header.ic);
-    int nParentsSize = resol.icParentsSize();
+    int icParentsSize = resol.icParentsSize();
 
-    if (nParentsSize == 0) {
+    if (icParentsSize == 0) {//if a clause is ic
         allIcParents.push(nUid);
         return;
     }
-    uint32_t* parents = resol.IcParents();
-
-    for (int i = 0; i < nParentsSize; ++i) {
-		CRef parentRef = GetResolRef(parents[i]);
-        if (GetResol(parentRef).header.ic && checked.insert(parents[i]))
-			GetOriginalParentsUids(parents[i], allIcParents, checked);
+    uint32_t* icParents = resol.IcParents();
+    for (int i = 0; i < icParentsSize; ++i) {
+		assert(GetResol(GetResolRef(icParents[i])).header.ic);
+        if (rhombus.insert(icParents[i]))
+			GetOriginalParentsUids(icParents[i], allIcParents, rhombus);
      }
  }
 
