@@ -379,13 +379,13 @@ public:
     void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 	void AddRemainderResolution(uint32_t nNewClauseId, CRef ref);
 	//Set<uint32_t> temp_ics;
-	void updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
+	void updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
         m_UidToData[nUid].m_ClauseRef = newRef;
     }
-
+	void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
     CRef GetClauseRef(uint32_t nUid) const // formerly 'GetInd'
     {
         return m_UidToData[nUid].m_ClauseRef;

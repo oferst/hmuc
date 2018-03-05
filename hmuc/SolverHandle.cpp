@@ -8,9 +8,12 @@ SolverHandle::SolverHandle(Solver* _s=NULL): s(_s)
 SolverHandle::~SolverHandle()
 {
 }
+void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	s->resolGraph.realocExistingResolution(oldUid, icParents, remParents, allParents);
+}
 
-void SolverHandle::updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
-	s->resolGraph.updateExistingResolution(uid, icParents, remParents, allParents);
+void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	s->resolGraph.updateParentsOrder(uid, icParents, remParents, allParents);
 }
 Uid SolverHandle::CRefToUid(CRef cref) {
 	return s->ca[cref].uid();

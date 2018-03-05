@@ -7,6 +7,23 @@
 #include "Printer.h"
 namespace Minisat
 {
+//allocates a new Resol for an existing clause (reprs. by it's uid), without changing it's uid. Deletes the old Resol fro, the system. 
+void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	auto& oldPair = m_UidToData[uid];
+	RRef oldRRef = oldPair.m_ResolRef;
+	Resol& oldResol = m_RA[uid];
+	RRef newRRef;
+	if (icParents.size() > 0) {
+		newRRef = m_RA.alloc(icParents, remParents, allParents, true);
+	}
+	else {
+		vec<Uid> dummyParents;
+		newRRef = m_RA.alloc(dummyParents, dummyParents, dummyParents, false);
+	}
+	assert(oldRRef != newRRef);
+	m_RA.free(oldRRef);
+	oldPair.m_ResolRef = newRRef;
+}
 
 void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents){
@@ -262,7 +279,7 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 		vecNextCheck.clear();
 	}
 }
-	void CResolutionGraph::updateExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	void CResolutionGraph::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
 		assert(CRef_Undef != uid);
 		RRef rRef = m_UidToData[uid].m_ResolRef;
 		assert(CRef_Undef != rRef);

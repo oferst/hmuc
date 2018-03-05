@@ -169,54 +169,53 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		}
 	}
 
-	////DEBUG from here 
-	////sanity check: the resulting resolution graph is independent of the clause removed (c).
-	////sanity check: validate all resolution steps in the resulting graph.
-	//Set<Uid> newRhombus;
-	//vec<Uid> newIcCore;
-	//vec<Uid> clausesToCheck;
-	//printf("\n\nVALIDATION START\n");
-	//for (auto& p : new_allPoEC) {
-	//	sh->printClauseByUid(p, "new PoEC " + std::to_string(p) + " ic: " + std::to_string(ctx->isIc(p)));
-	//	assert(!sh->inRhombus(p));//a clause not in the original rhombus (it is independent of the clause to remove c).
-	//	assert(!newRhombus.has(p));//all th PoEC were built during this call, and they should be independent of each other.
-	//	clausesToCheck.push(p);
-	//	while (clausesToCheck.size() > 0) {
-	//		Uid uid = clausesToCheck.last();
-	//		clausesToCheck.pop();
-	//		if (uid == 5393)
-	//			sh->printClauseByUid(uid, std::to_string(uid) + " in rhombus? " + std::to_string(sh->inRhombus(uid)));
-	//		assert(!sh->inRhombus(uid));//the clause must be independent of the clause to remove, meaning it's not in the rhombus of the clause.
-	//		if (newRhombus.insert(uid)) {
-	//			//printf("added %d to new Rhombus\n", uid);
-	//			Resol& resol = sh->getResol(uid);
+	//DEBUG from here 
+	//sanity check: the resulting resolution graph is independent of the clause removed (c).
+	//sanity check: validate all resolution steps in the resulting graph.
+	Set<Uid> newRhombus;
+	vec<Uid> newIcCore;
+	vec<Uid> clausesToCheck;
+	printf("\n\nVALIDATION START\n");
+	for (auto& p : new_allPoEC) {
+		sh->printClauseByUid(p, "new PoEC " + std::to_string(p) + " ic: " + std::to_string(ctx->isIc(p)));
+		assert(!sh->inRhombus(p));//a clause not in the original rhombus (it is independent of the clause to remove c).
+		assert(!newRhombus.has(p));//all th PoEC were built during this call, and they should be independent of each other.
+		clausesToCheck.push(p);
+		while (clausesToCheck.size() > 0) {
+			Uid uid = clausesToCheck.last();
+			clausesToCheck.pop();
 
-	//			if (ctx->arePivotsKnown(uid)) {
-	//				validateResolution(uid,resol,ctx->getPivots(uid));
-	//			}
+			if (newRhombus.insert(uid)) {
+				//printf("added %d to new Rhombus\n", uid);
+				Resol& resol = sh->getResol(uid);
+
+				if (ctx->arePivotsKnown(uid)) {
+					validateResolution(uid,resol,ctx->getPivots(uid));
+				}
 
 
-	//			assert(resol.header.ic);
-	//			int icParentSize = resol.icParentsSize();
-	//			if (icParentSize == 0){
-	//				newIcCore.push(uid);
-	//			}
-	//			else {
-	//				Uid* icParents = resol.IcParents();
-	//				for (int i = 0; i < icParentSize; ++i) {
-	//					clausesToCheck.push(icParents[i]);
-	//				}
-	//			//sh->printClauseByUid(uid, "uid: "+ std::to_string(uid));
-	//			//printf("%d icParentSize %d: clausesToCheck.size() %d\n",uid,icParentSize, clausesToCheck.size());
-	//			}
-	//		}
-	//	}
-	//}
-	//std::unordered_set<Uid> newIcParentsSet;
-	//for (auto& uid : newIcCore) 
-	//	newIcParentsSet.insert(uid);
-	//printf("validation - new ic core size %d\n", newIcParentsSet.size());
-	//printf("validation - new rhombus size %d\n", newRhombus.elems());
+				assert(resol.header.ic);
+				int icParentSize = resol.icParentsSize();
+				if (icParentSize == 0){
+					assert(!sh->inRhombus(uid));
+					newIcCore.push(uid);
+				}
+				else {
+					Uid* icParents = resol.IcParents();
+					for (int i = 0; i < icParentSize; ++i) {
+						clausesToCheck.push(icParents[i]);
+					}
+				//sh->printClauseByUid(uid, "uid: "+ std::to_string(uid));
+				//printf("%d icParentSize %d: clausesToCheck.size() %d\n",uid,icParentSize, clausesToCheck.size());
+				}
+			}
+		}
+	}
+	std::unordered_set<Uid> newIcParentsSet;
+	for (auto& uid : newIcCore) 
+		newIcParentsSet.insert(uid);
+	printf("validation - new ic core size %d\n", newIcParentsSet.size());
+	printf("validation - new rhombus size %d\n", newRhombus.elems());
 	//for (auto& p : new_icPoEC) {
 	//	sh->printClauseByUid(p, "new icPoEC " + std::to_string(p));
 	//}
@@ -429,33 +428,54 @@ Uid ProofRebuilder::
 	std::list<ClauseData*>& actualParentsUsed = reconRes.parentsUsed;
 	Uid newUid;
 
+
 	/*Optimization*/
 	//If only one parent was used, we don't 
 	//need to allocate the clause, as it already exists in the DB (if ic).
 	if (actualParentsUsed.size() == 1) {
 		ClauseData* singleParent = *actualParentsUsed.begin();
-		assert(singleParent->status == Allocated);
+		assert(singleParent->status == Allocated); //the single parent is ic, and therefore should be allocated
 		newUid = singleParent->clauseUid;
 		assert(CRef_Undef != newUid);
 	}
-	//otherwise (if more than one parent was used, but at least 
-	//one of them isn't an original parent (a parent removed also 
-	//counts as an unoriginal parent)), we need to allocate a new 
-	//clause
+	//otherwise (if more than one parent was used) we need to change the graph and\or the solver data to reflect the new construction
 	else {
 		//Now is the point where we allocate all the nonIc parents (if any exists)
 		vec<Uid> allParents,icParents, nonIcParents;
 		allocateNonIcParents(reconRes, allParents, icParents, nonIcParents);
 
-		CRef newCRef = sh->allocClause(reconRes.newClause, true, reconRes.isIc);
-		assert(CRef_Undef != newCRef);
-		sh->allocResol(newCRef, allParents, icParents, nonIcParents);
-		newUid = sh->CRefToUid(newCRef);
-		assert(CRef_Undef != newUid);
-		//assert(!ctx->isClauseSeen(newUid));
-		LitSet& c = ctx->getClauseLits(newUid);
-		//assert(c.size() == 0);
-		replaceContent(c, newClause);
+		if (ctx->getClauseLits(currUid).size() == newClause.size() && 
+			member(BL,ctx->getClauseLits(currUid))){
+			if (currUid == 5393) {
+				printf("clause %d has same literals:\n", currUid);
+				sh->printClauseByUid(currUid, "originl");
+				printClause(newClause, "new clause");
+				for (auto& p : allParents)
+					assert(!sh->inRhombus(p));
+
+			}
+			//check whether the clause wasn't changed, and if not, will only 
+			//update the resolution graph with the new parents.
+			//(Note: the resulting clause will always contain BL, therefore the 
+			//only case where the clause might not have changed at all is 
+			//when BL was already a member of the original clause).
+			printf("realloc %d, icParents.size() %d, allParents.size() %d\n", currUid, icParents.size(), allParents.size());
+			sh->realocExistingResolution(currUid, icParents,nonIcParents,allParents);
+			newUid = currUid;
+			assert(CRef_Undef != newUid);
+		} else {
+			//if clause was changed we now allocate it in the solver and resolGraph
+			//TODO: what if the clause already exists in the system and we only 
+			//found a different proof for it? is this case possible? 
+			//Will it affect the search\Rotation\BLM algorithms? 
+			CRef newCRef = sh->allocClause(reconRes.newClause, true, reconRes.isIc);
+			assert(CRef_Undef != newCRef);
+			sh->allocResol(newCRef, allParents, icParents, nonIcParents);
+			newUid = sh->CRefToUid(newCRef);
+			assert(CRef_Undef != newUid);
+			LitSet& c = ctx->getClauseLits(newUid);
+			replaceContent(c, newClause);
+		 }
 	}
 	ctx->isIc(newUid) = true;
 	return newUid;
@@ -685,7 +705,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		}
 		
 		
-		sh->updateExistingResolution(currUid, icParents, remParent, allParents);
+		sh->updateParentsOrder(currUid, icParents, remParent, allParents);
 		assert(validateResolution(currUid,updatedParents, updatePivots));
 
 		//if (currUid == 5016) {
