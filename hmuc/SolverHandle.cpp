@@ -16,13 +16,19 @@ void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const 
 	s->resolGraph.updateParentsOrder(uid, icParents, remParents, allParents);
 }
 Uid SolverHandle::CRefToUid(CRef cref) {
-	return s->ca[cref].uid();
+	Clause& c = s->ca[cref];
+	if (c.hasUid())
+		return s->ca[cref].uid();
+	else
+		return s->nonIcUidDeferredAlloc[cref];
 }
 
 CRef SolverHandle::UidToCRef(Uid uid) {
 	return s->resolGraph.GetClauseRef(uid);
 }
+//Returns the clause recorded in the clause allocator. Note that a uid for a deleted clause will cause a crash here - use sh->getDelayedRemoval(uid) instead
 Clause& SolverHandle::getClause(Uid uid) {
+	assert(CRef_Undef != UidToCRef(uid));
 	return s->ca[UidToCRef(uid)];
 
 }
@@ -41,17 +47,17 @@ RRef SolverHandle::getResolRef(Uid uid) {
 	return s->resolGraph.GetResolRef(uid);
 }
 CRef SolverHandle::allocClause(vec<Lit>& lits, bool isLearned, bool isIc) {
-	return s->ca.alloc(lits, isLearned, isIc);
+	return s->ca.alloc(lits, isLearned, isIc, !isIc, true);
 }
 CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc) {
-	return s->ca.alloc(lits, isLearned, isIc);
+	return s->ca.alloc(lits, isLearned, isIc, !isIc, true);
 }
 void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents, vec<Uid>& remParents) {
 	Uid uid = CRefToUid(cref);
-	//if (5016 == uid) {
-	//	printf("SH adding %d\n", uid);
-	//}
 	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, remParents, allParents);
+	//if (5580 == uid) {
+	//	printClauseByUid(uid,"Clause " + std::to_string(uid));
+	//}
 }
 void SolverHandle::allocNonIcResol(CRef cref) {
 	s->resolGraph.AddRemainderResolution(CRefToUid(cref), cref);
@@ -64,9 +70,9 @@ void SolverHandle::analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out
 vec<Uid>& SolverHandle::getPoEC() {
 	return s->allPoEC;
 }
-vec<Lit>& SolverHandle::getPoEC_Piv() {
-	return s->allPoEC_pivots;
-}
+//vec<Lit>& SolverHandle::getPoEC_Piv() {
+//	return s->allPoEC_pivots;
+//}
 bool SolverHandle::inRhombus(Uid uid) {
 	return CRef_Undef == uid || s->map_cls_to_Tclause.find(uid) != s->map_cls_to_Tclause.end();
 }

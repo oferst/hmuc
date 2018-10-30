@@ -77,11 +77,10 @@ static void parse_DIMACS_main(B& in_param, CMinimalCore& core) {
                 continue;
             }
 
-            Clause::SetUid(cnt-1);
+            Clause::SetNextUid(cnt-1);
             S.addClause_(lits, true);
 
-            if (!S.okay())
-            {
+            if (!S.okay()) {
                 S.CreateResolVertex(cnt-1);
                 S.AddConflictingIc(cnt-1);
                 core.m_bIcInConfl = true;

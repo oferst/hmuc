@@ -176,7 +176,8 @@ inline void SimpSolver::updateElimHeap(Var v) {
 
 
 inline bool SimpSolver::addClause    (const vec<Lit>& ps, bool bIc)    { ps.copyTo(add_tmp); return addClause_(add_tmp, bIc); }
-inline bool SimpSolver::addEmptyClause()                     { add_tmp.clear(); return addClause_(add_tmp, false); }
+inline bool SimpSolver::addEmptyClause()                     { add_tmp.clear(); return 
+(add_tmp, false); }
 inline void SimpSolver::setFrozen    (Var v, bool b) { frozen[v] = (char)b; if (use_simplification && !b) { updateElimHeap(v); } }
 inline bool SimpSolver::solve        (                     bool do_simp, bool turn_off_simp)  { budgetOff(); assumptions.clear(); return solve_(do_simp, turn_off_simp) == l_True; }
 inline bool SimpSolver::solve        (Lit p       ,        bool do_simp, bool turn_off_simp)  { budgetOff(); assumptions.clear(); assumptions.push(p); return solve_(do_simp, turn_off_simp) == l_True; }

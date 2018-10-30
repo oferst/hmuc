@@ -155,21 +155,23 @@ class Clause {
         unsigned reloced   : 1;
         unsigned ic        : 1;
 		unsigned parentToIc : 1; //oferg To document
-        unsigned size      : 25;
+		unsigned hasUid	 : 1;
+		unsigned size      : 24;
 		
 	}                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
 
-    static uint32_t icUid;
+    static Uid nextUid;
     friend class ClauseAllocator;
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool use_extra, bool learnt, bool ic, bool isParentToIc=false) {
+    Clause(const V& ps, bool use_extra, bool learnt, bool ic, bool isParentToIc=false,bool hasUid = false, Uid uid = CRef_Undef) {
         header.mark      = 0;
         header.learnt    = learnt;
         header.ic      = ic;
 		header.parentToIc = isParentToIc;
+		header.hasUid = hasUid;// at the beginning, a non-ic Clause won't have an uid, even if it's a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
@@ -189,25 +191,23 @@ class Clause {
                 calcAbstraction(); 
 		}
 
-        //if (ic || isParentToIc)
-        //{
-            data[header.size + (int)header.has_extra].uid = icUid++;
+        if (ic) {
+			assert(!isParentToIc);
+            data[header.size + (int)header.has_extra].uid = nextUid++;
+        }
 
-
-        //}
     }
 
 public:
-    static uint32_t GetLastUid() { return icUid-1; }
-	static void DecreaseUid() {
-		//printf("decreased uid %d\n", icUid);
-		--icUid; }
-	static uint32_t SetUid(uint32_t newUid) { return icUid = newUid; }
+	static uint32_t GetNextUid() {return nextUid; }
+	static uint32_t GetLastUid() { return nextUid - 1; }
+	static void DecreaseUid() {  --nextUid; }
+	static uint32_t SetNextUid(uint32_t newUid) { return nextUid = newUid; }
 	void setIsParentToIc(bool isParent) {
 		header.parentToIc = isParent;
+		assert(!(header.parentToIc && header.ic));
 	}
-	void printClause(std::string text)
-	{
+	void printClause(std::string text) {
 		std::cout << text << std::endl;
 		for (int i = 0; i < this->size(); i++) {
 			Lit l = (*this)[i];
@@ -225,9 +225,7 @@ public:
 	}
 
 
-	bool isParentToIc() const{
-		return header.parentToIc;
-	}
+
     void calcAbstraction() {
         assert(header.has_extra);
         uint32_t abstraction = 0;
@@ -245,11 +243,17 @@ public:
             data[header.size-i + (int)header.has_extra] = data[header.size + (int)header.has_extra];
         header.size -= i; 
     }
-    void         pop         ()              { shrink(1); }
-    bool         learnt      ()      const   { return header.learnt; }
-    bool         ic        ()      const   { return header.ic; }
-    bool         has_extra   ()      const   { return header.has_extra; }
-    uint32_t     mark        ()      const   { return header.mark; }
+    void         pop         ()             { shrink(1); }
+    bool         learnt      ()      const  { return header.learnt; }
+    bool         ic			 ()      const	{ return header.ic; }
+	bool		 isParentToIc()		 const	{ return header.parentToIc; }
+	bool         hasUid		 ()      const  { return header.hasUid; }
+    bool         has_extra   ()      const  { return header.has_extra; }
+    uint32_t     mark        ()      const  { return header.mark; }
+	
+	// mark(0): default
+	// mark(1): can be deleted next time we garbage collect.  
+	// mark(2): remove, but do not remove from resolution graph (usually after mark(2) we update the reference to the clause in the resolution graph). 
 	void         mark(uint32_t m) { header.mark = m; }
     const Lit&   last        ()      const   { return data[header.size-1].lit; }
 
@@ -266,7 +270,7 @@ public:
     float&       activity    ()              { assert(header.has_extra); return data[header.size].act; }
 	float       activity() const{ assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
-    uint32_t&    uid         ()              { //assert(header.ic || header.parentToIc); 
+    uint32_t&    uid         ()              { assert(header.ic || (header.parentToIc&&header.hasUid)); 
 	return data[header.size + (int)header.has_extra].uid; }
     uint32_t     uid         () const        { //assert(header.ic || header.parentToIc); 
 	return data[header.size + (int)header.has_extra].uid; }
@@ -322,16 +326,15 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 	}
 
     template<class Lits>
-    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false, bool isParentToIc = false) {
+    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false, bool isParentToIc = false,bool hasUid=false) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool has_extra = learnt | extra_clause_field;
-		bool has_uid = true;
+		bool has_uid = ic || (isParentToIc&&hasUid);
 		
 		CRef newCr = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, has_uid));
-        new (lea(newCr)) Clause(ps, has_extra, learnt, ic, isParentToIc);
+        new (lea(newCr)) Clause(ps, has_extra, learnt, ic, isParentToIc, has_uid);
 		Clause& c = this->operator[](newCr);
-		//c.printClause("allocated cref " + std::to_string(newCr) + " uid "+ std::to_string(c.uid()));
         return newCr;
     }
 
@@ -351,12 +354,10 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra(), has_uid));
     }
 
-    void reloc(CRef& cr, ClauseAllocator& to)
-    {
+    void reloc(CRef& cr, ClauseAllocator& to) {
         Clause& c = operator[](cr);
-		uint32_t uid = c.uid();
         if (c.reloced()) { cr = c.relocation(); return; }     
-        cr = to.alloc(c, c.learnt(), c.ic() , c.isParentToIc());
+        cr = to.alloc(c, c.learnt(), c.ic() , c.isParentToIc(),c.hasUid());
         c.relocate(cr);
         
         // Copy extra data-fields: 
@@ -368,14 +369,33 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         else if (newC.has_extra())
 			newC.calcAbstraction();
         
-		if(true)
-		//if (newC.ic() || newC.isParentToIc())
-        {
+		if (newC.ic() || (newC.isParentToIc()&&newC.hasUid())) {
             // we don't want to increase uid here
-            Clause::icUid--;
+			assert(newC.ic() ^ newC.isParentToIc());
+			Clause::DecreaseUid();
 			newC.uid() = c.uid();
         }
     }
+	void relocWithUid(CRef& cr, ClauseAllocator& to,Uid uid) {
+		Clause& c = operator[](cr);
+		if (c.reloced()) { 
+			assert(to[c.relocation()].uid() == uid);
+			cr = c.relocation(); return; 
+		}
+		assert(c.ic() ^ c.isParentToIc());
+		cr = to.alloc(c, c.learnt(), c.ic(), c.isParentToIc(),true);
+		c.relocate(cr);
+		// Copy extra data-fields: 
+		// (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
+		Clause& newC = to[cr];
+		newC.mark(c.mark());
+		if (newC.learnt())
+			newC.activity() = c.activity();
+		else if (newC.has_extra())
+			newC.calcAbstraction();
+		newC.uid() = uid;
+		Clause::DecreaseUid();
+	}
 };
 
 

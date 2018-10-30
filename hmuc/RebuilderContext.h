@@ -3,6 +3,7 @@
 namespace Minisat {
 	class RebuilderContext
 	{
+	public:
 		//This map will contain all the pivotsMap for nodes that will be visited in the backwards traversal,
 		//every 'key' is the uid of a node, and it maps to a vector of literals - each literal is a pivot 
 		//between two consecutive parents of the node 'key'. Every pivot should be a member of the 'currParentUid'

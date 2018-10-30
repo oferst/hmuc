@@ -142,14 +142,11 @@ public:
         sort(*this);
         int nNewInd = 0;
         int nOldInd = 1;
-        for (; nOldInd < sz; ++nOldInd)
-        {
-            if (data[nNewInd] != data[nOldInd])
-            {
+        for (; nOldInd < sz; ++nOldInd) {
+            if (data[nNewInd] != data[nOldInd])  {
                 data[++nNewInd] = data[nOldInd];
             }
         }
-
         shrink_(nOldInd - nNewInd - 1);
     }
 

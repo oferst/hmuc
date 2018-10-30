@@ -27,6 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Alg.h"
 #include "utils/Options.h"
 #include "core/SolverTypes.h"
+#include "DelayedResolGraphAlloc.h"
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
 #include <vector>
@@ -34,6 +35,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <unordered_map>
 #include <map>
 #include <unordered_set>
+#include <tuple>
+#include <iostream>
+#include <fstream>
+using namespace std;
+
 // temporary, for testing a simplification of the code. 
 #define NewParents
 namespace Minisat {
@@ -54,11 +60,14 @@ enum pf_modes{
 //	Left, Right, Both, Either
 //} ParentUsed;
 
+
 class Solver {
 	friend class SolverHandle;
 public:
+	static int debug_flag;
 	void GeticUnits(vec<int>&);
-    void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
+    //void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
+	void GetUnsatCore(vec<Uid>& icCore, Set<Uid>& icAncestors, Set<Uid>& nonIcAncestors, bool debug = false, ostream& out = std::cout);
     void RemoveEverythingNotInRhombusOrMuc(Set<uint32_t>& cone, Set<uint32_t>& muc);
 	void RemoveClauses_withoutICparents(vec<uint32_t>& cone);
     void RemoveClauses(vec<uint32_t>& cone);
@@ -100,9 +109,8 @@ public:
 	
 	// PoEC - Parents of Empty Clause
 	vec<uint32_t> icPoEC; //ic parents of empty clause used in lpf_get_assumptions. Stores the ic parents of empty clause from the last unsat.
-	vec<uint32_t> allPoEC; //All parents of empty clause from the last unsat.
-	//vec<vec<Lit>> allPoEC_sortedLits; //All PoEC sorted clause contents from the last unsat. Used in BLM proof reconstruction. 
-	vec<Lit> allPoEC_pivots; //All PoEC pivots from the last unsat. Used in BLM proof reconstruction.
+	vec<uint32_t> allPoEC; //All parents of empty clause from the last unsat. They are only maintained for using the proof reconstruction algorithm, and are not actually used outside of it.
+	//vec<Lit> allPoEC_pivots; //All PoEC pivots from the last unsat. Used in BLM proof reconstruction.
 
 	
 	int pf_Literals;
@@ -206,6 +214,7 @@ public:
 
     // Mode of operation:
     //
+
     int       verbosity;
     double    var_decay;
     double    clause_decay;
@@ -248,6 +257,7 @@ public:
 	bool pf_early_unsat_terminate(); 
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
+	bool isRebuildingProof();
 	
 	//bool inRhombus(Uid uid);
 	//Uid updateClause(Uid uid, Lit BL, UidToLitVec& pivots, UidToUid& clauseUdates, UidToLitSet& newClauses_lits);
@@ -256,7 +266,7 @@ public:
 	//ParentUsed findParentsUsed(LitSet& leftLits, uint32_t rightParentUid, Lit piv, UidToLitSet& newClauses_lits);
 	//template<class T>
 	//int BackwardsTraversal(const Uid currUid, const T& initParents, const Lit BL, UidToLitVec& pivots, UidToUid& clausesUpdates, UidToLitSet& newClauses_lits,std::list<Uid>& out_parentsUidUpdates);
-	//Uid reconstructClause(const Uid currUid, const vec<Lit>& pivots, const int initPivIdx, const std::list<Uid>& parentsUpdate, UidToUid& clausesUpdates, UidToLitSet& newClauses_lits);
+	//Uid recalculateClause(const Uid currUid, const vec<Lit>& pivots, const int initPivIdx, const std::list<Uid>& parentsUpdate, UidToUid& clausesUpdates, UidToLitSet& newClauses_lits);
 
 	Uid ProveBackboneLiteral(Uid nodeId, Lit p, UidToLitVec& pivots, UidToUid& clauseUpdates, UidToLitSet& newClauses_lits);
 
@@ -279,7 +289,7 @@ public:
 	
 	void printLearntsDB();
 	void printTrail();
-	void printClauseByUid(uint32_t uid, std::string text);
+	void printClauseByUid(uint32_t uid, std::string text,ostream& out = std::cout);
  //   void printClause(FILE* f, Clause& c);
 	//	
 	//void printClause(FILE * f, vec<Lit>& v, std::string text="");	
@@ -308,7 +318,9 @@ protected:
     static inline VarData mkVarData(CRef cr, int l){ VarData d = {cr, l}; return d; }
 
     struct Watcher {
+		// the clause for which the watcher watched.
         CRef cref;
+		// The literal being watched by the watcher
         Lit  blocker;
         Watcher(CRef cr, Lit p) : cref(cr), blocker(p) {}
         bool operator==(const Watcher& w) const { return cref == w.cref; }
@@ -360,7 +372,8 @@ protected:
     bool                remove_satisfied; // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
 
     ClauseAllocator     ca;
-
+	std::unordered_map<CRef, Uid> nonIcUidDeferredAlloc;
+	DelayedResolGraphAlloc delayedAllocator;
 
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
@@ -394,13 +407,31 @@ protected:
 	
 	void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-	bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
-	
+	//bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
+	bool     litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents,DelayedResolGraphAlloc& delayedAllocator); // (helper method for 'analyze()')
 
-	//If in the analyze process we find a non-ic clause that participates in the resolution of a learned clause, then it might need to be allocated in the resolution graph as a remainder parent. This will take place in the case that the resulting learned clause has at least one icParent (meaning it's also an ic clause).
-	//We keep the CRefs and not just the Uids of these clauses so we could map back every allocated remainder clause back to its current place in the ClauseAllocator database.
-	vec<CRef> remParentsCRefsDeferredGraphAlloc;
+
+	//If in the analyze process we find a non-ic clause that participates 
+	//in the resolution of a learned clause, then it might need to be 
+	//allocated in the resolution graph as a remainder parent. This will 
+	//take place in the case that the resulting learned clause has at 
+	//least one icParent (meaning it's also an ic clause).
 	
+	//We keep the CRefs and not just the Uids of these clauses so we 
+	//could map back every allocated remainder clause back to its current 
+	//place in the ClauseAllocator database.
+	vec<std::tuple<CRef,int,int>> nonIcResolGraphDeferredAlloc;
+	Uid getUid(const Clause& c, CRef confl);
+
+	//void allocDeferredNonIcResNodes(
+	//	vec<std::tuple<CRef, int, int>>& nonIcResolGraphDeferredAlloc,
+	//	vec<uint32_t>& out_remParents,
+	//	vec<uint32_t>& out_allParents);
+	//void deferNonIcResNodes(CRef cref,
+	//	vec<std::tuple<CRef, int, int>>& nonIcResolGraphDeferredAlloc,
+	//	vec<uint32_t>& out_remParents,
+	//	vec<uint32_t>& out_allParents);
+
 	lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
@@ -408,7 +439,7 @@ protected:
 	void     removeSatisfied_vector(std::vector<CRef>& cs);							   // Called at decision level 0.
     void     rebuildOrderHeap ();
 
-	void updateResolutionGraph(Clause& cl, CRef cr);
+	void allocIcResNode(Clause& cl, CRef cr);
     // Maintaining Variable/Clause activity:
     //
     void     varDecayActivity ();                      // Decay all variables with the specified factor. Implemented by increasing the 'bump' value instead.
@@ -558,6 +589,12 @@ inline void     Solver::toDimacs     (const char* file){ vec<Lit> as; toDimacs(f
 inline void     Solver::toDimacs     (const char* file, Lit p){ vec<Lit> as; as.push(p); toDimacs(file, as); }
 inline void     Solver::toDimacs     (const char* file, Lit p, Lit q){ vec<Lit> as; as.push(p); as.push(q); toDimacs(file, as); }
 inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ vec<Lit> as; as.push(p); as.push(q); as.push(r); toDimacs(file, as); }
+
+
+
+
+
+
 
 //=================================================================================================
 // Debug etc:

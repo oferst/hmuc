@@ -26,16 +26,27 @@ void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParen
 }
 
 void CResolutionGraph::AddNewResolution
-    (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents){
-	//if (nNewClauseUid == 5016) {
-
-	//	printf("ADDING CLAUSE %d\n, CREF %d\n", nNewClauseUid, ref);
-
-	//}
+    (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& nonIcParents, const vec<Uid>& allParents){
+	//if (nNewClauseUid == 5421) printfVec(icParents, ("parents size: " + std::to_string(icParents.size())).c_str());
+	if (nNewClauseUid == 6299) {
+		printf("ADDING %d\n", nNewClauseUid);
+		printfVec(icParents, "icParents\n");
+		printfVec(nonIcParents, "nonIcParents\n");
+		printfVec(allParents, "allParents\n");
+		
+	}
 	m_UidToData.growTo(nNewClauseUid + 1);
-	RRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
+	RRef refResol = m_RA.alloc(icParents, nonIcParents, allParents, true);
+
+	//if (nNewClauseUid == 5421) {
+	//	printf("newIcParentsSize %d\n", GetResol(refResol).icParentsSize());
+	//	for (int i = 0; i < GetResol(refResol).icParentsSize(); ++i)
+	//		printf("%d ", GetResol(refResol).IcParents()[i]);
+	//	printf("\n");
+	//}
+
     // increase reference count for all the icparents
-	if (remParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
+	if (nonIcParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			CRef resRef = GetResolRef(allParents[nInd]);
 			if (resRef == CRef_Undef)
@@ -67,8 +78,7 @@ void CResolutionGraph::AddNewResolution
 void CResolutionGraph::AddNewResolution
 (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents) {
 	vec<uint32_t> dummy;
-	//if (nNewClauseUid == 5016)
-	//	printf("ADDIDNG NON IC PARENT %d\n", nNewClauseUid);
+	
 	AddNewResolution(nNewClauseUid, ref, icParents, dummy, dummy);
 }
 
@@ -82,6 +92,7 @@ void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) 
 	m_RA[refResol].header.m_nRefCount = 0;
 }
 void CResolutionGraph::DecreaseReference(uint32_t nUid){
+	//printf("nUid is %d\n", nUid);
 	RRef& ref = m_UidToData[nUid].m_ResolRef;
 	if (ref == CRef_Undef)
 		return;
@@ -95,8 +106,8 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
             DecreaseReference(parents[pUid]);
         }
 		// also decrease reference count for all the remParents (if any exist)
-		if (res.header.hasRemParents) {
-			parents = res.RemParents();
+		if (res.header.hasNonIcParents) {
+			parents = res.nonIcParents();
 
 			for (int pUid = 0; pUid < res.nonIcParentsSize(); ++pUid) {
 				DecreaseReference(parents[pUid]);
@@ -117,57 +128,34 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 	
 }
 
-void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcParents, Set<Uid>& rhombus)
+void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalClauses, Set<Uid>& rhombus,bool debug,ostream& out,std::string msg_prefix)
 {
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
 	assert(resol.header.ic);
     int icParentsSize = resol.icParentsSize();
 
-    if (icParentsSize == 0) {//if a clause is ic
-        allIcParents.push(nUid);
+    if (icParentsSize == 0) {//assuming a clause is ic, having no parents means it is an original clause (a root), and we add it as such and stop.
+        allIcOriginalClauses.push(nUid);
+		if (nUid == 454) {
+
+			printf("~~~~~~GetOriginalParentsUids~~~~ found %d\n", nUid);
+		}
+		//if (debug) {
+		//	out << nUid << std::endl;
+		//	//msg_prefix += "\t";
+		//
+		//}
         return;
     }
     uint32_t* icParents = resol.IcParents();
     for (int i = 0; i < icParentsSize; ++i) {
 		assert(GetResol(GetResolRef(icParents[i])).header.ic);
-        if (rhombus.insert(icParents[i]))
-			GetOriginalParentsUids(icParents[i], allIcParents, rhombus);
+        if (rhombus.insert(icParents[i])){
+			GetOriginalParentsUids(icParents[i], allIcOriginalClauses, rhombus, debug,out,msg_prefix);
+		}
      }
  }
 
- /*
-void CResolutionGraph::BuildBackwardResolution()
-{
-    // clean all the maps
-    RemoveDeleted();
-    vec<uint32_t> dummy;
-    // pass over ResolutionMap and create corresponding vectors
-    for (int nBucket = 0; nBucket < m_ResolutionMap.bucket_count(); ++nBucket)
-    {
-        // each bucket its a pair between uid to vector of uids
-        const vec< Map<uint32_t, vec<uint32_t> >::Pair>&  pairs = m_ResolutionMap.bucket(nBucket);
-        for (int nPair = 0; nPair < pairs.size(); ++nPair)
-        {
-            const Map<uint32_t, vec<uint32_t> >::Pair&  pair = pairs[nPair];
-            dummy.push(pair.key);
-            int nParents = pair.data.size();
-            for (int nParent = 0; nParent < nParents; ++nParent)
-            {
-                if (m_BackwardResolutionMap.has(pair.data[nParent]))
-                {
-                    m_BackwardResolutionMap[pair.data[nParent]].push(pair.key);
-                }
-                else
-                {
-                    m_BackwardResolutionMap.insert(pair.data[nParent], dummy);
-                }
-            }
-
-            dummy.pop();
-        }
-    }
-}
-*/
 void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone) {
     Set<uint32_t> set;
     set.add(cone);

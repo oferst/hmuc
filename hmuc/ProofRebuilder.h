@@ -1,6 +1,7 @@
 #pragma once
 #include "SolverHandle.h"
 #include "RebuilderContext.h"
+#include "Printer.h"
 
 namespace Minisat {
 
@@ -50,7 +51,7 @@ struct ClauseData {
 	}
 	
 	template<class T>
-	void setNonIc(const T& lits)  {
+	void setDeferredClauseData(const T& lits)  {
 		assert(Uninitialized == status);
 		status = Deferred;
 		clauseContent = new LitSet();
@@ -59,13 +60,14 @@ struct ClauseData {
 	}
 	~ClauseData() {
 		if (status == Deferred) 
-				free(clauseContent);
+				delete(clauseContent);
 	}
+	
 };
 
 struct ReconstructionResult {
 	LitSet newClause;
-	std::list<ClauseData> parentsCandidates;
+	std::list<ClauseData> rebuiltParentsCandidates;
 	std::list<ClauseData*> parentsUsed;
 	bool isIc;
 	ReconstructionResult() : isIc(false) {}
@@ -82,6 +84,7 @@ class ProofRebuilder{
 	//A handle for the underlaying solver used to create the resolution graph.
 	SolverHandle* sh;
 	//A DB containing the current state of the proof rebuilding process.
+public:
 	RebuilderContext* ctx;
 	bool memberOfClause(Uid u, const Lit& l);
 	
@@ -90,8 +93,24 @@ class ProofRebuilder{
 
 	void clearCandidateParents(ReconstructionResult& reconRes);
 	void addCandidateParent(Uid uid, bool isIc, ReconstructionResult& reconRes);
+
 public:
+	static int depth_debug;
 	int verbose = 0;
+	void printClauseData(const ClauseData& cd, const std::string& text) {
+		switch(cd.status){
+		case Allocated:
+			sh->printClauseByUid(cd.clauseUid, text + " (A)"); break;
+		case Deferred:
+			printClause(*cd.clauseContent, text + " (D)"); break;
+		case Uninitialized:
+			printf((text + " (U)\n").c_str()); break;
+		default: assert(0);
+		}
+	}
+
+
+
 	ProofRebuilder(SolverHandle* sh,RebuilderContext* ctx);
 
 	void RebuildProof(
@@ -111,7 +130,7 @@ public:
 							const vec<Lit>& currPivots,
 							std::list<ClauseData>& rebuiltparentsData);
 
-	void reconstructClause(
+	void calculateClause(
 							const Uid currUid,
 							const Lit& BL, 
 							const vec<Lit>& currPivots, 

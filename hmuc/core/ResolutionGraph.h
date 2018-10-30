@@ -6,7 +6,9 @@
 #include "core/SolverTypes.h"
 #include<unordered_map>
 #include <string.h>
-
+#include <iostream>
+#include <fstream>
+using namespace std;
 namespace Minisat
 {
 	typedef CRef RRef; //RRef - Resolution Ref
@@ -32,7 +34,7 @@ public:
     vec<uint32_t> m_Children;
 	struct {
 		unsigned ic : 1;
-		unsigned hasRemParents : 1; //if this flag is turned on, then this node contains some remainder clauses as parents (in m_Parents below) - can only active when using opt-blm-rebuild-proof to findParentsUsed a proof in a BLM calc
+		unsigned hasNonIcParents : 1; //if this flag is turned on, then this node contains some remainder clauses as parents (in m_Parents below) - can only active when using opt-blm-rebuild-proof to findParentsUsed a proof in a BLM calc
 		unsigned m_nRefCount : 30; // the number of nodes (this node + children) known to be ic by this node. Basically the count of all the ic children and (if this node is ic) itself
 
 	} header; //take up 1 32-bit words in memory
@@ -40,10 +42,10 @@ public:
 		uint32_t icSize;
         uint32_t icParent;
 
-		uint32_t remSize;//size of parnets who are remainder clauses (at the time of creating this Resol node)
-		uint32_t remParent; // uid of parnets who are remainder clauses (at the time of creating this Resol node)
-		uint32_t guideFlags;
-		//an ordering  guide (implemented as a boolean array packed to uint32_t array) to the location of each parnet (ic or rem) in the node - 0 means to look for it in the rem part - while 1 means to look for the ic part. This array tracks to total ordering of the parents as it was determined in creating the node (the arder of the parents during the analyze conflict call is the order kept here)
+		uint32_t remSize;//number of non-ic parnet clauses (at the time of creating this Resol node)
+		uint32_t remParent; //uid of non-ic parnet clause (at the time of creating this Resol node)
+		uint32_t guideFlags;//an ordering  guide (implemented as a boolean array packed to uint32_t array) to the location of each parnet (ic or non-ic) in the node - 0 is non-ic part - while 1 is an ic. This array implements a total ordering of the parents as was defined by the resolution order that created the current Resol node.
+		
 
 
     } m_Parents[0];
@@ -55,33 +57,30 @@ public:
     uint32_t* IcParents(){
        return &m_Parents[IC_OFFSET].icParent;
     }
-	uint32_t* RemParents(){
-		return (header.hasRemParents) ? &m_Parents[IC_OFFSET + icParentsSize() + NON_IC_OFFSET].remParent : NULL;
+	uint32_t* nonIcParents(){
+		return (header.hasNonIcParents) ? &m_Parents[IC_OFFSET + icParentsSize() + NON_IC_OFFSET].remParent : NULL;
 	}
     inline int icParentsSize() const{
         return m_Parents[0].icSize;
     }
 	inline int nonIcParentsSize() const{
-		return (!header.hasRemParents) ? 0 : m_Parents[IC_OFFSET + icParentsSize()].remSize;
+		return (!header.hasNonIcParents) ? 0 : m_Parents[IC_OFFSET + icParentsSize()].remSize;
 	}
 	
-	//this function returns the size of the addidtional data in case remainder clases are saved in a resol node, in units of 32-bit words
-	inline int additionalRemDataSize() const {
-		if (!header.hasRemParents)
+	//this function returns the size (i.e. number of 32-bit words) of the additional data in case non-ic clauses are recorded in the resol node
+	inline int additionalNonIcDataSize() const {
+		if (!header.hasNonIcParents)
 			return 0;
 		int totalParentsNum = icParentsSize() + nonIcParentsSize();
-		//the +1 is for the cell holding the number of remainders - 
-		//all the rest are for the size of the flag array
+		//the +1 is for the word containing the number of non-ic parents - 
+		//while the rest is the size of the flag array
 		return  1 + (totalParentsNum / 32) + (int)((totalParentsNum % 32) != 0); 
 	}
-    uint32_t sizeIn32Bit() const
-    {
+    uint32_t sizeIn32Bit() const {
 		int totalParentsNum = icParentsSize() + nonIcParentsSize();
-		
-        return SIZE + totalParentsNum + additionalRemDataSize(); //if remainders exists, add 1 for their header
+        return SIZE + totalParentsNum + additionalNonIcDataSize();
     }
-	uint32_t size() const
-	{
+	uint32_t size() const {
 		return icParentsSize() + nonIcParentsSize();
 	}
 
@@ -97,13 +96,14 @@ public:
         m_Parents[0].icSize = icParents.size();
 		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
 		if (remParents.size() == 0) {
-			header.hasRemParents = 0;
+			header.hasNonIcParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
 				ics[i] = icParents[i];
+
 			}
 		}
 		else { // remParents.size() > 0
-			header.hasRemParents = 1;
+			header.hasNonIcParents = 1;
 			m_Parents[IC_OFFSET + icParents.size()].remSize = remParents.size();
 			uint32_t * rems = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET].remParent);
 			uint32_t * flags = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET + nonIcParentsSize()].guideFlags);
@@ -153,7 +153,7 @@ public:
 		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
 		void updateIdxs() {
 			//printf("before - icIdx: %d, remIdx: %d\n", icIdx, remIdx);
-			if (!r.header.hasRemParents | (f_mask & f_word)) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
+			if (!r.header.hasNonIcParents | (f_mask & f_word)) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
 				icIdx++;
 			else
 				remIdx++;
@@ -166,8 +166,8 @@ public:
 			idx(_idx), 
 			icIdx(-1),
 			remIdx(-1), 
-			flags( (_r.header.hasRemParents) ? &(_r.m_Parents[IC_OFFSET + _r.icParentsSize() +NON_IC_OFFSET+ _r.nonIcParentsSize()].guideFlags) : NULL ){
-			if (r.header.hasRemParents) {
+			flags( (_r.header.hasNonIcParents) ? &(_r.m_Parents[IC_OFFSET + _r.icParentsSize() +NON_IC_OFFSET+ _r.nonIcParentsSize()].guideFlags) : NULL ){
+			if (r.header.hasNonIcParents) {
 				initFlags();
 			}
 			updateIdxs();
@@ -181,7 +181,7 @@ public:
 				//if already at the end of the iterator, do nothing to actually increment it.
 				idx = size;
 			else {
-				if (r.header.hasRemParents) {
+				if (r.header.hasNonIcParents) {
 					//remainder parents exist, use flag array to increment between ic and rem parents
 					incFlagData();
 				}
@@ -192,7 +192,7 @@ public:
 		const uint32_t& operator*() const {
 			if (idx >= size)
 				return CRef_Undef;
-			else if (r.header.hasRemParents && !(f_mask & f_word)) //next parent is a remainder parent
+			else if (r.header.hasNonIcParents && !(f_mask & f_word)) //next parent is a remainder parent
 				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
 			else {
 				return r.m_Parents[IC_OFFSET + icIdx].icParent;
@@ -227,7 +227,7 @@ public:
 		}
 		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
 		void updateIdxs() {
-			if (!r.header.hasRemParents || f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
+			if (!r.header.hasNonIcParents || f_mask & f_word) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
 				--icIdx;
 			else
 				--remIdx;
@@ -239,8 +239,8 @@ public:
 			idx(_idx), 
 			icIdx(_r.icParentsSize()), 
 			remIdx(_r.nonIcParentsSize()), 
-			flags((_r.header.hasRemParents) ? &(_r.m_Parents[IC_OFFSET + _r.icParentsSize()+NON_IC_OFFSET + _r.nonIcParentsSize()].guideFlags) : NULL) {
-			if (r.header.hasRemParents)
+			flags((_r.header.hasNonIcParents) ? &(_r.m_Parents[IC_OFFSET + _r.icParentsSize()+NON_IC_OFFSET + _r.nonIcParentsSize()].guideFlags) : NULL) {
+			if (r.header.hasNonIcParents)
 				initFlags();
 			updateIdxs();
 		}
@@ -253,7 +253,7 @@ public:
 				//if already at the start of the iterator, do nothing to actually decrement it.
 				idx = -1;
 			else {
-				if (r.header.hasRemParents) {
+				if (r.header.hasNonIcParents) {
 					//remainder parents exist, use flag array to decrement between ic and rem parents.
 					decFlagData();
 				}
@@ -264,7 +264,7 @@ public:
 		const uint32_t& operator*() const {
 			if (idx <= -1)
 				return CRef_Undef;
-			else if (r.header.hasRemParents && !(f_mask & f_word)) //next parent is a remainder parent
+			else if (r.header.hasNonIcParents && !(f_mask & f_word)) //next parent is a remainder parent
 				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
 			else { //next parent is an ic parent
 				return r.m_Parents[IC_OFFSET + icIdx].icParent;
@@ -383,29 +383,23 @@ public:
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
-        m_UidToData[nUid].m_ClauseRef = newRef;
+		m_UidToData[nUid].m_ClauseRef = newRef;
     }
 	void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
-    CRef GetClauseRef(uint32_t nUid) const // formerly 'GetInd'
-    {
-        return m_UidToData[nUid].m_ClauseRef;
+    CRef GetClauseRef(uint32_t nUid, bool isIc=true) const {// formerly 'GetInd'
+		return m_UidToData[nUid].m_ClauseRef;
     }
 
-    RRef GetResolRef(uint32_t nUid) // Formerly 'GetResolId'
-    { 
+    RRef GetResolRef(uint32_t nUid) { // Formerly 'GetResolId
         return m_UidToData[nUid].m_ResolRef;
     }
 
     void DeleteClause(uint32_t nUid) {
-        DecreaseReference(nUid);
-        m_UidToData[nUid].m_ClauseRef = CRef_Undef;
+		DecreaseReference(nUid);
+		m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
 
-    void GetOriginalParentsUids(Uid nUid, vec<Uid>& parents, Set<Uid>& checked);
-
-    //void BuildBackwardResolution();
-
-    //void DestroyBackwardResolution();
+    void GetOriginalParentsUids(Uid nUid, vec<Uid>& parents, Set<Uid>& checked,bool debug=false,ostream& out = std::cout,std::string msg_prefix = "");
 
     void GetClausesCones(vec<uint32_t>& cone);
 
@@ -429,8 +423,7 @@ public:
         return GetResolRef(uid) != RRef_Undef;
     }
 
-    uint32_t GetMaxUid() const
-    {
+    uint32_t GetMaxIcUid() const {
         return m_UidToData.size();
     }
 
@@ -449,8 +442,9 @@ public:
         Pair() : m_ClauseRef(CRef_Undef) , m_ResolRef(CRef_Undef)
         {}
     };
-    // Map that contains mapping between clause uid to its ind in clause buffer
+    // Map that contains mapping between an clause uid to its ind in clause buffer
     vec<Pair> m_UidToData;
+
 private:
     void DecreaseReference(uint32_t nUid);
 

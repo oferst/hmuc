@@ -10,12 +10,13 @@ namespace Minisat {
 		Solver* s;
 
 	public:
+	
 		SolverHandle(Solver* _s);
 		virtual ~SolverHandle();
 
 
 		virtual vec<Uid>& getPoEC();
-		virtual vec<Lit>& getPoEC_Piv();
+		//virtual vec<Lit>& getPoEC_Piv();
 		virtual Uid CRefToUid(CRef cref);
 		virtual CRef UidToCRef(Uid uid);
 		virtual Clause& getClause(Uid uid);
@@ -34,8 +35,8 @@ namespace Minisat {
 		
 		virtual void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 
-		void printClauseByUid(Uid uid, const std::string& msg) { 
-			s->printClauseByUid(uid, msg); 
+		void printClauseByUid(Uid uid, const std::string& msg,ostream& out=std::cout) { 
+			s->printClauseByUid(uid, msg, out);
 		}
 		
 		//void setVerbose(int n) {
