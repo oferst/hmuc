@@ -90,6 +90,8 @@ public:
 	
 	template<class T>
 	bool validateResolution(Uid resultClause, T& parents,vec<Lit>& pivots);
+	template<class T>
+	bool validateResolution(LitSet& clause, T& parents);
 
 	void clearCandidateParents(ReconstructionResult& reconRes);
 	void addCandidateParent(Uid uid, bool isIc, ReconstructionResult& reconRes);

@@ -20,17 +20,16 @@ bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 	return false;
 }
 template<class T>
-bool ProofRebuilder::validateResolution(Uid uid, T& parents) {
+bool ProofRebuilder::validateResolution(LitSet& clause, T& parents) {
 
 	LitSet actualClause;
-	ResolValidation v = ResolValidation(ctx->getClauseLits(uid));
-	bool pivotsMatch = true;
-	int i = 0;
+	ResolValidation v = ResolValidation(clause);
+	//bool pivotsMatch = true;
+	//int i = 0;
 	for (auto& p : parents) {
 		Lit piv = resolveWithOverwrite(actualClause, ctx->getClauseLits(p), v);
-		pivotsMatch = pivotsMatch && (piv == pivots[i++]);
 	}
-	return ((pivots.size() == i) && pivotsMatch && (actualClause == ctx->getClauseLits(uid)) && v.valid);
+	return (actualClause == clause && v.valid);
 
 }
 
@@ -127,7 +126,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		Lit negBL = negConflAssumptions[i];
 		//the backbone literal itself, what we aim to prove, ~l.
 		Lit BL = ~negBL;
-		//printf("CURRENT BL: %d\n", BL.x);
+		printf("CURRENT BL: %d\n", BL.x);
 		ctx->clearUpdates();
 		allParents.push_back(ClauseData(BL));
 		ClauseData& newUnitParent = allParents.back();
@@ -136,6 +135,13 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 			proveBackboneLiteral - The main work is done here
 		*********************************************************/
 		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
+		if (BL.x == 153) { //BL = -77
+			ofstream  out;
+			out.open("C:/temp/reconstructionPairs.txt", ios::out);
+			for (std::pair<const Uid, Uid>& p : ctx->clausesUpdates) {
+				out << p.first << " -> " << p.second << std::endl;
+			}
+		}
 		result.isIc = result.isIc || Allocated == newUnitParent.status;
 	}
 
@@ -457,7 +463,7 @@ Uid ProofRebuilder::
 			LitSet& c = ctx->getClauseLits(newUid);
 			replaceContent(c, newClause);
 			
-			validateResolution(reconRes.newClause, allParents);
+			assert(validateResolution(reconRes.newClause, allParents));
 		 }
 	}
 	ctx->isIc(newUid) = true;
@@ -692,7 +698,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 
 
 	calculateClause(currUid,BL, currPivots, reconRes);
-	assert(validateResolution(currUid, updatedParents, updatePivots));
+	
 	/*********************************
 		Allocate clause, if needed.
 	**********************************/
@@ -824,7 +830,6 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidat
 		if (validation.valid) {
 			if (!member(l, validation.targetClause) && member(var(l), validation.pivotVars)) {
 				validation.valid = false;
-				//throw ResolutionException("A pivot or its negation appears in the resolved clause."); 
 			}
 		}
 	}

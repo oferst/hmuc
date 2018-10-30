@@ -171,7 +171,7 @@ class Clause {
         header.learnt    = learnt;
         header.ic      = ic;
 		header.parentToIc = isParentToIc;
-		header.hasUid = hasUid;// at the beginning, a non-ic Clause won't have an uid, even if it's a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
+		header.hasUid = hasUid;// initially, a non-ic Clause wouldn't have an uid (internally), even if it's a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();

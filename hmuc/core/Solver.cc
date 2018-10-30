@@ -805,7 +805,7 @@ CRef Solver::propagate()
 
                         // after allocating new clause cr cannot be used because of possible memory relocation
 						assert(c.ic() ^ c.isParentToIc());
-						CRef newCr = ca.alloc(add_tmp, false, c.ic(),c.isParentToIc(),c.hasUid());
+						CRef newCr = ca.alloc(add_tmp, false, true,false,true);
                         Clause::DecreaseUid();
                         ca[newCr].uid() = uid;
                         ca[cr].mark(2);
@@ -1349,13 +1349,7 @@ lbool Solver::search(int nof_conflicts)
 							
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
 							const Uid C = nICtoRemove;
-							if (C == 454) {
-								ofstream  out;
-								out.open("C:/temp/reconstructionPairs.txt", ios::out);
-								for (std::pair<const Uid, Uid>& p : ctx.clausesUpdates) {
-									out << p.first << " -> " << p.second << std::endl;
-								}
-							}
+
 
 
 							//printf("-\n-\n-\n-\n-\n-\n-\n-\ndepth debug = %d\n-\n-\n-\n-\n-\n-\n",++pr.depth_debug);
