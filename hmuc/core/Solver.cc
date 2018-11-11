@@ -1716,14 +1716,13 @@ void Solver::relocAll(ClauseAllocator& to)
 		CRef prevCr = pair.first;
 		CRef cref = pair.first;
 		Uid uid = pair.second;
-		if (prevCr == 28057) {
-			printClause(ca[prevCr], "old Clause");
-		}
+		//if (prevCr == 28057) {
+		//	printClause(ca[prevCr], "old Clause");
+		//}
 		ca.relocWithUid(cref, to, uid);
 		if (resolGraph.m_UidToData[uid].m_ResolRef != CRef_Undef) {
 			if (cref == 17180) {
-				
-				printClause(to[cref], "new Clause");
+				//printClause(to[cref], "new Clause");
 				printf("%d reallocated to %d\n", prevCr, cref);
 			}
 			resolGraph.UpdateClauseRef(uid, cref);
@@ -1741,12 +1740,12 @@ void Solver::relocAll(ClauseAllocator& to)
             vec<Watcher>& ws = watches[p];
             for (int j = 0; j < ws.size(); j++){
 				CRef prevCr = ws[j].cref;
-				if (prevCr == 28057) {
-					printClause(ca[prevCr], "old Clause 1");
-				}
+				//if (prevCr == 28057) {
+				//	printClause(ca[prevCr], "old Clause 1");
+				//}
                 ca.reloc(ws[j].cref, to);
 				if (ws[j].cref == 17180) {
-					printClause(to[ws[j].cref], "new Clause");
+					//printClause(to[ws[j].cref], "new Clause");
 					printf("%d reallocated to %d\n", prevCr, ws[j].cref);
 				}
 			}
@@ -1758,12 +1757,12 @@ void Solver::relocAll(ClauseAllocator& to)
         Var v = var(trail[i]);
 		if (reason(v) != CRef_Undef && (ca[reason(v)].reloced() || locked(ca[reason(v)]))) {
 			CRef prevCr = vardata[v].reason;
-			if (prevCr == 28057) {
-				printClause(ca[prevCr], "old Clause");
-			}
+			//if (prevCr == 28057) {
+			//	printClause(ca[prevCr], "old Clause");
+			//}
 			ca.reloc(vardata[v].reason, to);
 			if (vardata[v].reason == 17180) {
-				printClause(to[vardata[v].reason], "new Clause");
+				//printClause(to[vardata[v].reason], "new Clause");
 				printf("%d reallocated to %d\n", prevCr, vardata[v].reason);
 			}
 		}
@@ -1774,12 +1773,12 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < learnts.size(); i++) {
 		Uid uid;
 		CRef prevCr = learnts[i];
-		if (prevCr == 28057) {
-			printClause(ca[prevCr], "old Clause");
-		}
+		//if (prevCr == 28057) {
+		//	printClause(ca[prevCr], "old Clause");
+		//}
         ca.reloc(learnts[i], to);
 		if (learnts[i] == 17180) {
-			printClause(to[learnts[i]], "new Clause");
+			//printClause(to[learnts[i]], "new Clause");
 			printf("%d reallocated to %d\n", prevCr, learnts[i]);
 
 		}
@@ -1797,13 +1796,13 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < clauses.size(); i++)  {
 		Uid uid;
 		CRef prevCr = clauses[i];
-		if (prevCr == 28057) {
-			printClause(ca[prevCr], "old Clause");
-		}
+		//if (prevCr == 28057) {
+		//	printClause(ca[prevCr], "old Clause");
+		//}
 		ca.reloc(clauses[i], to); //this changes the value of clauses[i] (passed by ref)
 		if (clauses[i] == 17180) {
 			
-			printClause(to[clauses[i]], "new Clause");
+			//printClause(to[clauses[i]], "new Clause");
 			printf("%d reallocated to %d\n", prevCr, clauses[i]);
 		}
 		//Clause& c = to[clauses[i]];
@@ -1822,9 +1821,9 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < icUnitClauses.size(); i++)
     {
 		CRef prevCr = icUnitClauses[i];
-		if (prevCr == 28057) {
-			printClause(ca[prevCr], "old Clause");
-		}
+		//if (prevCr == 28057) {
+		//	printClause(ca[prevCr], "old Clause");
+		//}
 		ca.reloc(icUnitClauses[i], to);
 		if (icUnitClauses[i] == 17180) {
 			printClause(to[icUnitClauses[i]], "new Clause");
@@ -2096,20 +2095,20 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid) {
     }
 }
 
-// 'cone' contains root clauses to be re-binded as normal (not IC) clauses (because of rotation). 
-void Solver::GroupBindClauses(vec<uint32_t>& cone)
+// 'UidsToBind' contains root clauses to be re-binded as normal (not IC) clauses (because of rotation). 
+void Solver::GroupBindClauses(vec<uint32_t>& UidsToBind)
 {
     if (opt_bind_as_orig == 0) return;    
 
     if (opt_bind_as_orig == 2)
     {		
-        resolGraph.AddNewRemainderUidsFromCone(setGood, cone); // setGood will now contain clauses that all their allParentsCRef are not IC
-        resolGraph.GetClausesCones(cone);  // This adds to cone all its cones. 
+        resolGraph.AddNewRemainderUidsFromCone(setGood, UidsToBind); // setGood will now contain clauses that all their allParentsCRef are not IC
+        resolGraph.GetClausesCones(UidsToBind);  // This adds to cone all its cones. 
     }
 	    
-    for (int i = 0; i < cone.size(); ++i)
+    for (int i = 0; i < UidsToBind.size(); ++i)
     {
-        uint32_t uid = cone[i];
+        uint32_t uid = UidsToBind[i];
         CRef cr = resolGraph.GetClauseRef(uid);
         if (cr != CRef_Undef)
         {
@@ -2161,7 +2160,7 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
                 enqueue(analyze_stack[0]);
             }
             else {
-                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false,c.hasUid()); // normal clause, not IC. The literals are in analyze_stack.
+                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false,false); // normal clause, not IC. The literals are in analyze_stack.
                 clauses.push(newCr);
                 attachClause(newCr);
                 if (opt_use_clauses)
@@ -2171,9 +2170,9 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
     }
 
     watches.cleanAll();
-    for (int i = 0; i < cone.size(); ++i)
+    for (int i = 0; i < UidsToBind.size(); ++i)
     {
-        uint32_t uid = cone[i];
+        uint32_t uid = UidsToBind[i];
         if (resolGraph.ValidUid(uid) && resolGraph.GetParentsNumber(uid) == 0)
         {
             CRef cr = resolGraph.GetClauseRef(uid);

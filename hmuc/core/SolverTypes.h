@@ -334,7 +334,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         new (lea(newCr)) Clause(ps, has_extra, learnt, ic, has_uid);
 		if (17180 == newCr) {
 			Clause& c = this->operator[](newCr);
-			std::string txt = "SELF PRINT CLAUSE";
+			std::string txt = "17180 clause alloc";
 			c.printClause(txt);
 		}
         return newCr;
