@@ -138,7 +138,7 @@ public:
 							const vec<Lit>& currPivots, 
 							ReconstructionResult& reconRes);
 	void allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids, vec<Uid>& nonIcUids);
-	Uid allocReconstructedClause(
+	Uid allocReconstructedICClause(
 								const Uid& currUid, 
 								ReconstructionResult& reconRes,
 								const Lit& BL);

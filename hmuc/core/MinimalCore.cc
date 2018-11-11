@@ -732,7 +732,7 @@ namespace Minisat {
 				else m_Solver.RemoveClauses(vecUidsToRemove); // remove all their cones. 
 				vecUidsToRemove.clear();
 			}
-			printf("C - cluase removed - %d\n", nIcForRemove);
+			//printf("C - cluase removed - %d\n", nIcForRemove);
 			vecUidsToRemove.push(nIcForRemove);
 
 			// removes cone(nIcForRemove);

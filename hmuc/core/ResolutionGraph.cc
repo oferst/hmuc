@@ -27,14 +27,6 @@ void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParen
 
 void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& nonIcParents, const vec<Uid>& allParents){
-	//if (nNewClauseUid == 5421) printfVec(icParents, ("parents size: " + std::to_string(icParents.size())).c_str());
-	if (nNewClauseUid == 6299) {
-		printf("ADDING %d\n", nNewClauseUid);
-		printfVec(icParents, "icParents\n");
-		printfVec(nonIcParents, "nonIcParents\n");
-		printfVec(allParents, "allParents\n");
-		
-	}
 	m_UidToData.growTo(nNewClauseUid + 1);
 	RRef refResol = m_RA.alloc(icParents, nonIcParents, allParents, true);
 
@@ -92,7 +84,6 @@ void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) 
 	m_RA[refResol].header.m_nRefCount = 0;
 }
 void CResolutionGraph::DecreaseReference(uint32_t nUid){
-	//printf("nUid is %d\n", nUid);
 	RRef& ref = m_UidToData[nUid].m_ResolRef;
 	if (ref == CRef_Undef)
 		return;
@@ -136,10 +127,10 @@ void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalC
 
     if (icParentsSize == 0) {//assuming a clause is ic, having no parents means it is an original clause (a root), and we add it as such and stop.
         allIcOriginalClauses.push(nUid);
-		if (nUid == 454) {
+		//if (nUid == 454) {
 
-			printf("~~~~~~GetOriginalParentsUids~~~~ found %d\n", nUid);
-		}
+		//	printf("~~~~~~GetOriginalParentsUids~~~~ found %d\n", nUid);
+		//}
 		//if (debug) {
 		//	out << nUid << std::endl;
 		//	//msg_prefix += "\t";

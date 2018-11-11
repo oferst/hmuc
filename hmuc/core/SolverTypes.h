@@ -34,6 +34,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <unordered_map>
 #include <unordered_set>
 
+
 namespace Minisat {
 
 //=================================================================================================
@@ -154,9 +155,9 @@ class Clause {
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned ic        : 1;
-		unsigned parentToIc : 1; //oferg To document
+		//unsigned parentToIc : 1; //oferg To document
 		unsigned hasUid	 : 1;
-		unsigned size      : 24;
+		unsigned size      : 25;
 		
 	}                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
@@ -166,12 +167,12 @@ class Clause {
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool use_extra, bool learnt, bool ic, bool isParentToIc=false,bool hasUid = false, Uid uid = CRef_Undef) {
+    Clause(const V& ps, bool use_extra, bool learnt, bool ic,bool hasUid = false) {
         header.mark      = 0;
         header.learnt    = learnt;
         header.ic      = ic;
-		header.parentToIc = isParentToIc;
-		header.hasUid = hasUid;// initially, a non-ic Clause wouldn't have an uid (internally), even if it's a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
+		//header.parentToIc = isParentToIc;
+		header.hasUid = ic | hasUid;// initially, a non-ic Clause wouldn't have an uid (internally), even if it's a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
@@ -181,9 +182,6 @@ class Clause {
 			data[i++].lit = l;
 		}
 
-        //for (int i = 0; i < ps.size(); i++) 
-        //    data[i].lit = ps[i];
-
         if (header.has_extra){
             if (header.learnt)
                 data[header.size].act = 0; 
@@ -191,8 +189,7 @@ class Clause {
                 calcAbstraction(); 
 		}
 
-        if (ic) {
-			assert(!isParentToIc);
+        if (ic || hasUid) {
             data[header.size + (int)header.has_extra].uid = nextUid++;
         }
 
@@ -203,10 +200,10 @@ public:
 	static uint32_t GetLastUid() { return nextUid - 1; }
 	static void DecreaseUid() {  --nextUid; }
 	static uint32_t SetNextUid(uint32_t newUid) { return nextUid = newUid; }
-	void setIsParentToIc(bool isParent) {
-		header.parentToIc = isParent;
-		assert(!(header.parentToIc && header.ic));
-	}
+	//void setIsParentToIc(bool isParent) {
+	//	header.parentToIc = isParent;
+	//	assert(!(header.parentToIc && header.ic));
+	//}
 	void printClause(std::string text) {
 		std::cout << text << std::endl;
 		for (int i = 0; i < this->size(); i++) {
@@ -239,14 +236,15 @@ public:
         assert(i <= size()); 
         if (header.has_extra) 
             data[header.size-i] = data[header.size]; 
-        if (header.ic || header.parentToIc)
+        if (header.ic || header.hasUid)
             data[header.size-i + (int)header.has_extra] = data[header.size + (int)header.has_extra];
         header.size -= i; 
     }
     void         pop         ()             { shrink(1); }
     bool         learnt      ()      const  { return header.learnt; }
     bool         ic			 ()      const	{ return header.ic; }
-	bool		 isParentToIc()		 const	{ return header.parentToIc; }
+	//bool		 isParentToIc()		 const	{ return header.parentToIc; }
+	//Queries whether a Clause object contains Uid data (internally). A clause might have a Uid associated with it that is not kept in the Clause object itself (i.e. the Uid is kept externally), and in this case the query will return 'false' for such clauses.
 	bool         hasUid		 ()      const  { return header.hasUid; }
     bool         has_extra   ()      const  { return header.has_extra; }
     uint32_t     mark        ()      const  { return header.mark; }
@@ -270,7 +268,7 @@ public:
     float&       activity    ()              { assert(header.has_extra); return data[header.size].act; }
 	float       activity() const{ assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
-    uint32_t&    uid         ()              { assert(header.ic || (header.parentToIc&&header.hasUid)); 
+    uint32_t&    uid         ()              { assert(header.ic || (header.hasUid)); 
 	return data[header.size + (int)header.has_extra].uid; }
     uint32_t     uid         () const        { //assert(header.ic || header.parentToIc); 
 	return data[header.size + (int)header.has_extra].uid; }
@@ -326,15 +324,19 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 	}
 
     template<class Lits>
-    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false, bool isParentToIc = false,bool hasUid=false) {
+    CRef alloc(const Lits& ps, bool learnt = false, bool ic = false,bool hasUid=false) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool has_extra = learnt | extra_clause_field;
-		bool has_uid = ic || (isParentToIc&&hasUid);
+		bool has_uid = ic || hasUid;
 		
 		CRef newCr = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, has_uid));
-        new (lea(newCr)) Clause(ps, has_extra, learnt, ic, isParentToIc, has_uid);
-		Clause& c = this->operator[](newCr);
+        new (lea(newCr)) Clause(ps, has_extra, learnt, ic, has_uid);
+		if (17180 == newCr) {
+			Clause& c = this->operator[](newCr);
+			std::string txt = "SELF PRINT CLAUSE";
+			c.printClause(txt);
+		}
         return newCr;
     }
 
@@ -356,9 +358,12 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 
     void reloc(CRef& cr, ClauseAllocator& to) {
         Clause& c = operator[](cr);
+		CRef prevCr = cr;
+
         if (c.reloced()) { cr = c.relocation(); return; }     
-        cr = to.alloc(c, c.learnt(), c.ic() , c.isParentToIc(),c.hasUid());
-        c.relocate(cr);
+        cr = to.alloc(c, c.learnt(), c.ic() ,c.hasUid());
+		
+		c.relocate(cr);
         
         // Copy extra data-fields: 
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
@@ -369,9 +374,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         else if (newC.has_extra())
 			newC.calcAbstraction();
         
-		if (newC.ic() || (newC.isParentToIc()&&newC.hasUid())) {
+		if (newC.hasUid()) {
             // we don't want to increase uid here
-			assert(newC.ic() ^ newC.isParentToIc());
 			Clause::DecreaseUid();
 			newC.uid() = c.uid();
         }
@@ -382,8 +386,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 			assert(to[c.relocation()].uid() == uid);
 			cr = c.relocation(); return; 
 		}
-		assert(c.ic() ^ c.isParentToIc());
-		cr = to.alloc(c, c.learnt(), c.ic(), c.isParentToIc(),true);
+		assert(!c.ic() && !c.hasUid());
+		cr = to.alloc(c, c.learnt(), c.ic(),true);
 		c.relocate(cr);
 		// Copy extra data-fields: 
 		// (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)

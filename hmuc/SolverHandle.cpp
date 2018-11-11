@@ -46,11 +46,11 @@ Resol& SolverHandle::getResol(Uid uid) {
 RRef SolverHandle::getResolRef(Uid uid) {
 	return s->resolGraph.GetResolRef(uid);
 }
-CRef SolverHandle::allocClause(vec<Lit>& lits, bool isLearned, bool isIc) {
-	return s->ca.alloc(lits, isLearned, isIc, !isIc, true);
+CRef SolverHandle::allocClause(vec<Lit>& lits, bool isLearned, bool isIc,bool hasUid) {
+	return s->ca.alloc(lits, isLearned, isIc, hasUid);
 }
-CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc) {
-	return s->ca.alloc(lits, isLearned, isIc, !isIc, true);
+CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc, bool hasUid) {
+	return s->ca.alloc(lits, isLearned, isIc, hasUid);
 }
 void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents, vec<Uid>& remParents) {
 	Uid uid = CRefToUid(cref);

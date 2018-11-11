@@ -24,52 +24,32 @@ void DelayedResolGraphAlloc::clear() {
 }
 void DelayedResolGraphAlloc::executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allParents) {
 	assert(nonIcParents.size() == 0 && allParents.size() == 0);
-
-	
 	assert(firstIc >= 0);
-	//Uid nextUid = Clause::GetNextUid();
-	
-		//for (auto& job : jobs) {
-		//	Clause& c = *job.c;
-		//	CRef cref = job.cref;
-		//	Uid uid;
-		//	if (job.hasUid)//if it is an ic clause than it must have a uid
-		//		uid = c.uid();
-		//	else if (uidDeferredAlloc.find(cref) != uidDeferredAlloc.end()) {
-		//		assert(c.isParentToIc());
-		//		uid = uidDeferredAlloc[cref];
-		//	}
-		//	else {//it is a new clause which is not allocated in the graph, and it is a parent to an ic clause - allocate it now
-		//		assert(!c.isParentToIc());
-		//		uid = nextUid++;
-		//	}
-		////printf("uid: %u, %d\n", uid, c.ic());
-		////printClause(c, "uid " + std::to_string(uid) + " ic? " + std::to_string(c.ic()));
-		//}
-		////printf("-----------\n");
-
 	Uid nextUid = Clause::GetNextUid();
 	for (auto& job : jobs) {
 		Clause& c = *job.c;
 		CRef cref = job.cref;
+
 		Uid uid;
 
-		if (job.hasUid)//if it is an ic clause than it must have a uid
+		if (job.hasUid)
+			//if clause has a Uid (allocated internally in the Clause object), then it also has a node in the graph, don't allocate a new node.
 			uid = c.uid();
-		else if (uidDeferredAlloc.find(cref) != uidDeferredAlloc.end()) {
-			assert(c.isParentToIc());
+		else if (uidDeferredAlloc.find(cref) != uidDeferredAlloc.end()){
+			//if clause has a Uid (allocated externally to the Clause object), then it also has a node in the graph, don't allocate a new node.
+			assert(!c.ic());
 			uid = uidDeferredAlloc[cref];
 		}
-		else {//it is a new clause which is not allocated in the graph, and it is a parent to an ic clause - allocate it now
-			assert(!c.isParentToIc());
+		else {//otherwise, the clause has no Uid, allocate it a node in the graph now, and allocate it a Uid (externally). 
+			assert(!c.ic());
 			uid = nextUid++;
-			c.setIsParentToIc(true);
 			g->AddRemainderResolution(uid, cref);
 			uidDeferredAlloc[cref] = uid;
 		}
 
 		if (!job.isIc)
 			nonIcParents.push(uid);
+		
 		allParents.push(uid);
 	}
 	Clause::SetNextUid(nextUid);

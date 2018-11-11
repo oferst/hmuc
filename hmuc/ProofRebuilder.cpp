@@ -102,7 +102,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 
 	}
 	else {
-		CRef newCr = sh->allocClause(negConflAssumptions, true, true);
+		CRef newCr = sh->allocClause(negConflAssumptions, true, true,true);
 		sh->allocResol(newCr, confLits_allParents, confLits_icParents, confLits_remParents);
 		Uid uid = sh->CRefToUid(newCr);
 		newParent.setAllocatedClauseData(uid);
@@ -154,7 +154,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		for (ClauseData& parentData : result.rebuiltParentsCandidates) {
 			switch (parentData.status) {
 			case Deferred:
-				newCr = sh->allocClause(*(parentData.clauseContent), true, false);
+				newCr = sh->allocClause(*(parentData.clauseContent), true, false,true);
 				assert(CRef_Undef != newCr);
 				sh->allocNonIcResol(newCr);
 				unitUid = sh->CRefToUid(newCr);
@@ -413,7 +413,7 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 
 
 Uid ProofRebuilder::
-			allocReconstructedClause(const Uid& currUid, 
+			allocReconstructedICClause(const Uid& currUid, 
 								ReconstructionResult& reconRes,
 								const Lit& BL) {
 	//Must have at least one ic parent!
@@ -454,7 +454,7 @@ Uid ProofRebuilder::
 			//TODO: what if the clause already exists in the system and we only 
 			//found a different proof for it? is this case possible? 
 			//Will it affect the search\Rotation\BLM algorithms? 
-			CRef newCRef = sh->allocClause(reconRes.newClause, true, reconRes.isIc);
+			CRef newCRef = sh->allocClause(reconRes.newClause, true, true,true);
 			assert(CRef_Undef != newCRef);
 			sh->allocResol(newCRef, allParents, icParents, nonIcParents);
 			newUid = sh->CRefToUid(newCRef);
@@ -485,7 +485,7 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 			allUids.push(uid);
 			break;
 		case Deferred:
-			cr = sh->allocClause(*data->clauseContent, true, false);
+			cr = sh->allocClause(*data->clauseContent, true, false,true);
 			assert(CRef_Undef != cr);
 			sh->allocNonIcResol(cr);
 			uid = sh->CRefToUid(cr);
@@ -677,7 +677,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//that were used in reconstruction (out of the candidates), as well as the set '
 	//of literals that were the result of resolving said parents.
 	//This information will be used after that in the allocation of the newly 
-	//reconstructed clause (if needed), in the function 'allocReconstructedClause'.
+	//reconstructed clause (if needed), in the function 'allocReconstructedICClause'.
 	ReconstructionResult reconRes;
 
 	//All candidates parents uids for the reconstructed parents 
@@ -715,7 +715,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		//	out1 << "=-=-=-=-=-=-=-=-=-=-=-=-=-\n" << std::endl;
 		//	out1.close();
 		//}
-		newUid = allocReconstructedClause(currUid, reconRes, BL);
+		newUid = allocReconstructedICClause(currUid, reconRes, BL);
 
 
 		//if (depth_debug == 2) {

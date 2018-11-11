@@ -258,6 +258,9 @@ public:
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
 	bool isRebuildingProof();
+	bool hasUid(CRef cref, Uid& outUid);
+
+	Uid getUid(CRef cref);
 	
 	//bool inRhombus(Uid uid);
 	//Uid updateClause(Uid uid, Lit BL, UidToLitVec& pivots, UidToUid& clauseUdates, UidToLitSet& newClauses_lits);

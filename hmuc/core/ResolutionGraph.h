@@ -303,7 +303,6 @@ public:
 		RRef rRef = RegionAllocator<uint32_t>::alloc(Resol::SIZE + icParents.size() + additionalSize);
 
         new (lea(rRef)) Resol(icParents,remParents,allParents,ic);
-
         return rRef;
     } 
 
@@ -367,8 +366,7 @@ public:
 	int verbose = 0;
 	//________________________________________________________________________________________________
 
-    Resol& GetResol(RRef ref)
-	{
+    Resol& GetResol(RRef ref){
 	 return m_RA[ref]; 
 	}
 

@@ -158,9 +158,31 @@ Solver::~Solver()
 
 
 bool Solver::isRebuildingProof() {
-	return opt_blm_rebuild_proof;
+	return (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && opt_blm_rebuild_proof;
 }
+bool Solver::hasUid(CRef cref, Uid& outUid) {
 
+	if (CRef_Undef == cref) {
+		outUid = CRef_Undef;
+		return false;
+	}
+	if (nonIcUidDeferredAlloc.find(cref) != nonIcUidDeferredAlloc.end()) {
+		outUid = nonIcUidDeferredAlloc[cref];
+		return true;
+	}
+	Clause& c = ca[cref];
+	if (c.ic() || c.hasUid()) {
+		outUid = c.uid();
+		return true;
+	}
+	outUid = CRef_Undef;
+	return false;
+}
+Uid Solver::getUid(CRef cref) {
+	Uid uid;
+	hasUid(cref, uid);
+	return uid;
+}
 // Creates a new SAT variable in the solver. If 'decision' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
@@ -205,7 +227,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool ic, vec<uint32_t>* icParentsPtr) {
     }
     if (ps.size() == 1){
         if (ic) {
-            cr = ca.alloc(ps, false, ic);
+            cr = ca.alloc(ps, false, true);
             icUnitClauses.push(cr);
         }
         else { // if clause is a remainder unit clause we will add it to the current assignment and propagate 
@@ -259,23 +281,19 @@ void Solver::removeClause(CRef cr) {
     // Don't leave pointers to freed memory!
     if (locked(c)) 
 		vardata[var(c[0])].reason = CRef_Undef;
-	
-	if ((c.ic() || c.isParentToIc()) && c.mark() != 2) {
-		assert(c.ic() ^ c.isParentToIc());
-		Uid uid = getUid(c,cr);
+	Uid uid;
+	if (hasUid(cr,uid) && c.mark() != 2) {
+		if (cr == 17180) {
+			printf("17180 removeClause uid %d\n", uid);
+		}
 		resolGraph.DeleteClause(uid);
 	}
 
 	c.mark(1);
 	ca.free(cr);
-	if (opt_blm_rebuild_proof && (c.ic() || c.isParentToIc())) {
-		Uid uid;
-		if(c.hasUid())
-			uid = c.uid();
-		else {
-			uid = nonIcUidDeferredAlloc[cr];
+	if (isRebuildingProof() && hasUid(cr,uid)) {
+		if(!c.ic() && !c.hasUid())
 			nonIcUidDeferredAlloc.erase(cr);
-		}
 		if (CRef_Undef != resolGraph.GetResolRef(uid)) { // clause wasn't deleted from the graph in 'deleteClause' above (it's refCount was positive)
 			//we have to keep the clause info - without interfering with the ClauseAllocator
 			auto& icDelayed = resolGraph.icDelayedRemoval;
@@ -383,21 +401,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
             claBumpActivity(c);
 
 		if (c.ic())  icParents.push(c.uid());
-		if (opt_blm_rebuild_proof) {
+		if (isRebuildingProof()) {
 			delayedAllocator.addJob(c, confl);
-			//Uid uid;
-			//if (c.ic() || c.hasUid())
-			//	uid = c.uid();
-			//else { // !c.ic()
-			//	if (!c.isParentToIc()) {
-			//		deferNonIcResNodes(confl, nonIcResolGraphDeferredAlloc, remParents, allParents);
-			//		
-
-			//	}
-			//	uid = getUid(c, confl);
-			//	remParents.push(uid);
-			//}
-			//allParents.push(uid);
 		}
 
         for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
@@ -587,7 +592,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels,vec<Uid>& icParents, D
 			analyze_toclear.shrink(analyze_toclear.size() - top);
 			
 			icParents.shrink(icParents.size() - icTop);
-			if (opt_blm_rebuild_proof) {
+			if (isRebuildingProof()) {
 			delayedAllocator.shrink(delayedAllocator.size() - jobsTop);
 			//	remParents.shrink(remParents.size() - remTop);
 			//	allParents.shrink(allParents.size() - parentsTop);
@@ -596,7 +601,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels,vec<Uid>& icParents, D
 		}
 		if (c.ic())
 			icParents.push(c.uid());
-		if (opt_blm_rebuild_proof) {
+		if (isRebuildingProof()) {
 			delayedAllocator.addJob(c, cref);
 		}
 		
@@ -630,7 +635,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels,vec<Uid>& icParents, D
 						seen[var(analyze_toclear[j])] = 0;
 					analyze_toclear.shrink(analyze_toclear.size() - top);
 					icParents.shrink(icParents.size() - icTop);
-					if (opt_blm_rebuild_proof) {
+					if (isRebuildingProof()) {
 						delayedAllocator.shrink(delayedAllocator.size() - jobsTop);
 					}
 					return false;
@@ -641,27 +646,27 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels,vec<Uid>& icParents, D
 	return true;
 }
 
-Uid Solver::getUid(const Clause& c, CRef confl) {
-	if (c.ic()) {
-		assert(!c.isParentToIc());
-		return c.uid();
-	}
-	if (c.isParentToIc()) {
-		if (c.hasUid()) {
-			assert(nonIcUidDeferredAlloc.find(confl) == nonIcUidDeferredAlloc.end());
-			return c.uid();
-		}
-		else {
-			assert(nonIcUidDeferredAlloc.find(confl) != nonIcUidDeferredAlloc.end());
-			return nonIcUidDeferredAlloc[confl];
-		}
-	}
-	else {// !c.isParentToIc()
-		assert(nonIcUidDeferredAlloc.find(confl) == nonIcUidDeferredAlloc.end());
-		assert(!c.hasUid());
-		return CRef_Undef;
-	}
-}
+//Uid Solver::getUid(const Clause& c, CRef confl) {
+//	if (c.ic()) {
+//		assert(!c.isParentToIc());
+//		return c.uid();
+//	}
+//	if (c.isParentToIc()) {
+//		if (c.hasUid()) {
+//			assert(nonIcUidDeferredAlloc.find(confl) == nonIcUidDeferredAlloc.end());
+//			return c.uid();
+//		}
+//		else {
+//			assert(nonIcUidDeferredAlloc.find(confl) != nonIcUidDeferredAlloc.end());
+//			return nonIcUidDeferredAlloc[confl];
+//		}
+//	}
+//	else {// !c.isParentToIc()
+//		assert(nonIcUidDeferredAlloc.find(confl) == nonIcUidDeferredAlloc.end());
+//		assert(!c.hasUid());
+//		return CRef_Undef;
+//	}
+//}
 
 /*_________________________________________________________________________________________________
 |
@@ -678,7 +683,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
     if (decisionLevel() == 0)
         return;
     seen[var(p)] = 1;
-	int cutoffLevel = (int)(!opt_blm_rebuild_proof); // level 1 if we don't need to rebuild a proof, 0 otherwise (we need the conflict reasons from level 0)
+	int cutoffLevel = (int)(!isRebuildingProof()); // level 1 if we don't need to rebuild a proof, 0 otherwise (we need the conflict reasons from level 0)
 	Uid nextUid = Clause::GetNextUid();
 	delayedAllocator.clear();
 	for (int i = trail.size()-1; i >= trail_lim[cutoffLevel]; i--) {
@@ -691,13 +696,13 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
             } 
 			else {
                 Clause& c = ca[cref];
-				if (opt_blm_rebuild_proof) {
+				if (isRebuildingProof()) {
 					Uid uid;
 					if (c.ic()) {
 						uid = c.uid();
 						out_icParents.push(uid);
 					}
-					if(opt_blm_rebuild_proof){ // nonIc clause that might need to appear in the resl graph
+					if(isRebuildingProof()){ // nonIc clause that might need to appear in the resl graph
 						delayedAllocator.addJob(c, cref);
 					}
 				}
@@ -710,7 +715,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
             seen[x] = 0;
         }
     }
-	if (opt_blm_rebuild_proof && out_icParents.size() > 0) {
+	if (isRebuildingProof() && out_icParents.size() > 0) {
 		out_remParents.clear();
 		out_allParents.clear();
 		delayedAllocator.executeJobs(out_remParents, out_allParents);
@@ -804,8 +809,8 @@ CRef Solver::propagate()
                         uint32_t uid = c.uid();//is ic (i.e. has a uid)
 
                         // after allocating new clause cr cannot be used because of possible memory relocation
-						assert(c.ic() ^ c.isParentToIc());
-						CRef newCr = ca.alloc(add_tmp, false, true,false,true);
+						assert(c.hasUid());
+						CRef newCr = ca.alloc(add_tmp, false, true);
                         Clause::DecreaseUid();
                         ca[newCr].uid() = uid;
                         ca[cr].mark(2);
@@ -1074,7 +1079,7 @@ lbool Solver::search(int nof_conflicts)
     starts++;
     CRef confl = CRef_Undef;
     icParents.clear();
-	if (opt_blm_rebuild_proof) {
+	if (isRebuildingProof()) {
 		allParents.clear();
 		remParents.clear();
 		delayedAllocator.clear();
@@ -1171,7 +1176,6 @@ lbool Solver::search(int nof_conflicts)
             // CONFLICT
             conflicts++; conflictC++;
             if (decisionLevel() == 1) { // a core based on interesting constraints. 
-				printf("+++++++\n+++++++\n+++++++\n+++++++\n");
 				findConflictICReasons(confl);
                 return l_False;
             }
@@ -1284,7 +1288,7 @@ lbool Solver::search(int nof_conflicts)
             }
 
             icParents.clear();
-			if (opt_blm_rebuild_proof) {
+			if (isRebuildingProof()) {
 				allParents.clear();
 				remParents.clear();
 				delayedAllocator.clear();
@@ -1340,7 +1344,7 @@ lbool Solver::search(int nof_conflicts)
 					//to a contradiction by themselves, 
 					//i.e. ~currBL is part of the current assignment, 
 					//and is implied by some other backbones. 
-						if (opt_blm_rebuild_proof && rhombusValid) {
+						if (isRebuildingProof() && rhombusValid) {
 							m_bUnsatByPathFalsification = true;
 							SolverHandle sh = SolverHandle(this);
 							RebuilderContext ctx;
@@ -1457,7 +1461,7 @@ lbool Solver::search(int nof_conflicts)
 void Solver::allocIcResNode(Clause& cl, CRef cr) {
 	assert(cl.ic());
 	Uid uidToUpdate =  cl.uid();
-	if (opt_blm_rebuild_proof && icParents.size() > 0) {
+	if (isRebuildingProof() && icParents.size() > 0) {
 		remParents.clear();
 		allParents.clear();
 		delayedAllocator.executeJobs(remParents, allParents);
@@ -1706,84 +1710,132 @@ void Solver::relocAll(ClauseAllocator& to)
 	if (verbosity == -1)
 		printf("relocAll\n");
 
-	//All non-ic parents to ic with outside uid
+	//All non-ic parents to ic clauses that have external uid
+	printf("------realloc nonIcUidDeferredAlloc-------\n");
 	for (auto& pair : nonIcUidDeferredAlloc) {
+		CRef prevCr = pair.first;
 		CRef cref = pair.first;
 		Uid uid = pair.second;
+		if (prevCr == 28057) {
+			printClause(ca[prevCr], "old Clause");
+		}
 		ca.relocWithUid(cref, to, uid);
+		if (resolGraph.m_UidToData[uid].m_ResolRef != CRef_Undef) {
+			if (cref == 17180) {
+				
+				printClause(to[cref], "new Clause");
+				printf("%d reallocated to %d\n", prevCr, cref);
+			}
+			resolGraph.UpdateClauseRef(uid, cref);
+		}
 	}
 	nonIcUidDeferredAlloc.clear();
 
 
     // All watchers:
-    //
-    // for (int i = 0; i < watches.size(); i++)
+	printf("------realloc watchers-------\n");
     watches.cleanAll();
     for (int v = 0; v < nVars(); v++)
         for (int s = 0; s < 2; s++){
             Lit p = mkLit(v, s);
             vec<Watcher>& ws = watches[p];
-            for (int j = 0; j < ws.size(); j++)
+            for (int j = 0; j < ws.size(); j++){
+				CRef prevCr = ws[j].cref;
+				if (prevCr == 28057) {
+					printClause(ca[prevCr], "old Clause 1");
+				}
                 ca.reloc(ws[j].cref, to);
+				if (ws[j].cref == 17180) {
+					printClause(to[ws[j].cref], "new Clause");
+					printf("%d reallocated to %d\n", prevCr, ws[j].cref);
+				}
+			}
         }
 
     // All reasons:
-    //
+	printf("------realloc reasons-------\n");
     for (int i = 0; i < trail.size(); i++){
         Var v = var(trail[i]);
-        if (reason(v) != CRef_Undef && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
-            ca.reloc(vardata[v].reason, to);
+		if (reason(v) != CRef_Undef && (ca[reason(v)].reloced() || locked(ca[reason(v)]))) {
+			CRef prevCr = vardata[v].reason;
+			if (prevCr == 28057) {
+				printClause(ca[prevCr], "old Clause");
+			}
+			ca.reloc(vardata[v].reason, to);
+			if (vardata[v].reason == 17180) {
+				printClause(to[vardata[v].reason], "new Clause");
+				printf("%d reallocated to %d\n", prevCr, vardata[v].reason);
+			}
+		}
     }
     
     // All learnt:
-    //
+	printf("------realloc learnt-------\n");
     for (int i = 0; i < learnts.size(); i++) {
+		Uid uid;
+		CRef prevCr = learnts[i];
+		if (prevCr == 28057) {
+			printClause(ca[prevCr], "old Clause");
+		}
         ca.reloc(learnts[i], to);
-        
-		Clause& c = to[learnts[i]];
-		Uid uid = getUid(c, learnts[i]);
-		assert(!c.ic() || c.hasUid()); //if ic than clause has uid
-		assert(!(c.hasUid() && !c.ic()) || c.isParentToIc());//if clause has a uid but isn't an, than it must be a parent to an ic
-		if (c.ic() || (c.isParentToIc() && c.hasUid())) {
+		if (learnts[i] == 17180) {
+			printClause(to[learnts[i]], "new Clause");
+			printf("%d reallocated to %d\n", prevCr, learnts[i]);
+
+		}
+		if (hasUid(prevCr,uid)) {
 			assert(CRef_Undef != uid);
-			assert(c.uid() == uid);
-			if (resolGraph.m_UidToData[c.uid()].m_ResolRef != CRef_Undef ){
-				assert(c.ic() ^ c.isParentToIc());
-				resolGraph.UpdateClauseRef(c.uid(), learnts[i]);
+			if (resolGraph.m_UidToData[uid].m_ResolRef != CRef_Undef ){
+				resolGraph.UpdateClauseRef(uid, learnts[i]);
 			}
 		}
 
     }
 
     // All original:
-    //
+	printf("------realloc original-------\n");
     for (int i = 0; i < clauses.size(); i++)  {
-		CRef oldCr = clauses[i];
+		Uid uid;
+		CRef prevCr = clauses[i];
+		if (prevCr == 28057) {
+			printClause(ca[prevCr], "old Clause");
+		}
 		ca.reloc(clauses[i], to); //this changes the value of clauses[i] (passed by ref)
-        
-		Clause& c = to[clauses[i]];
-		Uid uid = getUid(c, clauses[i]);
-		assert(!c.ic() || c.hasUid()); //if ic than clause has uid
-		assert(!(c.hasUid() && !c.ic()) || c.isParentToIc());//if clause has a uid but isn't an, than it must be a parent to an ic
-		if (c.ic() || (c.isParentToIc() && c.hasUid())) {
+		if (clauses[i] == 17180) {
+			
+			printClause(to[clauses[i]], "new Clause");
+			printf("%d reallocated to %d\n", prevCr, clauses[i]);
+		}
+		//Clause& c = to[clauses[i]];
+
+		if (hasUid(prevCr,uid)) {
+			//assert(c.hasUid());
+			//assert(c.uid() == uid);
 			assert(CRef_Undef != uid);
-			assert(c.uid() == uid);
-			if (resolGraph.m_UidToData[c.uid()].m_ResolRef != CRef_Undef) {
-				assert(c.ic() ^ c.isParentToIc());
-				resolGraph.UpdateClauseRef(c.uid(), clauses[i]);
+			if (resolGraph.m_UidToData[uid].m_ResolRef != CRef_Undef) {
+				resolGraph.UpdateClauseRef(uid, clauses[i]);
 			}
 		}
     }
 	//All ic unit clauses
+	printf("------realloc ic unit-------\n");
     for (int i = 0; i < icUnitClauses.size(); i++)
     {
-        ca.reloc(icUnitClauses[i], to);
+		CRef prevCr = icUnitClauses[i];
+		if (prevCr == 28057) {
+			printClause(ca[prevCr], "old Clause");
+		}
+		ca.reloc(icUnitClauses[i], to);
+		if (icUnitClauses[i] == 17180) {
+			printClause(to[icUnitClauses[i]], "new Clause");
+			printf("%d reallocated to %d\n", prevCr, icUnitClauses[i]);
+		}
         Clause& c = to[icUnitClauses[i]];
         assert(c.ic());
 		Uid uid = c.uid();
         resolGraph.UpdateClauseRef(uid, icUnitClauses[i]);
     }
-
+	printf("------realloc end-------\n");
 
 }
 
@@ -1801,7 +1853,7 @@ void Solver::garbageCollect(){
 //Given an origConfl clause that is currently conflicting (i.e. all it's literals are 
 //falsified in the trail), find all the clauses that were used (were reasons) for such 
 //falsification (note that this is not necessarily a subset of the original formula, 
-//as it may contain learned clauses). The reason (retuned through 
+//as it may contain learned clauses). The reason (returned through 
 //'icPoEC') are filtered to contain only IC clause.
 
 void Solver::findConflictICReasons(CRef origConfl) {
@@ -1818,7 +1870,7 @@ void Solver::findConflictICReasons(CRef origConfl) {
 	resolGraph.m_icPoEC.clear();
 
 	vec<Uid> dummy;
-	if (opt_blm_rebuild_proof) {
+	if (isRebuildingProof()) {
 		delayedAllocator.clear();
 		//nonIcResolGraphDeferredAlloc.clear();
 		allPoEC.clear();
@@ -1833,7 +1885,7 @@ void Solver::findConflictICReasons(CRef origConfl) {
 #endif
 			resolGraph.m_icPoEC.insert(c.uid()); // duplicate to ic_parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
         }
-		if (opt_blm_rebuild_proof) {
+		if (isRebuildingProof()) {
 			//printClause(c, "is ic? " + std::to_string(c.ic()));
 			delayedAllocator.addJob(c, confl);
 		}
@@ -1853,26 +1905,16 @@ void Solver::findConflictICReasons(CRef origConfl) {
         // Select next clause to look at:
         while (!seen[var(trail[index--])]); // walk backwards on trail and look for the first seen variable encountered
         v     = var(trail[index+1]); // index+1 becuase we walked one step too much in the line above (index--)
-		//if (opt_blm_rebuild_proof)
-		//	allPoEC_pivots.push(trail[index + 1]);
 		
 		confl = reason(v);
         seen[v] = 0;
         --nSeen;
     }
-	//if (icPoEC.size() == 0) {
-	//	printf("------\nNO IC PARENT OF EMPTY CLAUSE\n---------\n");
-	//}
-	if (opt_blm_rebuild_proof && icPoEC.size() > 0) {
+
+	if (isRebuildingProof() && icPoEC.size() > 0) {
 		vec<Uid> dummy;
 		delayedAllocator.executeJobs(dummy, allPoEC);
-		//printfVec(allPoEC, "NEW allPoEC");
-		//for (auto& p : allPoEC) {
-		//	printClauseByUid(p, "new parent " + std::to_string(p));
-
-		//}
 		assert(icPoEC.size() + dummy.size() == allPoEC.size());
-		//allocDeferredNonIcResNodes(nonIcResolGraphDeferredAlloc, dummy, allPoEC);
 	}
 
 }
@@ -1888,9 +1930,9 @@ void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus, Set<Uid>& nonIcRh
 	for (auto uid : icPoEC) {
 		assert(resolGraph.GetResol(resolGraph.GetResolRef(uid)).header.ic); // may fail if we do not filter out non-ic parents-of-e.c.
 		if (rhombus.insert(uid)) { // if uid wasn't encountered previously
-			if (nICtoRemove == 454) {
-				printClauseByUid(uid, "~~~~~~~~ 454 IcPoEC " + std::to_string(uid) + "~~~~~~~");
-			}
+			//if (nICtoRemove == 454) {
+			//	printClauseByUid(uid, "~~~~~~~~ 454 IcPoEC " + std::to_string(uid) + "~~~~~~~");
+			//}
 			resolGraph.GetOriginalParentsUids(uid, icCore, rhombus, debug, out);
 		}
 	}
@@ -1942,7 +1984,7 @@ void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>&
             CRef cr = resolGraph.GetClauseRef(i);
 			if (cr != CRef_Undef) { // check that clause is not original otherwise we won't delete it
 				Clause& c = ca[cr];
-				if (opt_blm_rebuild_proof && c.isParentToIc()) {
+				if (isRebuildingProof() && !c.ic()) {
 					continue;
 				}
 				c.mark(0);
@@ -2038,7 +2080,7 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid) {
                     enqueue(analyze_stack[0]); // unit clause
                 }
                 else {
-                    CRef newCr = ca.alloc(analyze_stack, c.learnt(), false,c.isParentToIc(),c.hasUid());  // normal clause, not IC. The literals are in analyze_stack.
+                    CRef newCr = ca.alloc(analyze_stack, c.learnt(), false,c.hasUid());  // normal clause, not IC. The literals are in analyze_stack.
                     clauses.push(newCr);
                     attachClause(newCr);
                     if (opt_use_clauses)
@@ -2119,8 +2161,7 @@ void Solver::GroupBindClauses(vec<uint32_t>& cone)
                 enqueue(analyze_stack[0]);
             }
             else {
-				bool isInGraph = resolGraph.m_UidToData[uid].m_ResolRef != RRef_Undef;
-                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false, isInGraph && c.isParentToIc(),c.hasUid()); // normal clause, not IC. The literals are in analyze_stack.
+                CRef newCr = ca.alloc(analyze_stack, c.learnt(), false,c.hasUid()); // normal clause, not IC. The literals are in analyze_stack.
                 clauses.push(newCr);
                 attachClause(newCr);
                 if (opt_use_clauses)
@@ -2222,11 +2263,6 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
 	LiteralsFromPathFalsification.clear();
 	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay) {
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification);
-		//printClause(LiteralsFromPathFalsification, "new S set");
-		//printf("assumption: ");
-		//for (int i = 0; i < LiteralsFromPathFalsification.size(); ++i)
-		//	printf("%d ", todimacsLit( LiteralsFromPathFalsification[i]));
-		//printf("\n");
 		return LiteralsFromPathFalsification.size();
 	}
 	else {
@@ -2551,9 +2587,9 @@ void Solver::LPF_get_assumptions(
 
 	)
 {
-	if (opt_blm_rebuild_proof) { //we avoided deleting the previous S sets up until now (no eager deletion w. opt_blm_rebuild_proof)
+	if (isRebuildingProof()) { //we avoided deleting the previous S sets up until now (no eager deletion w. opt_blm_rebuild_proof)
 		// delete allocated vectors
-		printf("LPF_get_assumptions C clause: %d\n", uid_root);;
+		//printf("LPF_get_assumptions C clause: %d\n", uid_root);;
 		for (auto pair : map_cls_to_Tclause) {
 			delete pair.second;
 		}
@@ -2609,7 +2645,7 @@ void Solver::LPF_get_assumptions(
         assert(Top_TClause->size() > 0);
 		lpfBottomChainUid = uid_root = uidvec_prefix.last();
 	}   	
-	if (opt_blm_rebuild_proof) {
+	if (isRebuildingProof()) {
 		Top_TClause->copyTo(lpfBottomLits);
 		sort(lpfBottomLits);
 	}
@@ -2698,7 +2734,7 @@ void Solver::LPF_get_assumptions(
 			continue; // only those that have T-clause are actual allParentsCRef of the empty clause in rhombus(cr). 		
 		
 		//int idx = ic_parents_of_empty_clause[i];
-		if (opt_blm_rebuild_proof) {
+		if (isRebuildingProof()) {
 			//printf("%d rhombus parent of empty\n", uidClauseToUpdate);
 			rhombusParentOfEmptyClause.push(uid);
 		}
@@ -2727,7 +2763,7 @@ void Solver::LPF_get_assumptions(
 			negAssumpLits[sz-1-i] = t;
 		}
 	}
-	if (!opt_blm_rebuild_proof) { // eager delete - won't ever need the S sets later
+	if (!isRebuildingProof()) { // eager delete - won't ever need the S sets later
 		// delete allocated vectors
 		for (auto pair : map_cls_to_Tclause) {
 			delete pair.second;
