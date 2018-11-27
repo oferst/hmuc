@@ -269,9 +269,9 @@ public:
 	float       activity() const{ assert(header.has_extra); return data[header.size].act; }
     uint32_t     abstraction () const        { assert(header.has_extra); return data[header.size].abs; }
     uint32_t&    uid         ()              { assert(header.ic || (header.hasUid)); 
-	return data[header.size + (int)header.has_extra].uid; }
+		return data[header.size + (int)header.has_extra].uid; }
     uint32_t     uid         () const        { //assert(header.ic || header.parentToIc); 
-	return data[header.size + (int)header.has_extra].uid; }
+		return data[header.size + (int)header.has_extra].uid; }
     void         copyTo      (vec<Lit>& other) {
         other.growTo(size());
         for (int i = 0 ; i < size() ; i++) {  // initially parent = c
@@ -328,15 +328,10 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool has_extra = learnt | extra_clause_field;
-		bool has_uid = ic || hasUid;
+		bool has_uid = ic | hasUid;
 		
 		CRef newCr = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), has_extra, has_uid));
         new (lea(newCr)) Clause(ps, has_extra, learnt, ic, has_uid);
-		if (17180 == newCr) {
-			Clause& c = this->operator[](newCr);
-			std::string txt = "17180 clause alloc";
-			c.printClause(txt);
-		}
         return newCr;
     }
 
@@ -382,6 +377,9 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     }
 	void relocWithUid(CRef& cr, ClauseAllocator& to,Uid uid) {
 		Clause& c = operator[](cr);
+		//if (uid == 5715) {
+		//	c.printClause("5715 relocWithUid");
+		//}
 		if (c.reloced()) { 
 			assert(to[c.relocation()].uid() == uid);
 			cr = c.relocation(); return; 
@@ -399,6 +397,9 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 			newC.calcAbstraction();
 		newC.uid() = uid;
 		Clause::DecreaseUid();
+		//if (uid == 5715) {
+		//	newC.printClause("5715 relocWithUid (new)");
+		//}
 	}
 };
 

@@ -376,15 +376,17 @@ public:
 	void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents);
     void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 	void AddRemainderResolution(uint32_t nNewClauseId, CRef ref);
+	void reallocRemainderResolution(Uid nUid);
 	//Set<uint32_t> temp_ics;
 	void updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
+	
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
 		m_UidToData[nUid].m_ClauseRef = newRef;
     }
 	void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
-    CRef GetClauseRef(uint32_t nUid, bool isIc=true) const {// formerly 'GetInd'
+    CRef GetClauseRef(uint32_t nUid) const {// formerly 'GetInd'
 		return m_UidToData[nUid].m_ClauseRef;
     }
 
@@ -393,6 +395,8 @@ public:
     }
 
     void DeleteClause(uint32_t nUid) {
+		if (nUid == 6735)
+			printf("6735 is being deleted\n");
 		DecreaseReference(nUid);
 		m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
@@ -400,7 +404,7 @@ public:
     void GetOriginalParentsUids(Uid nUid, vec<Uid>& parents, Set<Uid>& checked,bool debug=false,ostream& out = std::cout,std::string msg_prefix = "");
 
     void GetClausesCones(vec<uint32_t>& cone);
-
+	void GetClausesCones(vec<uint32_t>& cone,std::unordered_set<Uid>& coneSet);
     void CheckGarbage()
     {
         if (m_RA.wasted() > m_RA.size() * 0.3)

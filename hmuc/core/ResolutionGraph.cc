@@ -29,18 +29,17 @@ void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& nonIcParents, const vec<Uid>& allParents){
 	m_UidToData.growTo(nNewClauseUid + 1);
 	RRef refResol = m_RA.alloc(icParents, nonIcParents, allParents, true);
-
-	//if (nNewClauseUid == 5421) {
-	//	printf("newIcParentsSize %d\n", GetResol(refResol).icParentsSize());
-	//	for (int i = 0; i < GetResol(refResol).icParentsSize(); ++i)
-	//		printf("%d ", GetResol(refResol).IcParents()[i]);
-	//	printf("\n");
+	//if (nNewClauseUid == 5715) {
+	//	printf("5715 added to graph (ic)\n");
 	//}
-
     // increase reference count for all the icparents
 	if (nonIcParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
-			CRef resRef = GetResolRef(allParents[nInd]);
+			Uid pUid = allParents[nInd];
+			//if (pUid == 5715) {
+			//	printf("5715 parent of %d\n", nNewClauseUid);
+			//}
+			CRef resRef = GetResolRef(pUid);
 			if (resRef == CRef_Undef)
 				continue;
 			Resol& res = GetResol(resRef);
@@ -76,6 +75,9 @@ void CResolutionGraph::AddNewResolution
 
 
 void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) {
+	//if (nNewClauseUid == 5715) {
+	//	printf("5715 added to graph (non-ic)\n");
+	//}
 	m_UidToData.growTo(nNewClauseUid + 1);
 	vec<Uid> dummyParents;
 	RRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
@@ -83,11 +85,28 @@ void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) 
 	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 	m_RA[refResol].header.m_nRefCount = 0;
 }
+
+void CResolutionGraph::reallocRemainderResolution(Uid nUid) {
+	//if (nUid == 5715) {
+	//	printf("5715 re-allocated in graph\n");
+	//}
+	vec<Uid> dummyParents;
+	RRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents, false);
+	assert(CRef_Undef != m_UidToData[nUid].m_ClauseRef);
+	m_UidToData[nUid].m_ResolRef = refResol;
+	m_RA[refResol].header.m_nRefCount = 0;
+}
 void CResolutionGraph::DecreaseReference(uint32_t nUid){
 	RRef& ref = m_UidToData[nUid].m_ResolRef;
+	
+
 	if (ref == CRef_Undef)
 		return;
     Resol& res = GetResol(ref);
+
+	if (nUid == 6735) {
+		printf("6735 decrease ref from %d to %d\n",res.header.m_nRefCount, res.header.m_nRefCount-1);
+	}
 	--res.header.m_nRefCount;
     if (res.header.m_nRefCount <= 0) {
 
@@ -105,12 +124,17 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 			}
 		}
 
-		
+		//CRef cref = m_UidToData[nUid].m_ClauseRef;
 		//then mark node as free in resol graph (lazy removal), by counting the size of memory to free
         m_RA.free(ref);
 		// and removing reference to it from m_RA
-        ref = CRef_Undef;
+		if (nUid == 6735) {
+			printf("6735 removed from graph\n");
+		}
 		
+		ref = CRef_Undef;
+		if(!res.header.ic)
+			 m_UidToData[nUid].m_ClauseRef = CRef_Undef;
 		if (icDelayedRemoval.find(nUid) != icDelayedRemoval.end()) {
 			delete(icDelayedRemoval[nUid]);
 			icDelayedRemoval.erase(nUid);
@@ -147,26 +171,47 @@ void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalC
      }
  }
 
-void CResolutionGraph::GetClausesCones(vec<uint32_t>& cone) {
-    Set<uint32_t> set;
+void CResolutionGraph::GetClausesCones(vec<Uid>& cone) {
+    Set<Uid> set;
     set.add(cone);
     for (int nInd = 0; nInd < cone.size(); ++nInd) {
-        uint32_t nUid = cone[nInd];
-        CRef ref = GetResolRef(nUid);
+		Uid nUid = cone[nInd];
+        RRef ref = GetResolRef(nUid);
         if (ref == CRef_Undef)
             continue;
         Resol& resol = GetResol(ref);
         if (resol.m_Children.size() > 0) {
-            const vec<uint32_t>& children = resol.m_Children;
+            const vec<Uid>& children = resol.m_Children;
             for (int i = 0; i < children.size(); ++i)  {
-                uint32_t childUid = children[i];
+				Uid childUid = children[i];
                 if (GetResolRef(childUid) != CRef_Undef && set.insert(childUid))
                     cone.push(childUid);
             }
         }
     }
 }
-
+void CResolutionGraph::GetClausesCones(vec<Uid>& cone,std::unordered_set<Uid>& coneSet) {
+	assert(coneSet.size() == 0);
+	for (auto& uid : cone) {
+		coneSet.insert(uid);
+	}
+	for (int nInd = 0; nInd < cone.size(); ++nInd) {
+		Uid nUid = cone[nInd];
+		RRef ref = GetResolRef(nUid);
+		if (ref == CRef_Undef)
+			continue;
+		Resol& resol = GetResol(ref);
+		if (resol.m_Children.size() > 0) {
+			const vec<Uid>& children = resol.m_Children;
+			for (int i = 0; i < children.size(); ++i) {
+				Uid childUid = children[i];
+				//'coneSet.insert(childUid).second' is a boolean indicating whether childUid was inserted to coneSet (i.e. childUid encountered for the first time)
+				if (GetResolRef(childUid) != CRef_Undef && coneSet.insert(childUid).second)
+					cone.push(childUid);
+			}
+		}
+	}
+}
 void CResolutionGraph::GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath) {
     uint32_t nextUid = nStartUid;
     while (nextUid != CRef_Undef) {
@@ -213,7 +258,7 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 			int nUid = vecCurrCheck[i];
 			if (!firstTime && NewRemainders.has(nUid))
 				continue;
-			CRef resolRef = GetResolRef(nUid);
+			RRef resolRef = GetResolRef(nUid);
 			if (resolRef == CRef_Undef) // oferg: already deleted from resolution graph (all children must have been deleted already, no point in checking deeper)
 				continue;
 

@@ -16,6 +16,7 @@ namespace Minisat {
 
 
 		virtual vec<Uid>& getPoEC();
+		virtual vec<Uid>& getIcPoEC();
 		//virtual vec<Lit>& getPoEC_Piv();
 		virtual Uid CRefToUid(CRef cref);
 		virtual CRef UidToCRef(Uid uid);
@@ -38,7 +39,12 @@ namespace Minisat {
 		void printClauseByUid(Uid uid, const std::string& msg,ostream& out=std::cout) { 
 			s->printClauseByUid(uid, msg, out);
 		}
-		
+		void getClauseByUid(Uid uid, vec<Lit>& outClause) {
+			s->getClauseByUid(uid, outClause);
+		}
+		void getClauseByUid(Uid uid, LitSet& outClause) {
+			s->getClauseByUid(uid, outClause);
+		}
 		//void setVerbose(int n) {
 		//	s->verbosity = n;
 		//	s->resolGraph.verbose = n;

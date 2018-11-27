@@ -102,59 +102,12 @@ int main(int argc, char** argv)
 		parseOptions(argc, argv, true);
 		
 
-		//UidToLitSet m;
-		//LitSet& s = m[1];
-		//printf("%d\n", s.size());
-		//s.insert(mkLit(1));
-		//m[2] = m[1];
-		//s.insert(mkLit(3));
-		//printf("%d\n", m[1].size());
-		//printf("%d\n", m[2].size());
-		//exit(-5);
-
-
-		//vec<Uid> icParents{2188, 1377, 1342, 4828, 4279, 519, 5336, 576, 2227, 252, 3237, 952, 5354, 3189, 2038, 5406, 1463, 1122, 919, 5405, 4806, 1994, 933, 2469, 2113, 1041, 4808, 1489, 2880, 1671, 5404, 5400, 4807, 5335, 5335, 2051, 973, 693, 5335 };
-		//vec<Uid> remParents{1,2,3};
-		//vec<Uid> allParents{ 2188, 1,2,1377,3, 1342, 4828, 4279, 519, 5336, 576, 2227, 252, 3237, 952, 5354, 3189, 2038, 5406, 1463, 1122, 919, 5405, 4806, 1994, 933, 2469, 2113, 1041, 4808, 1489, 2880, 1671, 5404, 5400, 4807, 5335, 5335, 2051, 973, 693, 5335 };
-
-		//vec<Uid> icParents{ 2188, 1377, 1342, 4828};
-		//vec<Uid> remParents{111};
-		//vec<Uid> allParents{  2188,111,1377, 1342, 4828};
-
-		////printf("icParentSize(): %d\n", icParents.size());
-		////printf("remParentsSize(): %d\n", remParents.size());
-		////printf("allParentSize(): %d\n", allParents.size());
-		//int  additionalSize = (remParents.size() == 0) ? 0 : (1 + remParents.size() + (allParents.size() / 32) + (int)((allParents.size() % 32) > 0));
-		////printf("additionalSize %d\n", additionalSize);
-		//int resolSize = Resol::SIZE + icParents.size() + additionalSize;
-		////printf("resolSize %d\n", resolSize);
-		//int* arr = new int[resolSize];
-		//Resol* resol = new (arr) Resol(icParents, remParents, allParents, true);
-		//int i = allParents.size();
-
-
-
-		//for (auto j = resol->rbegin(); j != resol->rend(); --j) {
-		//	printf("%u\n%u\n\n", *j, allParents[--i]);
-		//}
-		//////for (auto p : *resol) {
-		//////}
-
-
-
-		//delete [] arr;
-		//arr = NULL;
-
-
-
-		//exit(-1);
-
-
 
 
 		SimpSolver  S;
 		SolverHandle sh = SolverHandle(&S);
 		RebuilderContext ctx;
+
 		ProofRebuilder pr = ProofRebuilder(&sh, &ctx);
 
         double      initial_time = cpuTime();

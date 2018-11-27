@@ -83,8 +83,12 @@ struct ResolValidation {
 class ProofRebuilder{
 	//A handle for the underlaying solver used to create the resolution graph.
 	SolverHandle* sh;
-	//A DB containing the current state of the proof rebuilding process.
+
+	//recording all the clauses that were build in the reconstruction.
+	std::unordered_set<Uid> debugRebuiltClauses;
+
 public:
+	//A DB containing the current state of the proof rebuilding process.
 	RebuilderContext* ctx;
 	bool memberOfClause(Uid u, const Lit& l);
 	
@@ -92,11 +96,12 @@ public:
 	bool validateResolution(Uid resultClause, T& parents,vec<Lit>& pivots);
 	template<class T>
 	bool validateResolution(LitSet& clause, T& parents);
+	bool verifyResolutionProof(const vec<Uid>& PoEC);
 
 	void clearCandidateParents(ReconstructionResult& reconRes);
 	void addCandidateParent(Uid uid, bool isIc, ReconstructionResult& reconRes);
 
-public:
+
 	static int depth_debug;
 	int verbose = 0;
 	void printClauseData(const ClauseData& cd, const std::string& text) {
@@ -113,7 +118,7 @@ public:
 
 
 
-	ProofRebuilder(SolverHandle* sh,RebuilderContext* ctx);
+	ProofRebuilder(SolverHandle* sh, RebuilderContext* ctx);
 
 	void RebuildProof(
 		const Lit& startingConflLiteral, vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC);
@@ -160,11 +165,12 @@ public:
 	template<class T>
 	void findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
 	
+	
+	
 	class ResolutionException : public std::exception {
 	public:
 		ResolutionException(const char* msg) : std::exception(msg) {}
 	};
-
 
 };
 }

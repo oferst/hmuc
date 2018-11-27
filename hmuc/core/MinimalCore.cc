@@ -423,9 +423,10 @@ namespace Minisat {
 
 #pragma region UNSAT_case
 			if (result == l_False) {
-				//
 				if (!m_Solver.m_bUnsatByPathFalsification || 
-					(m_Solver.blm_rebuild_proof && m_Solver.rhombusValid)) {
+					//if (!m_Solver.m_bUnsatByPathFalsification ||
+					//	(m_Solver.isRebuildingProof() && m_Solver.rhombusValid)) {
+					m_Solver.isRebuildingProof()) {
 					//The normal case where we have a new proof of UNSAT from 
 					//the solver.
 					if (m_Solver.verbosity == 1) printf("UNSAT \n");
@@ -697,12 +698,9 @@ namespace Minisat {
 					result = l_False;
 					goto end;
 				}
-				m_Solver.printClauseByUid(nIcForRemove, "^^nIcForRemove");
 			}
 #pragma endregion
 
-			
-			//if (m_Solver.verbosity == 1) printf("nictoremove = %d\n", nIcForRemove);
 			if (m_Solver.pf_mode != none) {
 #ifndef NewParents				
 				if ((result == l_False) && m_Solver.m_bConeRelevant && (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess))	 {
@@ -725,19 +723,25 @@ namespace Minisat {
 				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration. Note that lpf_inprocess is not activated if !m_bConeRelevant		
 			}
 			
-			// we now remove clauses that are trivially satisfied by units in the remainder, and their decendants. 
+			// we now remove clauses that are trivially satisfied by units in the remainder, as well as all their descendants. 
 			if (vecUidsToRemove.size() > 0) {
 				if (m_Solver.pf_mode == lpf || m_Solver.pf_mode == lpf_inprocess)
 					m_Solver.RemoveClauses_withoutICparents(vecUidsToRemove); // we need to maintain clauses from IC's to the empty clause with these optimizations. 
 				else m_Solver.RemoveClauses(vecUidsToRemove); // remove all their cones. 
 				vecUidsToRemove.clear();
 			}
-			//printf("C - cluase removed - %d\n", nIcForRemove);
 			vecUidsToRemove.push(nIcForRemove);
 
 			// removes cone(nIcForRemove);
 			//After this line, vecUidsToRemove contains all clauses that were unbounded from the formula
-			m_Solver.UnbindClauses(vecUidsToRemove); 
+			
+			if (m_Solver.isRebuildingProof()) {
+				m_Solver.unbondedCone.clear();
+				m_Solver.UnbindClauses(vecUidsToRemove, m_Solver.unbondedCone);
+			}
+			else {
+				m_Solver.UnbindClauses(vecUidsToRemove);
+			}
 			vecCurrentUnknown.swap(vecNextUnknown);
 			vecNextUnknown.clear();
 			m_Solver.nICtoRemove = nIcForRemove;

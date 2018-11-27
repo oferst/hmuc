@@ -74,21 +74,23 @@ public:
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
     void GroupBindClauses(vec<uint32_t>& initUids);
     void UnbindClauses(vec<uint32_t>& cone);
+	void UnbindClauses(vec<uint32_t>& cone,std::unordered_set<Uid>& coneSet);
     CRef GetClauseIndFromUid(uint32_t uid) const
     {
         return resolGraph.GetClauseRef(uid);
     }
+	CRef allocClause(vec<Lit>& lits,bool learnt, bool isIc, bool hasUid);
 
     Clause& GetClause(CRef ind) 
     {
         return ca[ind];
     }
-
     const Clause& GetClause(CRef ind) const
     {
         return ca[ind];
     }
-
+	void getClauseByUid(Uid uid, vec<Lit>& outClause);
+	void getClauseByUid(Uid uid, LitSet& outClause);
 
     ClauseAllocator& GetAlloc()
     {
@@ -110,6 +112,7 @@ public:
 	// PoEC - Parents of Empty Clause
 	vec<uint32_t> icPoEC; //ic parents of empty clause used in lpf_get_assumptions. Stores the ic parents of empty clause from the last unsat.
 	vec<uint32_t> allPoEC; //All parents of empty clause from the last unsat. They are only maintained for using the proof reconstruction algorithm, and are not actually used outside of it.
+	std::unordered_set<Uid> unbondedCone;
 	//vec<Lit> allPoEC_pivots; //All PoEC pivots from the last unsat. Used in BLM proof reconstruction.
 
 	
@@ -275,7 +278,7 @@ public:
 
 	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
 	vec<Uid> rhombusParentOfEmptyClause;
-	bool rhombusValid;
+	//bool rhombusValid;
 	uint32_t lpfTopChainUid;
 	uint32_t lpfBottomChainUid;
 	vec<Lit> lpfBottomLits;
