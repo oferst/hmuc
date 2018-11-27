@@ -83,7 +83,7 @@ void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) 
 	RRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
 	m_UidToData[nNewClauseUid].m_ClauseRef = ref;
 	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
-	m_RA[refResol].header.m_nRefCount = 0;
+	//m_RA[refResol].header.m_nRefCount = 0;
 }
 
 void CResolutionGraph::reallocRemainderResolution(Uid nUid) {
@@ -104,23 +104,34 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 		return;
     Resol& res = GetResol(ref);
 
-	if (nUid == 6735) {
-		printf("6735 decrease ref from %d to %d\n",res.header.m_nRefCount, res.header.m_nRefCount-1);
+	if (nUid == 5059) {
+		printf("5059 decrease ref from %d to %d\n",res.header.m_nRefCount, res.header.m_nRefCount-1);
 	}
 	--res.header.m_nRefCount;
     if (res.header.m_nRefCount <= 0) {
 
         // first decrease reference count for all the icParents
         uint32_t* parents = res.IcParents();
-        for (int pUid = 0; pUid < res.icParentsSize(); ++pUid) {
-            DecreaseReference(parents[pUid]);
+        for (int i = 0; i < res.icParentsSize(); ++i) {
+            DecreaseReference(parents[i]);
         }
-		// also decrease reference count for all the remParents (if any exist)
+		// also decrease reference count for all the nonIc Parents (if any exist)
 		if (res.header.hasNonIcParents) {
 			parents = res.nonIcParents();
 
-			for (int pUid = 0; pUid < res.nonIcParentsSize(); ++pUid) {
-				DecreaseReference(parents[pUid]);
+			for (int i = 0; i < res.nonIcParentsSize(); ++i) {
+				Uid pUid = parents[i];
+				DecreaseReference(pUid);
+				RRef rref = GetResolRef(pUid);
+				if (RRef_Undef != rref) {
+					if (nUid == 5059) {
+						printf("5059 removed from graph (by its parent)\n");
+					}
+					Resol& pResol = GetResol(rref);
+					if (pResol.header.m_nRefCount == 1) {
+						DecreaseReference(pUid);
+					}
+				}
 			}
 		}
 
@@ -128,8 +139,8 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 		//then mark node as free in resol graph (lazy removal), by counting the size of memory to free
         m_RA.free(ref);
 		// and removing reference to it from m_RA
-		if (nUid == 6735) {
-			printf("6735 removed from graph\n");
+		if (nUid == 5059) {
+			printf("5059 removed from graph\n");
 		}
 		
 		ref = CRef_Undef;

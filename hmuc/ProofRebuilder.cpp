@@ -83,14 +83,14 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 	ProofRebuilder::depth_debug = 0;
 	
 	for (Uid uid : allPoEC) {
-		if (uid == 6735) {
-			printf("6735 is a PoEC\n");
+		if (uid == 5059) {
+			printf("5059 is a PoEC\n");
 			
 		}
 	}
 	for (Uid uid : sh->getIcPoEC()) {
-		if (uid == 6735) {
-			printf("6735 is an ic PoEC\n");
+		if (uid == 5059) {
+			printf("5059 is an ic PoEC\n");
 
 		}
 	}
@@ -283,6 +283,7 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 	LitSet& newClause = reconRes.newClause;
 	assert(newClause.size() == 0);
 	bool& isIc = reconRes.isIc;
+	assert(!isIc);
 
 	LitSet* currClause = &newClause;
 	bool isPrevIc;
@@ -311,11 +312,7 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 
 		
 		bool isRightParentIc = (Allocated == parentData.status);
-			//&& ctx->isIc(parentData.clauseUid));
 		LitSet& lits = (isRightParentIc ?  ctx->getClauseLits(parentData.clauseUid) : *parentData.clauseContent);
-
-		//assert(!isRightParentIc || ctx->isIc(parentData.clauseUid));
-		
 		ParentUsed pu = findParentsUsed(*currClause, lits, parentData.origPiv, BL);
 
 
@@ -348,6 +345,9 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 			reconRes.isIc = isRightParentIc;
 			//Set new right parent candidate in lists.
 			currClause = &(lits);
+			if (5059 == currUid) {
+				printClauseData(parentData, "5059 parent used (pu=Right\Either), isIc: " + std::to_string(isRightParentIc));
+			}
 			break;
 		//Resolve left and right parents (left parent is the 
 		//result of the previous iteration)
@@ -364,8 +364,13 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 			}
 			//And lastly, resolve left and right parents
 			resolveWithOverwrite(newClause, lits);
-
+			if (5059 == currUid) {
+				printClauseData(parentData, "5059 parent used (pu=Both), isIc: " + std::to_string(isRightParentIc));
+			}
 		}
+	}
+	if (!reconRes.isIc) {
+		printf("NONIC clause was built\n");
 	}
 	
 }
@@ -414,6 +419,7 @@ Uid ProofRebuilder::
 		//TODO: what if the clause already exists in the system and we only 
 		//found a different proof for it? is this case possible? 
 		//Will it affect the search\Rotation\BLM algorithms? 
+
 
 		CRef newCRef = sh->allocClause(reconRes.newClause, true, true, true);
 		sh->allocResol(newCRef, allParents, icParents, nonIcParents);
@@ -662,7 +668,11 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	**********************************/
 	Uid newUid;
 	if (reconRes.isIc) {
+
+
 		newUid = allocReconstructedICClause(currUid, reconRes, BL);
+		
+
 		assert(ctx->isClauseSeen(newUid));
 
 		//printf("added rebuild %d\n", newUid);

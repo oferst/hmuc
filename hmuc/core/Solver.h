@@ -429,14 +429,11 @@ protected:
 	vec<std::tuple<CRef,int,int>> nonIcResolGraphDeferredAlloc;
 	Uid getUid(const Clause& c, CRef confl);
 
-	//void allocDeferredNonIcResNodes(
-	//	vec<std::tuple<CRef, int, int>>& nonIcResolGraphDeferredAlloc,
-	//	vec<uint32_t>& out_remParents,
-	//	vec<uint32_t>& out_allParents);
-	//void deferNonIcResNodes(CRef cref,
-	//	vec<std::tuple<CRef, int, int>>& nonIcResolGraphDeferredAlloc,
-	//	vec<uint32_t>& out_remParents,
-	//	vec<uint32_t>& out_allParents);
+	//Update the lists of parents of the empty clause. The empty clause isn't represented by a 
+	//resol node in the resolGraph, and therefore its parents' RefCount isn't normally incremented.
+	//Post: All the parents in nextPoEC will have their RefCount incremented by 1.
+	//Post: All the parents in prevPoEC will have their RefCount decremented by 1, and will be removed from the graph should their RefCount reach 0.
+	void updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC);
 
 	lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
     lbool    solve_           ();                                                      // Main solve method (assumptions given in 'assumptions').

@@ -43,8 +43,8 @@ void DelayedResolGraphAlloc::executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allPa
 
 		if (uid != CRef_Undef && RRef_Undef == g->GetResolRef(uid)) {
 			
-			if (uid == 6735) {
-				printf("6735 re-allocating resol node\n");
+			if (uid == 5059) {
+				printf("5059 re-allocating resol node\n");
 			}
 			g->AddRemainderResolution(uid, cref);
 			assert(RRef_Undef != g->GetResolRef(uid));

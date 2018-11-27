@@ -395,8 +395,8 @@ public:
     }
 
     void DeleteClause(uint32_t nUid) {
-		if (nUid == 6735)
-			printf("6735 is being deleted\n");
+		if (nUid == 5059)
+			printf("5059 is being deleted\n");
 		DecreaseReference(nUid);
 		m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }

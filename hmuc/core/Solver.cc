@@ -295,7 +295,8 @@ void Solver::removeClause(CRef cr) {
 	if (isRebuildingProof() && hasUid(cr,uid)) {
 		if(!c.ic() && !c.hasUid())
 			nonIcUidDeferredAlloc.erase(cr);
-		if (CRef_Undef != resolGraph.GetResolRef(uid)) { // clause wasn't deleted from the graph in 'deleteClause' above (it's refCount was positive)
+		if (CRef_Undef != resolGraph.GetResolRef(uid)) { 
+			//The clause wasn't deleted from the graph in 'deleteClause' above (it's refCount was positive)
 			//we have to keep the clause info - without interfering with the ClauseAllocator
 			auto& icDelayed = resolGraph.icDelayedRemoval;
 			if (icDelayed.find(uid) == icDelayed.end()) {
@@ -904,8 +905,8 @@ void Solver::reduceDB(){
 		CRef cr = learnts[i];
 		const Clause& c = ca[cr];
 		if (c.mark() == 0 && c.size() > 2 && !locked(c)) {
-			if (cr == 21300 && c.ic() && ca[cr].uid() == 6735) {
-				printf("6735 removing cr: 55867 (1)\n");
+			if (cr == 21300 && c.ic() && ca[cr].uid() == 5059) {
+				printf("5059 removing cr: 55867 (1)\n");
 			}
 			removeClause(cr);
 		}
@@ -925,8 +926,8 @@ void Solver::reduceDB(){
 			CRef cr = learnts[i];
 			const Clause& c = ca[cr];
 			if (c.mark() == 0 && c.size() > 2 && !locked(c) && c.activity() < extra_lim) {
-				if (cr == 21300 && c.ic() && ca[cr].uid() == 6735) {
-					printf("6735 removing cr: 55867 (2)\n");
+				if (cr == 21300 && c.ic() && ca[cr].uid() == 5059) {
+					printf("5059 removing cr: 55867 (2)\n");
 				}
 				removeClause(cr);
 			}
@@ -1376,34 +1377,9 @@ lbool Solver::search(int nof_conflicts)
 							out.close();
 
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
-
-							
-							for (Uid uid : icPoEC) {
-								RRef rref = resolGraph.GetResolRef(uid);
-								assert(rref != RRef_Undef);
-								Resol& resol = resolGraph.GetResol(rref);
-								assert(resol.header.m_nRefCount > 0);
-								if (1 == resol.header.m_nRefCount) {
-									assert(resolGraph.GetClauseRef(uid) == CRef_Undef);
-									resolGraph.DeleteClause(uid);
-								}
-								else {
-				
-									//assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
-									--resol.header.m_nRefCount;
-								}
-							}
-							
-							replaceVecContent(icPoEC, new_icPoEC);
-
-							for (Uid uid : icPoEC) {
-								RRef rref = resolGraph.GetResolRef(uid);
-								assert(rref != RRef_Undef);
-								Resol& resol = resolGraph.GetResol(rref);
-								assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
-								++resol.header.m_nRefCount;
-							}
+							updatePoEC(allPoEC, new_allPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
+							replaceVecContent(icPoEC, new_icPoEC);
 							return l_False;	
 						}
 						else if (pf_early_unsat_terminate()){ 
@@ -1792,20 +1768,10 @@ void Solver::findConflictICReasons(CRef origConfl) {
     int nSeen = 0;
 
 	//parents of empty clause
-	if (isRebuildingProof() && icPoEC.size() > 0) {
-		for (Uid uid : icPoEC) {
-			RRef rref = resolGraph.GetResolRef(uid);
-			assert(rref != RRef_Undef);
-			Resol& resol = resolGraph.GetResol(rref);
-			assert(resol.header.m_nRefCount > 0);
-			if (1 == resol.header.m_nRefCount) {
-				assert(resolGraph.GetClauseRef(uid) == CRef_Undef);
-				resolGraph.DeleteClause(uid);
-			}
-			else {
-				//assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
-				--resol.header.m_nRefCount;
-			}
+	vec<Uid> prevAllPoEC;
+	if (isRebuildingProof()) {
+		for (Uid uid : allPoEC) {
+			prevAllPoEC.push(uid);
 		}
 	}
 	icPoEC.clear();
@@ -1814,7 +1780,6 @@ void Solver::findConflictICReasons(CRef origConfl) {
 	vec<Uid> dummy;
 	if (isRebuildingProof()) {
 		delayedAllocator.clear();
-		//nonIcResolGraphDeferredAlloc.clear();
 		allPoEC.clear();
 	}
 
@@ -1824,10 +1789,10 @@ void Solver::findConflictICReasons(CRef origConfl) {
         if (c.ic()) {            
 #ifdef NewParents
 			icPoEC.push(c.uid());
-			if (c.uid() == 6735) {
-				printf("6735 added to icPoEC\n");
-				printf("6735 CRef in graph: %d\n", resolGraph.GetResolRef(c.uid()));
-				printf("6735 RRef in graph: %d\n", resolGraph.GetClauseRef(c.uid()));
+			if (c.uid() == 5059) {
+				printf("5059 added to icPoEC\n");
+				printf("5059 CRef in graph: %d\n", resolGraph.GetResolRef(c.uid()));
+				printf("5059 RRef in graph: %d\n", resolGraph.GetClauseRef(c.uid()));
 			}
 #endif
 			resolGraph.m_icPoEC.insert(c.uid()); // duplicate to ic_parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
@@ -1857,20 +1822,45 @@ void Solver::findConflictICReasons(CRef origConfl) {
         --nSeen;
     }
 	if (isRebuildingProof() && icPoEC.size() > 0) {
+
 		vec<Uid> dummy;
-		delayedAllocator.executeJobs(dummy, allPoEC);
+		assert(allPoEC.size() == 0);
+		delayedAllocator.executeJobs(dummy, allPoEC); //allocate all nonIc PoEC, and populate the list of all PoEC uids
 		assert(icPoEC.size() + dummy.size() == allPoEC.size());
 
-		for (Uid uid : icPoEC) {
-			RRef rref = resolGraph.GetResolRef(uid);
-			assert(rref != RRef_Undef);
-			Resol& resol = resolGraph.GetResol(rref);
-			assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
-			++resol.header.m_nRefCount;
-		}
+		updatePoEC(prevAllPoEC, allPoEC);
 	}
 }
 
+void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
+	for (Uid uid : nextPoEC) {
+		RRef rref = resolGraph.GetResolRef(uid);
+		assert(rref != RRef_Undef);
+		Resol& resol = resolGraph.GetResol(rref);
+		assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
+		resol.header.m_nRefCount +=2 ; //we increment the refCount here because we consider the empty clause as a child node for the current clause (even though empty clause has no representation in the graph)
+		if (uid == 5059) {
+			printf("5059 is now a PoEC, refCount: %d\n", resol.header.m_nRefCount);
+		}
+	}
+
+	for (Uid uid : prevPoEC) {
+		RRef rref = resolGraph.GetResolRef(uid);
+		assert(rref != RRef_Undef);
+		Resol& resol = resolGraph.GetResol(rref);
+		assert(resol.header.m_nRefCount > 1);
+		if (uid == 5059) {
+			printf("5059 is no longer a PoEC, refCount: %d\n", resol.header.m_nRefCount);
+		}
+		if (2 == resol.header.m_nRefCount) { //the refCount should be exactly 1 when the empty clause is the last child for the current clause, and in that case we delete, it as it is a clause with no children who should have been deleted previously
+			assert(resolGraph.GetClauseRef(uid) == CRef_Undef);
+			resolGraph.DeleteClause(uid);
+		}
+		else {
+			resol.header.m_nRefCount -= 2;
+		}
+	}
+}
 /*	Starting from the ic parents of the empty clause (icPoEC), found when UNSAT was returned, 
 	we find and recored all the resolution graph roots which are also ic clauses.
 	If opt_blm_rebuild_proof is used, we will also record all parents of ic clauses which are 
@@ -1927,7 +1917,7 @@ void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>&
     int j = 0;
 	//Go over all possible Uids
     for (uint32_t i = 0; i < resolGraph.GetMaxIcUid(); ++i) {
-		if (i == 6735) {
+		if (i == 5059) {
 			printf("%d checking removal from graph\n", i);
 		}
         if (i != uidsVec[j] && !muc.has(i)) { 
