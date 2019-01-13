@@ -22,7 +22,7 @@ void DelayedResolGraphAlloc::clear() {
 	jobs.clear();
 	firstIc = -1;
 }
-void DelayedResolGraphAlloc::executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allParents) {
+void DelayedResolGraphAlloc::executeJobs(vec<Uid>& allParents) {
 	assert(nonIcParents.size() == 0 && allParents.size() == 0);
 	assert(firstIc >= 0);
 	Uid nextUid = Clause::GetNextUid();
@@ -42,23 +42,16 @@ void DelayedResolGraphAlloc::executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allPa
 		}
 
 		if (uid != CRef_Undef && RRef_Undef == g->GetResolRef(uid)) {
-			
-			if (uid == 5059) {
-				printf("5059 re-allocating resol node\n");
-			}
 			g->AddRemainderResolution(uid, cref);
 			assert(RRef_Undef != g->GetResolRef(uid));
 		}
 		if(uid == CRef_Undef){//otherwise, the clause has no Uid, allocate it a node in the graph now, and allocate it a Uid (externally). 
 			assert(!c.ic());
 			uid = nextUid++;
+			//Clause::SetNextUid(uid);
 			g->AddRemainderResolution(uid, cref);
 			uidDeferredAlloc[cref] = uid;
 		}
-
-		if (!job.isIc)
-			nonIcParents.push(uid);
-		
 		allParents.push(uid);
 	}
 	Clause::SetNextUid(nextUid);

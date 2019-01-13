@@ -163,6 +163,7 @@ class Clause {
     union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
 
     static Uid nextUid;
+
     friend class ClauseAllocator;
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
@@ -196,6 +197,7 @@ class Clause {
     }
 
 public:
+	static int debugFlag;
 	static uint32_t GetNextUid() {return nextUid; }
 	static uint32_t GetLastUid() { return nextUid - 1; }
 	static void DecreaseUid() {  --nextUid; }
@@ -377,9 +379,6 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     }
 	void relocWithUid(CRef& cr, ClauseAllocator& to,Uid uid) {
 		Clause& c = operator[](cr);
-		//if (uid == 5715) {
-		//	c.printClause("5715 relocWithUid");
-		//}
 		if (c.reloced()) { 
 			assert(to[c.relocation()].uid() == uid);
 			cr = c.relocation(); return; 
@@ -397,9 +396,6 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 			newC.calcAbstraction();
 		newC.uid() = uid;
 		Clause::DecreaseUid();
-		//if (uid == 5715) {
-		//	newC.printClause("5715 relocWithUid (new)");
-		//}
 	}
 };
 
@@ -565,6 +561,11 @@ inline void Clause::strengthen(Lit p)
 }
 
 //=================================================================================================
+class ResolutionException : public std::exception {
+public:
+	ResolutionException(const char* msg) : std::exception(msg) {}
+};
 }
+
 
 #endif

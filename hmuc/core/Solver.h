@@ -66,7 +66,6 @@ class Solver {
 public:
 	static int debug_flag;
 	void GeticUnits(vec<int>&);
-    //void GetUnsatCore(vec<uint32_t>& core, Set<uint32_t>& emptyClauseCone);
 	void GetUnsatCore(vec<Uid>& icCore, Set<Uid>& icAncestors, Set<Uid>& nonIcAncestors, bool debug = false, ostream& out = std::cout);
     void RemoveEverythingNotInRhombusOrMuc(Set<uint32_t>& cone, Set<uint32_t>& muc);
 	void RemoveClauses_withoutICparents(vec<uint32_t>& cone);
@@ -113,7 +112,6 @@ public:
 	vec<uint32_t> icPoEC; //ic parents of empty clause used in lpf_get_assumptions. Stores the ic parents of empty clause from the last unsat.
 	vec<uint32_t> allPoEC; //All parents of empty clause from the last unsat. They are only maintained for using the proof reconstruction algorithm, and are not actually used outside of it.
 	std::unordered_set<Uid> unbondedCone;
-	//vec<Lit> allPoEC_pivots; //All PoEC pivots from the last unsat. Used in BLM proof reconstruction.
 
 	
 	int pf_Literals;
@@ -132,7 +130,6 @@ public:
     int m_nUnsatPathFalsificationCalls;
     vec<uint32_t> icParents;
 	vec<uint32_t> allParents;
-	vec<uint32_t> remParents;
     bool m_bUnsatByPathFalsification;
 	int nUnsatByPF;
 	int pf_prev_trail_size;
@@ -411,9 +408,8 @@ protected:
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     
 	
-	void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
-    void     analyzeFinal     (Lit p, vec<Lit>& out_conflict, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-	//bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
+	void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents,DelayedResolGraphAlloc& dAlloc);    // (bt = backtrack)
+    void     analyzeFinal     (Lit p, vec<Lit>& out_conflict, vec<uint32_t>& icParents, vec<uint32_t>& allParents);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
 	bool     litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents,DelayedResolGraphAlloc& delayedAllocator); // (helper method for 'analyze()')
 
 

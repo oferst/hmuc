@@ -442,6 +442,7 @@ namespace Minisat {
 					//For each clause in ic core check whether it's not already 
 					//in the MUC, and if not then mark it as an unknown ic the be 
 					//checked. 
+					
 					assert(vecNextUnknown.size() == 0); // !! if not then check why it is not necessarily empty before we fill it with the core. 
 					for (auto& uid : currIcCore) { // go over clauses in icCore											
 						assert(uid <= m_nICSize);

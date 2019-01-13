@@ -3,29 +3,30 @@ namespace Minisat {
 
 SolverHandle::SolverHandle(Solver* _s=NULL): s(_s)
 {
+	vec<Uid>& icPoEC = s->icPoEC;
+	vec<Uid>& allPoEC = s->allPoEC;
+	int numOfNonIc = allPoEC.size() - icPoEC.size();
+	int additionalSize = (numOfNonIc == 0) ? 0 : (1 + numOfNonIc + (allPoEC.size() / 32) + (int)((allPoEC.size() % 32) > 0));
+	PoEC = (Resol*)malloc(4*(Resol::SIZE + icPoEC.size() + additionalSize));
+	new (PoEC) Resol(icPoEC, allPoEC, true);
 }
 
 SolverHandle::~SolverHandle()
 {
+	free(PoEC);
 }
-void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
-	s->resolGraph.realocExistingResolution(oldUid, icParents, remParents, allParents);
+void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents,  const vec<Uid>& allParents) {
+	s->resolGraph.realocExistingResolution(oldUid, icParents,  allParents);
 }
 
-void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
-	s->resolGraph.updateParentsOrder(uid, icParents, remParents, allParents);
+void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& allParents) {
+	s->resolGraph.updateParentsOrder(uid, icParents, allParents);
 }
 Uid SolverHandle::CRefToUid(CRef cref) {
 	Uid uid;
-	assert(s->hasUid(cref, uid));
+	bool hasUid = s->hasUid(cref, uid);
+	assert(hasUid);
 	return uid;
-
-	//s->has
-	//Clause& c = s->ca[cref];
-	//if (c.hasUid())
-	//	return s->ca[cref].uid();
-	//else
-	//	return s->nonIcUidDeferredAlloc[cref];
 }
 
 CRef SolverHandle::UidToCRef(Uid uid) {
@@ -44,11 +45,15 @@ vec<Lit>& SolverHandle::getDelayedRemoval(Uid uid) {
 }
 
 Resol& SolverHandle::getResol(Uid uid) {
+	if (CRef_Undef == uid) {
+		return *PoEC;
+	}
 	CResolutionGraph& g = s->resolGraph;
 	return s->resolGraph.GetResol(getResolRef(uid));
 }
 
 RRef SolverHandle::getResolRef(Uid uid) {
+	assert(uid <= Clause::GetNextUid() && uid != CRef_Undef);
 	return s->resolGraph.GetResolRef(uid);
 }
 CRef SolverHandle::allocClause(vec<Lit>& lits, bool isLearned, bool isIc,bool hasUid) {
@@ -61,15 +66,15 @@ CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc, bool has
 		litVec.push(l);
 	return  s->allocClause(litVec, isLearned,isIc, hasUid);
 }
-void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents, vec<Uid>& remParents) {
-	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, remParents, allParents);
+void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents) {
+	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, allParents);
 }
 void SolverHandle::allocNonIcResol(CRef cref) {
 	s->resolGraph.AddRemainderResolution(CRefToUid(cref), cref);
 
 }
-void SolverHandle::analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents) {
-	s->analyzeFinal(initConflict, out_negConflicts, out_icParents, out_remParents, out_allParents);
+void SolverHandle::analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_allParents) {
+	s->analyzeFinal(initConflict, out_negConflicts, out_icParents, out_allParents);
 }
 vec<Uid>& SolverHandle::getIcPoEC() {
 	return s->icPoEC;
@@ -78,18 +83,11 @@ vec<Uid>& SolverHandle::getIcPoEC() {
 vec<Uid>& SolverHandle::getPoEC() {
 	return s->allPoEC;
 }
-//vec<Lit>& SolverHandle::getPoEC_Piv() {
-//	return s->allPoEC_pivots;
-//}
+
 bool SolverHandle::inRhombus(Uid uid) {
-	
-	//return CRef_Undef == uid || (s->map_cls_to_Tclause.find(uid) != s->map_cls_to_Tclause.end());
 	return CRef_Undef == uid || (s->unbondedCone.find(uid)!= s->unbondedCone.end());
 }
-
-//template <class T>
-//void SolverHandle::printClause(T clause, std::string msg) {
-//	s->printClause(clause, msg);
-//}
-
+int SolverHandle::level(Var v) {
+	return s->level(v);
+}
 }

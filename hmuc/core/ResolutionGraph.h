@@ -16,15 +16,14 @@ namespace Minisat
 
 
 
-
-
 class ParentIter;
 class Resol
 {
+
 #define IC_OFFSET 1
 #define NON_IC_OFFSET 1
 public:
-
+	static int debug_resol;
 	//a vec<Uid> containing the Uids of the children of this node.
 	//Note that unlike the parents, child nodes are dynamically added and 
 	//therefore cannot be declared at construction - the solution is to 
@@ -41,34 +40,26 @@ public:
     union {
 		uint32_t icSize;
         uint32_t icParent;
-
-		uint32_t remSize;//number of non-ic parnet clauses (at the time of creating this Resol node)
-		uint32_t remParent; //uid of non-ic parnet clause (at the time of creating this Resol node)
+		uint32_t nonIcSize;//number of non-ic parnet clauses (at the time of creating this Resol node)
+		uint32_t nonIcParent; //uid of non-ic parnet clause (at the time of creating this Resol node)
 		uint32_t guideFlags;//an ordering  guide (implemented as a boolean array packed to uint32_t array) to the location of each parnet (ic or non-ic) in the node - 0 is non-ic part - while 1 is an ic. This array implements a total ordering of the parents as was defined by the resolution order that created the current Resol node.
-		
-
-
     } m_Parents[0];
-
-
-
-
 
     uint32_t* IcParents(){
        return &m_Parents[IC_OFFSET].icParent;
     }
 	uint32_t* nonIcParents(){
-		return (header.hasNonIcParents) ? &m_Parents[IC_OFFSET + icParentsSize() + NON_IC_OFFSET].remParent : NULL;
+		return (header.hasNonIcParents) ? &m_Parents[IC_OFFSET + icParentsSize() + NON_IC_OFFSET].nonIcParent : NULL;
 	}
     inline int icParentsSize() const{
         return m_Parents[0].icSize;
     }
 	inline int nonIcParentsSize() const{
-		return (!header.hasNonIcParents) ? 0 : m_Parents[IC_OFFSET + icParentsSize()].remSize;
+		return (!header.hasNonIcParents) ? 0 : m_Parents[IC_OFFSET + icParentsSize()].nonIcSize;
 	}
 	
 	//this function returns the size (i.e. number of 32-bit words) of the additional data in case non-ic clauses are recorded in the resol node
-	inline int additionalNonIcDataSize() const {
+	inline int nonIcData32bitSize() const {
 		if (!header.hasNonIcParents)
 			return 0;
 		int totalParentsNum = icParentsSize() + nonIcParentsSize();
@@ -78,47 +69,56 @@ public:
 	}
     uint32_t sizeIn32Bit() const {
 		int totalParentsNum = icParentsSize() + nonIcParentsSize();
-        return SIZE + totalParentsNum + additionalNonIcDataSize();
+        return SIZE + totalParentsNum + nonIcData32bitSize();
     }
+	//Number of total parents
 	uint32_t size() const {
 		return icParentsSize() + nonIcParentsSize();
 	}
 
     friend class ResolAllocator;
 //private:
+	
+	//This represents the number of 32-bit words needed to record the m_children vec, the header, and the icSize uint32_t.
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
-    Resol(const vec<Uid>& icParents,const vec<Uid>& remParents, const vec<Uid>& allParents,bool ic){
-		assert(icParents.size() + remParents.size() == allParents.size());
+    Resol(const vec<Uid>& icParents, const vec<Uid>& allParents,bool ic){
 		header.ic = (int)ic;
 		header.m_nRefCount = 1;
 
         m_Parents[0].icSize = icParents.size();
 		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
-		if (remParents.size() == 0) {
+		
+		if (allParents.size() - icParents.size() == 0) {
 			header.hasNonIcParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
 				ics[i] = icParents[i];
-
 			}
 		}
-		else { // remParents.size() > 0
+		else { // there is at least one non-ic parent
+
 			header.hasNonIcParents = 1;
-			m_Parents[IC_OFFSET + icParents.size()].remSize = remParents.size();
-			uint32_t * rems = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET].remParent);
+			m_Parents[IC_OFFSET + icParents.size()].nonIcSize = allParents.size() - icParents.size();
+
+			uint32_t * nonIcs = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET].nonIcParent);
 			uint32_t * flags = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET + nonIcParentsSize()].guideFlags);
-			uint32_t i, j; i = j = 0;
+			uint32_t i, j, k; i = j = k = 0;
 			BitArray ba = BitArray(flags);
-			for (uint32_t idx = 0; idx < allParents.size(); ++idx) {	
-				if (icParents[i] == allParents[idx]) {
-					ics[i++] = allParents[idx];
+
+			for (; k < allParents.size() && i < icParents.size(); ++k) {
+				if (icParents[i] == allParents[k]) {
+					ics[i++] = allParents[k];
 					ba.addBitMSB(1);
 				} 
 				else {
-					assert(allParents[idx] == remParents[j]);
-					rems[j++] = allParents[idx];
+					nonIcs[j++] = allParents[k];
 					ba.addBitMSB(0);
-				}													
+				}	
+			}			
+			for (; k < allParents.size() && j < icParents.size(); ++k) {
+				nonIcs[j++] = allParents[k];
+				ba.addBitMSB(0);
+				
 			}
 		}
     }
@@ -140,24 +140,19 @@ public:
 		}
 		//f_mask is a 32-bit word with a single bit on, incrementing it will bit-shift the bit towards the MSB. If overflowing, rotate back to LSB.
 		void incFlagData() {
-			//printf("before - f_mask: %u, f_word: %u\n", f_mask, f_word);
 			if (f_mask < MAX_MASK)
 				f_mask = f_mask << 1;
 			else {
 				f_mask = MIN_MASK;
 				f_word = flags[idx / 32];
 			}
-			//printf("after - f_mask: %u, f_word: %u\n\n", f_mask, f_word);
-
 		}
 		//check new flag in flags array. If the new flag is 1 then the next parent is an ic, otherwise it is remainder. Increment the relevant new index accordingly.
 		void updateIdxs() {
-			//printf("before - icIdx: %d, remIdx: %d\n", icIdx, remIdx);
 			if (!r.header.hasNonIcParents | (f_mask & f_word)) // f_word = flags[idx/32] is the current segment of the flag array we are looking at, f_mask = (1 << idx%32) is a positive power of 2, or a 32-bit word with a single '1' bit that represents the current offset in the current f_word. & (bitwise AND) between f_word and f_mask results in the current relevant flag bit.
 				icIdx++;
 			else
 				remIdx++;
-			//printf("after - icIdx: %d, remIdx: %d\n\n", icIdx, remIdx);
 		}
 	public:
 		ParentIter(const Resol& _r, uint32_t _idx = 0) : 
@@ -190,10 +185,12 @@ public:
 			return *this;
 		}
 		const uint32_t& operator*() const {
-			if (idx >= size)
+			if (idx >= size) {
 				return CRef_Undef;
-			else if (r.header.hasNonIcParents && !(f_mask & f_word)) //next parent is a remainder parent
-				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
+			}
+			else if (r.header.hasNonIcParents && !(f_mask & f_word)) { //next parent is a remainder parent
+				return r.m_Parents[IC_OFFSET + r.icParentsSize() + NON_IC_OFFSET + remIdx].nonIcParent;
+			}
 			else {
 				return r.m_Parents[IC_OFFSET + icIdx].icParent;
 			}
@@ -248,6 +245,7 @@ public:
 			return &r != &other.r || idx != other.idx;
 		}
 		const RevParentIter& operator--() {
+
 			--idx;
 			if (idx < -1)
 				//if already at the start of the iterator, do nothing to actually decrement it.
@@ -265,7 +263,7 @@ public:
 			if (idx <= -1)
 				return CRef_Undef;
 			else if (r.header.hasNonIcParents && !(f_mask & f_word)) //next parent is a remainder parent
-				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
+				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].nonIcParent;
 			else { //next parent is an ic parent
 				return r.m_Parents[IC_OFFSET + icIdx].icParent;
 			}
@@ -293,16 +291,18 @@ public:
 class ResolAllocator : public RegionAllocator<uint32_t>
 {
 public:
-	void updateAllocated(RRef rRef, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents) {
-		new (lea(rRef)) Resol(icParents, remParents, allParents, operator[](rRef).header.ic);
+	void updateAllocated(RRef rRef, const vec<uint32_t>& icParents, const vec<uint32_t>& allParents) {
+		new (lea(rRef)) Resol(icParents, allParents, operator[](rRef).header.ic);
 	}
-    RRef alloc(const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic)
+    RRef alloc(const vec<uint32_t>& icParents, const vec<uint32_t>& allParents,bool ic)
     {
-
-		int additionalSize = (remParents.size() == 0) ? 0 : (1 + remParents.size() + (allParents.size() / 32) + (int)((allParents.size() % 32) > 0));
+		int numOfNonIc = allParents.size() - icParents.size();
+		int additionalSize = (numOfNonIc == 0) ? 0 : (1 + numOfNonIc + (allParents.size() / 32) + (int)((allParents.size() % 32) > 0));
 		RRef rRef = RegionAllocator<uint32_t>::alloc(Resol::SIZE + icParents.size() + additionalSize);
 
-        new (lea(rRef)) Resol(icParents,remParents,allParents,ic);
+        new (lea(rRef)) Resol(icParents,allParents,ic);
+
+
         return rRef;
     } 
 
@@ -325,9 +325,9 @@ public:
         m_LastRelocLoc = 0;
     }
 
-    void Reloc(CRef& from) //'from' is a resol ref
+    void Reloc(RRef& from) //'from' is a resol ref
     {
-        if (from == CRef_Undef)
+        if (from == RRef_Undef)
             return;
         uint32_t size = operator[](from).sizeIn32Bit();
 
@@ -363,6 +363,7 @@ private:
 class CResolutionGraph
 {
 public:
+
 	int verbose = 0;
 	//________________________________________________________________________________________________
 
@@ -374,18 +375,18 @@ public:
 
 
 	void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents);
-    void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
+    void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents, const vec<Uid>& allParents);
 	void AddRemainderResolution(uint32_t nNewClauseId, CRef ref);
 	void reallocRemainderResolution(Uid nUid);
 	//Set<uint32_t> temp_ics;
-	void updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
+	void updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& allParents);
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
 	
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
 		m_UidToData[nUid].m_ClauseRef = newRef;
     }
-	void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
+	void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents,const vec<Uid>& allParents);
     CRef GetClauseRef(uint32_t nUid) const {// formerly 'GetInd'
 		return m_UidToData[nUid].m_ClauseRef;
     }
@@ -395,8 +396,6 @@ public:
     }
 
     void DeleteClause(uint32_t nUid) {
-		if (nUid == 5059)
-			printf("5059 is being deleted\n");
 		DecreaseReference(nUid);
 		m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
@@ -425,8 +424,9 @@ public:
         return GetResolRef(uid) != RRef_Undef;
     }
 
-    uint32_t GetMaxIcUid() const {
-        return m_UidToData.size();
+    uint32_t GetNextAvailableUid() const {
+		return Clause::GetNextUid();
+			//m_UidToData.size();
     }
 
     Set<uint32_t> m_icPoEC;
