@@ -229,6 +229,7 @@
     <ClInclude Include="core\ResolutionGraph.h" />
     <ClInclude Include="core\Solver.h" />
     <ClInclude Include="core\SolverTypes.h" />
+    <ClInclude Include="DelayedResolGraphAlloc.h" />
     <ClInclude Include="mtl\Alg.h" />
     <ClInclude Include="mtl\Alloc.h" />
     <ClInclude Include="mtl\Heap.h" />
@@ -252,6 +253,7 @@
     <ClCompile Include="core\MinimalCore.cc" />
     <ClCompile Include="core\ResolutionGraph.cc" />
     <ClCompile Include="core\Solver.cc" />
+    <ClCompile Include="DelayedResolGraphAlloc.cpp" />
     <ClCompile Include="ProofRebuilder.cpp" />
     <ClCompile Include="RebuilderContext.cpp" />
     <ClCompile Include="simp\Main.cc" />

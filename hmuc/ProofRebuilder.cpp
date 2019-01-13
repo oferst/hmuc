@@ -120,7 +120,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 	vec<Uid> confLits_allParents;
 
 
-	sh->analyzeConflictingAssumptions(startingConflLiteral, negConflAssumptions, confLits_icParents, confLits_remParents, confLits_allParents);
+	sh->analyzeConflictingAssumptions(startingConflLiteral, negConflAssumptions, confLits_icParents, confLits_allParents);
 	ReconstructionResult result;
 	std::list<ClauseData>& allParents = result.rebuiltParentsCandidates;
 	//after analyzeFinal the vector negConflAssumptions contains all the set of negated BL that are in conflict - they are the reason for the current conflict - we will prove the  assumption (backbones) below.
@@ -133,7 +133,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 	}
 	else {
 		CRef newCr = sh->allocClause(negConflAssumptions, true, true, true);
-		sh->allocResol(newCr, confLits_allParents, confLits_icParents, confLits_remParents);
+		sh->allocResol(newCr, confLits_allParents, confLits_icParents);
 		Uid uid = sh->CRefToUid(newCr);
 		newParent.setAllocatedClauseData(uid);
 		assert(debugRebuiltClauses.insert(uid).second);
@@ -165,7 +165,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		/********************************************************
 			proveBackboneLiteral - The main work is done here
 		*********************************************************/
-		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
+		proveBackboneLiteral(CRef_Undef, BL, newUnitParent);
 		result.isIc = result.isIc || Allocated == newUnitParent.status;
 	}
 
@@ -224,10 +224,8 @@ The only three exceptions to traversing an original parent are when:
 	this parent will never contain ~BL i.e., even if a parent
 	isn't in rhombus(c) it can be cut off in 1) if it contains ~BL.
 */
-template<class T>
 void ProofRebuilder::backwardsTraversal(
 							const Uid currUid,
-							const T& parents,
 							const Lit& BL,
 							const vec<Lit>& currPivots,
 							std::list<ClauseData>& rebuiltParentsData){
@@ -239,13 +237,15 @@ void ProofRebuilder::backwardsTraversal(
 	Lit negBL = ~BL;
 	//A reverse iterator for the parents container 
 	//(should be either a vec<Uid> or a Resol node).
-	auto rIter = parents.rbegin();
+	
+	vec<Uid> currParents;
+	for (auto& p : sh->getResol(currUid))
+		currParents.push(p);
+	int i = currParents.size() - 1;
 	int j = currPivots.size() - 1;
-	for (; j >= 0; --j, --rIter) {
+	for (; j >= 0; --j, --i) {
 		//current parent uid
-		Uid pUid = *rIter;
-		//if (currUid == 5580)
-		//	printf("backward traversal parent %d\n", pUid);
+		Uid pUid = currParents[i];
 		//The current pivot literal, current parent ('pUid') is the 
 		//right antecedent for the resolvent created using this pivot
 		Lit currPiv = currPivots[j];
@@ -258,7 +258,7 @@ void ProofRebuilder::backwardsTraversal(
 		else {
 			rebuiltParentsData.push_front(ClauseData(currPiv));
 			ClauseData& currParent = rebuiltParentsData.front();
-			proveBackboneLiteral(pUid, sh->getResol(pUid), BL, currParent);
+			proveBackboneLiteral(pUid, BL, currParent);
 
 
 		}
@@ -272,10 +272,7 @@ void ProofRebuilder::backwardsTraversal(
 			saving time.
 			*/
 		}
-
 	}
-
-
 }
 void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 						const vec<Lit>& currPivots,
@@ -400,7 +397,7 @@ Uid ProofRebuilder::
 	else {
 		//Now is the point where we allocate all the nonIc parents (if any exist)
 		vec<Uid> allParents,icParents, nonIcParents;
-		allocateNonIcParents(reconRes, allParents, icParents, nonIcParents);
+		allocateNonIcParents(reconRes, allParents, icParents);
 
 		//if (ctx->getClauseLits(currUid).size() == newClause.size() && 
 		//	member(BL,ctx->getClauseLits(currUid))){
@@ -422,7 +419,7 @@ Uid ProofRebuilder::
 
 
 		CRef newCRef = sh->allocClause(reconRes.newClause, true, true, true);
-		sh->allocResol(newCRef, allParents, icParents, nonIcParents);
+		sh->allocResol(newCRef, allParents, icParents);
 
 		newUid = sh->CRefToUid(newCRef);
 		assert(debugRebuiltClauses.insert(newUid).second);
@@ -436,7 +433,7 @@ Uid ProofRebuilder::
 	ctx->isIc(newUid) = true;
 	return newUid;
 }
-void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids,vec<Uid>& nonIcUids) {
+void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids) {
 	assert(reconRes.isIc);
 	for (auto data : reconRes.parentsUsed) {
 		Uid uid = CRef_Undef;
@@ -447,8 +444,6 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 			assert(CRef_Undef != uid);
 			if(sh->getResol(uid).header.ic)
 				icUids.push(uid);
-			else
-				nonIcUids.push(uid);
 			allUids.push(uid);
 			break;
 		case Deferred:
@@ -457,7 +452,6 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 			sh->allocNonIcResol(cr);
 			uid = sh->CRefToUid(cr);
 			assert(CRef_Undef != uid);
-			nonIcUids.push(uid);
 			allUids.push(uid);
 			break;
 		case Uninitialized:
@@ -466,8 +460,7 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 	}
 }
 
-template<class T>
-void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies) {
+void ProofRebuilder::findParentDependencies(const vec<Uid>& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies) {
 	int i = 0;
 	assert(parents.size() == pivots.size());
 	std::unordered_map<Var, uint32_t> pivVar2Idx;
@@ -518,10 +511,8 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 }
 
 
-template<class T>
 Uid ProofRebuilder::proveBackboneLiteral(
 	const Uid currUid,
-	const T& parents,
 	const Lit& BL,
 	ClauseData& result
 	) {
@@ -567,7 +558,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	if (!ctx->arePivotsKnown(currUid)) {
 		//no pivots found - extract pivots using currUid'
 		//clause parents, result recorded in 'RebuilderContext* ctx'.
-		recordClausePivots(currUid, parents, validator);
+		recordClausePivots(currUid, validator);
 	}
 
 
@@ -592,11 +583,14 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//continuing the proof reconstruction
 	
 	if (!validator.valid) {
-
+		vec<Uid> currParents;
+		for (auto& p : sh->getResol(currUid)) {
+			currParents.push(p);
+		}
 		assert(CRef_Undef != currUid);
 		std::unordered_map<uint32_t, vec<uint32_t>> dependenciesByIdx;
-		findParentDependencies(parents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
-		Graph<uint32_t> g(parents.size());
+		findParentDependencies(currParents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
+		Graph<uint32_t> g(currParents.size());
 		for (auto& idxPair : dependenciesByIdx) {
 			uint32_t idx1 = idxPair.first;
 			for (auto& idx2 : idxPair.second) {
@@ -606,14 +600,11 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		vec<uint32_t> sortedParentsIdx;
 		g.topologicalSort(sortedParentsIdx);
 		
-		vec<Uid> parentsVec;
-		for (auto& p : parents) {
-			parentsVec.push(p);
-		}
+
 		vec<Uid> updatedParents;
 		vec<Lit> updatePivots;
 		for (uint32_t idx : sortedParentsIdx) {
-			updatedParents.push(parentsVec[idx]);
+			updatedParents.push(currParents[idx]);
 			updatePivots.push(currPivots[idx]);
 		}
 		replaceVecContent(currPivots, updatePivots);
@@ -631,7 +622,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 				remParent.push(p);
 			}
 		}
-		sh->updateParentsOrder(currUid, icParents, remParent, allParents);
+		sh->updateParentsOrder(currUid, icParents, allParents);
 		assert(validateResolution(currUid,updatedParents, updatePivots));
 	}
 
@@ -654,7 +645,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	/**************************************************
 		BackwardsTraversal (RECURSIVE inner call here).
 	***************************************************/
-	backwardsTraversal(currUid, parents, BL, currPivots, rebuiltParentsCandidates);
+	backwardsTraversal(currUid, BL, currPivots, rebuiltParentsCandidates);
 	
 	/******************************
 		Proof Reconstruction.
@@ -691,7 +682,6 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	out << currUid << " -> " << newUid << std::endl;
 	out.close();
 	assert(ctx->getClauseLits(newUid).find(BL) != ctx->getClauseLits(newUid).end());
-	//depth_debug--;
 	return newUid;
 }
 
@@ -719,15 +709,14 @@ void ProofRebuilder::copyClauseLits(Uid from, LitSet& to) {
 		insertAll(sh->getDelayedRemoval(from), to);
 }
 
-template<class T>
-void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidation& validation) {
+void ProofRebuilder::recordClausePivots(Uid uid, ResolValidation& validation) {
 	if (!ctx->arePivotsKnown(uid)) {
 		LitSet clause;
 		vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
 		assert(pivots.size() == 0);
 		pivots.push(ctx->dummy);
 		std::unordered_map<Var, uint32_t> piv2Idx;
-		for (auto& p : parents) {
+		for (auto& p : sh->getResol(uid)) {
 			LitSet& rightClause = recordClause(p);
 			Lit piv = resolveWithOverwrite(clause, rightClause,validation);
 			if (piv != ctx->dummy) {

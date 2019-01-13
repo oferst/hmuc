@@ -259,9 +259,6 @@ void Solver::attachClause(CRef cr) {
 void Solver::detachClause(CRef cr, bool strict) {
     const Clause& c = ca[cr];
     assert(c.size() > 1);
-	//if (cr == 16586) {
-	//	printf("cr 16586 uid: %d\n",resolGraph.GetClauseRef(5715));
-	//}
     if (strict){
         remove(watches[~c[0]], Watcher(cr, c[1]));
         remove(watches[~c[1]], Watcher(cr, c[0]));
@@ -277,8 +274,6 @@ void Solver::detachClause(CRef cr, bool strict) {
 
 void Solver::removeClause(CRef cr) {
     Clause& c = ca[cr];
-	//if(cr == 16454)
-	//	printClause(c, "smudging bug, ic? " + std::to_string(c.ic()) + " hasUid (internally)? "+ std::to_string(c.hasUid()));
 	if (c.size() > 1 && c.mark() != 1) {
 		detachClause(cr);
 	}
@@ -384,7 +379,7 @@ Lit Solver::pickBranchLit()
 |        rest of literals. There may be others from the same level though.
 |
 |________________________________________________________________________________________________@*/
-void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents)
+void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, DelayedResolGraphAlloc& dAlloc)
 {
 
 	CRef startCr = confl;
@@ -404,7 +399,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 
 		if (c.ic())  icParents.push(c.uid());
 		if (isRebuildingProof()) {
-			delayedAllocator.addJob(c, confl);
+			dAlloc.addJob(c, confl);
 		}
 
         for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
@@ -445,7 +440,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
             abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
 
 		for (i = j = 1; i < out_learnt.size(); i++) {
-			if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level, icParents,delayedAllocator)) {
+			if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level, icParents,dAlloc)) {
 				out_learnt[j++] = out_learnt[i];
 			}
 		}
@@ -679,7 +674,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels,vec<Uid>& icParents, D
 |    Calculates the (possibly empty) set of assumptions that led to the assignment of 'currBL', and
 |    stores the result in 'out_conflict'.
 |________________________________________________________________________________________________@*/
-void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents) {
+void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icParents, vec<uint32_t>& out_allParents) {
 	out_conflict.clear();
     out_conflict.push(~p);
     if (decisionLevel() == 0)
@@ -718,9 +713,8 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
         }
     }
 	if (isRebuildingProof() && out_icParents.size() > 0) {
-		out_remParents.clear();
 		out_allParents.clear();
-		delayedAllocator.executeJobs(out_remParents, out_allParents);
+		delayedAllocator.executeJobs(out_allParents);
 		assert(out_icParents.size() + out_remParents.size() == out_allParents.size());
 	}
 	//allocDeferredNonIcResNodes(nonIcResolGraphDeferredAlloc, out_remParents, out_allParents);
@@ -1090,7 +1084,6 @@ lbool Solver::search(int nof_conflicts)
     icParents.clear();
 	if (isRebuildingProof()) {
 		allParents.clear();
-		remParents.clear();
 		delayedAllocator.clear();
 		//nonIcResolGraphDeferredAlloc.clear();
 	}
@@ -1197,7 +1190,7 @@ lbool Solver::search(int nof_conflicts)
             learnt_clause.clear();
 
 			delayedAllocator.clear();
-            analyze(confl, learnt_clause, backtrack_level, icParents,remParents,allParents);
+            analyze(confl, learnt_clause, backtrack_level, icParents,delayedAllocator);
 
 
 			
@@ -1224,7 +1217,7 @@ lbool Solver::search(int nof_conflicts)
 				printf("222\n");
 
 
-                analyze(confl, learnt_clause, bckTrack, icParents,remParents,allParents);
+                analyze(confl, learnt_clause, bckTrack, icParents,delayedAllocator);
                 
 				
 				
@@ -1305,9 +1298,7 @@ lbool Solver::search(int nof_conflicts)
             icParents.clear();
 			if (isRebuildingProof()) {
 				allParents.clear();
-				remParents.clear();
 				delayedAllocator.clear();
-				//nonIcResolGraphDeferredAlloc.clear();
 			}
             confl = CRef_Undef;
 
@@ -1415,12 +1406,10 @@ void Solver::allocIcResNode(Clause& cl, CRef cr) {
 	assert(cl.ic());
 	Uid uidToUpdate =  cl.uid();
 	if (isRebuildingProof() && icParents.size() > 0) {
-		remParents.clear();
 		allParents.clear();
-		delayedAllocator.executeJobs(remParents, allParents);
-		assert(icParents.size() + remParents.size() == allParents.size());
+		delayedAllocator.executeJobs(allParents);
 	}
-	resolGraph.AddNewResolution(uidToUpdate, cr, icParents,remParents,allParents);
+	resolGraph.AddNewResolution(uidToUpdate, cr, icParents,allParents);
 }
 double Solver::progressEstimate() const
 {
@@ -1825,9 +1814,7 @@ void Solver::findConflictICReasons(CRef origConfl) {
 
 		vec<Uid> dummy;
 		assert(allPoEC.size() == 0);
-		delayedAllocator.executeJobs(dummy, allPoEC); //allocate all nonIc PoEC, and populate the list of all PoEC uids
-		assert(icPoEC.size() + dummy.size() == allPoEC.size());
-
+		delayedAllocator.executeJobs(allPoEC); //allocate all nonIc PoEC, and populate the list of all PoEC uids
 		updatePoEC(prevAllPoEC, allPoEC);
 	}
 }
@@ -1916,10 +1903,8 @@ void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>&
     sort(uidsVec);
     int j = 0;
 	//Go over all possible Uids
-    for (uint32_t i = 0; i < resolGraph.GetMaxIcUid(); ++i) {
-		if (i == 5059) {
-			printf("%d checking removal from graph\n", i);
-		}
+    for (uint32_t i = 0; i < Clause::GetNextUid(); ++i) {
+
         if (i != uidsVec[j] && !muc.has(i)) { 
 			//uidClauseToUpdate i is not in the muc and not in the rhombus 
 			//of the current ic core
@@ -1930,7 +1915,6 @@ void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>&
 					continue;
 				}
 				c.mark(0);
-
 				removeClause(cr);
 			}
         }
