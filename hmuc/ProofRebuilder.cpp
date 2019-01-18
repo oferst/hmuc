@@ -225,13 +225,15 @@ void ProofRebuilder::backwardsTraversal(
 	Lit negBL = ~BL;
 	//A reverse iterator for the parents container 
 	//(should be either a vec<Uid> or a Resol node).
-	auto rIter = parents.rbegin();
+	
+	vec<Uid> currParents;
+	for (auto& p : sh->getResol(currUid))
+		currParents.push(p);
+	int i = currParents.size() - 1;
 	int j = currPivots.size() - 1;
-	for (; j >= 0; --j, --rIter) {
+	for (; j >= 0; --j, --i) {
 		//current parent uid
-		Uid pUid = *rIter;
-		//if (currUid == 5580)
-		//	printf("backward traversal parent %d\n", pUid);
+		Uid pUid = currParents[i];
 		//The current pivot literal, current parent ('pUid') is the 
 		//right antecedent for the resolvent created using this pivot
 		Lit currPiv = currPivots[j];
@@ -258,10 +260,7 @@ void ProofRebuilder::backwardsTraversal(
 			saving time.
 			*/
 		}
-
 	}
-
-
 }
 void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 						const vec<Lit>& currPivots,
@@ -572,11 +571,14 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//continuing the proof reconstruction
 	
 	if (!validator.valid) {
-
+		vec<Uid> currParents;
+		for (auto& p : sh->getResol(currUid)) {
+			currParents.push(p);
+		}
 		assert(CRef_Undef != currUid);
 		std::unordered_map<uint32_t, vec<uint32_t>> dependenciesByIdx;
-		findParentDependencies(parents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
-		Graph<uint32_t> g(parents.size());
+		findParentDependencies(currParents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
+		Graph<uint32_t> g(currParents.size());
 		for (auto& idxPair : dependenciesByIdx) {
 			uint32_t idx1 = idxPair.first;
 			for (auto& idx2 : idxPair.second) {
@@ -586,14 +588,11 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		vec<uint32_t> sortedParentsIdx;
 		g.topologicalSort(sortedParentsIdx);
 		
-		vec<Uid> parentsVec;
-		for (auto& p : parents) {
-			parentsVec.push(p);
-		}
+
 		vec<Uid> updatedParents;
 		vec<Lit> updatePivots;
 		for (uint32_t idx : sortedParentsIdx) {
-			updatedParents.push(parentsVec[idx]);
+			updatedParents.push(currParents[idx]);
 			updatePivots.push(currPivots[idx]);
 		}
 		replaceVecContent(currPivots, updatePivots);
@@ -671,7 +670,6 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	out << currUid << " -> " << newUid << std::endl;
 	out.close();
 	assert(ctx->getClauseLits(newUid).find(BL) != ctx->getClauseLits(newUid).end());
-	//depth_debug--;
 	return newUid;
 }
 
@@ -707,7 +705,7 @@ void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidati
 		assert(pivots.size() == 0);
 		pivots.push(ctx->dummy);
 		std::unordered_map<Var, uint32_t> piv2Idx;
-		for (auto& p : parents) {
+		for (auto& p : sh->getResol(uid)) {
 			LitSet& rightClause = recordClause(p);
 			Lit piv = resolveWithOverwrite(clause, rightClause,validation);
 			if (piv != ctx->dummy) {

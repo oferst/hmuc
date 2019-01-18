@@ -259,10 +259,6 @@ public:
 		return vecIter(*this, this->size());
 	}
 	const vecIter rbegin() const {
-		if (Clause::debugFlag == -1) {
-			printf("105649 has vec<Uid> as parents of size %d\n", this->size());
-			printf("105649 index of last parent is %d\n", this->size()-1);
-		}
 		return vecIter(*this, this->size()-1);
 	}
 	const vecIter rend() const {
