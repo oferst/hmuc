@@ -409,8 +409,9 @@ protected:
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     
 	
-	void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, vec<uint32_t>& icIndices, vec<uint32_t>& parents);    // (bt = backtrack)
-    void     analyzeFinal     (Lit p, vec<Lit>& out_conflict, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
+	
+	void	 analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uint32_t>& icParents, DelayedResolGraphAlloc& dAlloc);
+	void     analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents);
 	//bool     litRedundant     (Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents, vec<uint32_t>& remParents, vec<uint32_t>& allParents); // (helper method for 'analyze()')
 	bool     litRedundant(Lit p, uint32_t abstract_levels, vec<uint32_t>& icParents,DelayedResolGraphAlloc& delayedAllocator); // (helper method for 'analyze()')
 
