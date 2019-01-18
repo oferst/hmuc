@@ -16,7 +16,7 @@ void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParen
 	Resol& oldResol = m_RA[uid];
 	RRef newRRef;
 	if (icParents.size() > 0) {
-		newRRef = m_RA.alloc(icParents, allParents, true);
+		newRRef = m_RA.alloc(icParents, remParents, allParents, true);
 	}
 	else {
 		vec<Uid> dummyParents;

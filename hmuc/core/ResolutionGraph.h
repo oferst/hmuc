@@ -89,7 +89,7 @@ public:
 
         m_Parents[0].icSize = icParents.size();
 		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
-		if (remParents.size() == 0) {
+		if (allParents.size() == icParents.size()) {
 			header.hasNonIcParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
 				ics[i] = icParents[i];
@@ -97,18 +97,18 @@ public:
 		}
 		else { // remParents.size() > 0
 			header.hasNonIcParents = 1;
-			m_Parents[IC_OFFSET + icParents.size()].remSize = remParents.size();
-			uint32_t * rems = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET].remParent);
+			m_Parents[IC_OFFSET + icParents.size()].nonIcSize = allParents.size()- icParents.size();
+			uint32_t * rems = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET].nonIcParent);
 			uint32_t * flags = &(m_Parents[IC_OFFSET + icParents.size() + NON_IC_OFFSET + nonIcParentsSize()].guideFlags);
 			uint32_t i, j; i = j = 0;
 			BitArray ba = BitArray(flags);
 			for (uint32_t idx = 0; idx < allParents.size(); ++idx) {	
-				if (icParents[i] == allParents[idx]) {
+				if (i<icParents.size() &&  icParents[i] == allParents[idx]) {
 					ics[i++] = allParents[idx];
 					ba.addBitMSB(1);
 				} 
 				else {
-					assert(allParents[idx] == remParents[j]);
+					//assert(allParents[idx] == remParents[j]);
 					rems[j++] = allParents[idx];
 					ba.addBitMSB(0);
 				}													
@@ -181,7 +181,7 @@ public:
 			if (idx >= size)
 				return CRef_Undef;
 			else if (r.header.hasNonIcParents && !(f_mask & f_word)) //next parent is a remainder parent
-				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
+				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].nonIcParent;
 			else {
 				return r.m_Parents[IC_OFFSET + icIdx].icParent;
 			}
@@ -254,7 +254,7 @@ public:
 			if (idx <= -1)
 				return CRef_Undef;
 			else if (r.header.hasNonIcParents && !(f_mask & f_word)) //next parent is a remainder parent
-				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].remParent;
+				return r.m_Parents[IC_OFFSET + r.icParentsSize() +NON_IC_OFFSET+ remIdx].nonIcParent;
 			else { //next parent is an ic parent
 				return r.m_Parents[IC_OFFSET + icIdx].icParent;
 			}

@@ -87,6 +87,9 @@
     <ClInclude Include="RebuilderContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DelayedResolGraphAlloc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core\Solver.cc">
@@ -113,13 +116,13 @@
     <ClCompile Include="SolverHandle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source.cpp">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="ProofRebuilder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RebuilderContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DelayedResolGraphAlloc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

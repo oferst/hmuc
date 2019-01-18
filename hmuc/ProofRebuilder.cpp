@@ -81,21 +81,7 @@ the negation of the pivot belong to the 'left' parent.
 int ProofRebuilder::depth_debug = 0;
 void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC) {
 	ProofRebuilder::depth_debug = 0;
-	
-	for (Uid uid : allPoEC) {
-		if (uid == 5059) {
-			printf("5059 is a PoEC\n");
-			
-		}
-	}
-	for (Uid uid : sh->getIcPoEC()) {
-		if (uid == 5059) {
-			printf("5059 is an ic PoEC\n");
 
-		}
-	}
-
-	
 	//PART 1
 	/********************************************************************
 	Build the 'easy' half of the new proof here.
@@ -345,9 +331,6 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 			reconRes.isIc = isRightParentIc;
 			//Set new right parent candidate in lists.
 			currClause = &(lits);
-			if (5059 == currUid) {
-				printClauseData(parentData, "5059 parent used (pu=Right\Either), isIc: " + std::to_string(isRightParentIc));
-			}
 			break;
 		//Resolve left and right parents (left parent is the 
 		//result of the previous iteration)
@@ -364,9 +347,6 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 			}
 			//And lastly, resolve left and right parents
 			resolveWithOverwrite(newClause, lits);
-			if (5059 == currUid) {
-				printClauseData(parentData, "5059 parent used (pu=Both), isIc: " + std::to_string(isRightParentIc));
-			}
 		}
 	}
 	if (!reconRes.isIc) {

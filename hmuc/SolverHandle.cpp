@@ -8,7 +8,8 @@ SolverHandle::SolverHandle(Solver* _s=NULL): s(_s)
 	int numOfNonIc = allPoEC.size() - icPoEC.size();
 	int additionalSize = (numOfNonIc == 0) ? 0 : (1 + numOfNonIc + (allPoEC.size() / 32) + (int)((allPoEC.size() % 32) > 0));
 	PoEC = (Resol*)malloc(4*(Resol::SIZE + icPoEC.size() + additionalSize));
-	new (PoEC) Resol(icPoEC, allPoEC, true);
+	vec<Uid> nonIcPoEC;
+	new (PoEC) Resol(icPoEC, nonIcPoEC, allPoEC, true);
 }
 
 SolverHandle::~SolverHandle()

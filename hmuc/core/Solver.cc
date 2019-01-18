@@ -905,9 +905,6 @@ void Solver::reduceDB(){
 		CRef cr = learnts[i];
 		const Clause& c = ca[cr];
 		if (c.mark() == 0 && c.size() > 2 && !locked(c)) {
-			if (cr == 21300 && c.ic() && ca[cr].uid() == 5059) {
-				printf("5059 removing cr: 55867 (1)\n");
-			}
 			removeClause(cr);
 		}
 		else if (c.mark() != 1) {
@@ -926,9 +923,6 @@ void Solver::reduceDB(){
 			CRef cr = learnts[i];
 			const Clause& c = ca[cr];
 			if (c.mark() == 0 && c.size() > 2 && !locked(c) && c.activity() < extra_lim) {
-				if (cr == 21300 && c.ic() && ca[cr].uid() == 5059) {
-					printf("5059 removing cr: 55867 (2)\n");
-				}
 				removeClause(cr);
 			}
 			else
@@ -1789,11 +1783,6 @@ void Solver::findConflictICReasons(CRef origConfl) {
         if (c.ic()) {            
 #ifdef NewParents
 			icPoEC.push(c.uid());
-			if (c.uid() == 5059) {
-				printf("5059 added to icPoEC\n");
-				printf("5059 CRef in graph: %d\n", resolGraph.GetResolRef(c.uid()));
-				printf("5059 RRef in graph: %d\n", resolGraph.GetClauseRef(c.uid()));
-			}
 #endif
 			resolGraph.m_icPoEC.insert(c.uid()); // duplicate to ic_parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
         }
@@ -1839,9 +1828,6 @@ void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
 		Resol& resol = resolGraph.GetResol(rref);
 		assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
 		resol.header.m_nRefCount +=2 ; //we increment the refCount here because we consider the empty clause as a child node for the current clause (even though empty clause has no representation in the graph)
-		if (uid == 5059) {
-			printf("5059 is now a PoEC, refCount: %d\n", resol.header.m_nRefCount);
-		}
 	}
 
 	for (Uid uid : prevPoEC) {
@@ -1849,9 +1835,6 @@ void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
 		assert(rref != RRef_Undef);
 		Resol& resol = resolGraph.GetResol(rref);
 		assert(resol.header.m_nRefCount > 1);
-		if (uid == 5059) {
-			printf("5059 is no longer a PoEC, refCount: %d\n", resol.header.m_nRefCount);
-		}
 		if (2 == resol.header.m_nRefCount) { //the refCount should be exactly 1 when the empty clause is the last child for the current clause, and in that case we delete, it as it is a clause with no children who should have been deleted previously
 			assert(resolGraph.GetClauseRef(uid) == CRef_Undef);
 			resolGraph.DeleteClause(uid);
@@ -1916,10 +1899,7 @@ void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>&
     sort(uidsVec);
     int j = 0;
 	//Go over all possible Uids
-    for (uint32_t i = 0; i < resolGraph.GetMaxIcUid(); ++i) {
-		if (i == 5059) {
-			printf("%d checking removal from graph\n", i);
-		}
+    for (uint32_t i = 0; i < resolGraph.GetNextAvailableUid(); ++i) {
         if (i != uidsVec[j] && !muc.has(i)) { 
 			//uidClauseToUpdate i is not in the muc and not in the rhombus 
 			//of the current ic core
