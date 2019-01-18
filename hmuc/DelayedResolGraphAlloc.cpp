@@ -22,7 +22,7 @@ void DelayedResolGraphAlloc::clear() {
 	jobs.clear();
 	firstIc = -1;
 }
-void DelayedResolGraphAlloc::executeJobs(vec<Uid>& allParents) {
+void DelayedResolGraphAlloc::executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allParents) {
 	assert(nonIcParents.size() == 0 && allParents.size() == 0);
 	assert(firstIc >= 0);
 	Uid nextUid = Clause::GetNextUid();
@@ -52,6 +52,10 @@ void DelayedResolGraphAlloc::executeJobs(vec<Uid>& allParents) {
 			g->AddRemainderResolution(uid, cref);
 			uidDeferredAlloc[cref] = uid;
 		}
+
+		if (!job.isIc)
+			nonIcParents.push(uid);
+		
 		allParents.push(uid);
 	}
 	Clause::SetNextUid(nextUid);

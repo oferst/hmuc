@@ -123,13 +123,16 @@ public:
 	void RebuildProof(
 		const Lit& startingConflLiteral, vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC);
 
-	void correctResolutionOrder(Uid currUid, vec<Lit>& pivots);
+	template<class T>
 	Uid	proveBackboneLiteral(
 							const Uid currUid, 
+							const T& initParents,
 							const Lit& BL, 
 							ClauseData& clauseResult);
+	template<class T>
 	void backwardsTraversal(
 							const Uid currUid,
+							const T& parents, 
 							const Lit& BL,
 							const vec<Lit>& currPivots,
 							std::list<ClauseData>& rebuiltparentsData);
@@ -139,13 +142,14 @@ public:
 							const Lit& BL, 
 							const vec<Lit>& currPivots, 
 							ReconstructionResult& reconRes);
-	void allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids);
+	void allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids, vec<Uid>& nonIcUids);
 	Uid allocReconstructedICClause(
 								const Uid& currUid, 
 								ReconstructionResult& reconRes,
 								const Lit& BL);
 	
-	void recordClausePivots(Uid uid, ResolValidation& validation);
+	template<class T>
+	void recordClausePivots(Uid uid, const T& parents, ResolValidation& validation);
 
 	LitSet&	recordClause(Uid newUid);
 
@@ -158,11 +162,15 @@ public:
 	template<class S, class C>
 	Lit	resolveWithOverwrite(S& set, C& clause, ResolValidation& validation);
 	
-	void findParentDependencies(const vec<Uid>& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
+	template<class T>
+	void findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
 	
 	
 	
-
+	class ResolutionException : public std::exception {
+	public:
+		ResolutionException(const char* msg) : std::exception(msg) {}
+	};
 
 };
 }

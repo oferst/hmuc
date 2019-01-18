@@ -27,7 +27,7 @@ namespace Minisat {
 		void shrink(int numToCancel);
 		int size();
 		void clear();
-		void executeJobs(vec<Uid>& allParents);
+		void executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allParents);
 
 	};
 }

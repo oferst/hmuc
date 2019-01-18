@@ -15,12 +15,12 @@ SolverHandle::~SolverHandle()
 {
 	free(PoEC);
 }
-void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents,  const vec<Uid>& allParents) {
-	s->resolGraph.realocExistingResolution(oldUid, icParents,  allParents);
+void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	s->resolGraph.realocExistingResolution(oldUid, icParents, remParents, allParents);
 }
 
-void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& allParents) {
-	s->resolGraph.updateParentsOrder(uid, icParents, allParents);
+void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	s->resolGraph.updateParentsOrder(uid, icParents, remParents, allParents);
 }
 Uid SolverHandle::CRefToUid(CRef cref) {
 	Uid uid;
@@ -66,15 +66,15 @@ CRef SolverHandle::allocClause(LitSet& lits, bool isLearned, bool isIc, bool has
 		litVec.push(l);
 	return  s->allocClause(litVec, isLearned,isIc, hasUid);
 }
-void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents) {
-	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, allParents);
+void SolverHandle::allocResol(CRef cref, vec<Uid>& allParents, vec<Uid>& icParents, vec<Uid>& remParents) {
+	s->resolGraph.AddNewResolution(CRefToUid(cref), cref, icParents, remParents, allParents);
 }
 void SolverHandle::allocNonIcResol(CRef cref) {
 	s->resolGraph.AddRemainderResolution(CRefToUid(cref), cref);
 
 }
-void SolverHandle::analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_allParents) {
-	s->analyzeFinal(initConflict, out_negConflicts, out_icParents, out_allParents);
+void SolverHandle::analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents) {
+	s->analyzeFinal(initConflict, out_negConflicts, out_icParents, out_remParents, out_allParents);
 }
 vec<Uid>& SolverHandle::getIcPoEC() {
 	return s->icPoEC;

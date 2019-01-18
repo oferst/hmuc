@@ -10,7 +10,7 @@ namespace Minisat
 
 int Resol::debug_resol = 0;
 //allocates a new Resol for an existing clause (reprs. by it's uid), without changing it's uid. Deletes the old Resol fro, the system. 
-void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& allParents) {
+void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
 	auto& oldPair = m_UidToData[uid];
 	RRef oldRRef = oldPair.m_ResolRef;
 	Resol& oldResol = m_RA[uid];
@@ -20,7 +20,7 @@ void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParen
 	}
 	else {
 		vec<Uid> dummyParents;
-		newRRef = m_RA.alloc(dummyParents, dummyParents, false);
+		newRRef = m_RA.alloc(dummyParents, dummyParents, dummyParents, false);
 	}
 	assert(oldRRef != newRRef);
 	m_RA.free(oldRRef);
@@ -28,14 +28,14 @@ void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParen
 }
 
 void CResolutionGraph::AddNewResolution
-    (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& allParents){
+    (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& nonIcParents, const vec<Uid>& allParents){
 	m_UidToData.growTo(nNewClauseUid + 1);
-
-	RRef refResol = m_RA.alloc(icParents, allParents, true);
-
-
+	RRef refResol = m_RA.alloc(icParents, nonIcParents, allParents, true);
+	//if (nNewClauseUid == 5715) {
+	//	printf("5715 added to graph (ic)\n");
+	//}
     // increase reference count for all the icparents
-	if (allParents.size()-icParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
+	if (nonIcParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			Uid pUid = allParents[nInd];
 			CRef resRef = GetResolRef(pUid);
@@ -70,21 +70,22 @@ void CResolutionGraph::AddNewResolution
 void CResolutionGraph::AddNewResolution
 (uint32_t nNewClauseUid, CRef ref, const vec<uint32_t>& icParents) {
 	vec<uint32_t> dummy;
-	AddNewResolution(nNewClauseUid, ref, icParents, dummy);
+	
+	AddNewResolution(nNewClauseUid, ref, icParents, dummy, dummy);
 }
 
 
 void CResolutionGraph::AddRemainderResolution(uint32_t nNewClauseUid, CRef ref) {
 	m_UidToData.growTo(nNewClauseUid + 1);
 	vec<Uid> dummyParents;
-	RRef refResol = m_RA.alloc(dummyParents, dummyParents,false);
+	RRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents,false);
 	m_UidToData[nNewClauseUid].m_ClauseRef = ref;
 	m_UidToData[nNewClauseUid].m_ResolRef = refResol;
 }
 
 void CResolutionGraph::reallocRemainderResolution(Uid nUid) {
 	vec<Uid> dummyParents;
-	RRef refResol = m_RA.alloc(dummyParents, dummyParents, false);
+	RRef refResol = m_RA.alloc(dummyParents, dummyParents, dummyParents, false);
 	assert(CRef_Undef != m_UidToData[nUid].m_ClauseRef);
 	m_UidToData[nUid].m_ResolRef = refResol;
 	m_RA[refResol].header.m_nRefCount = 0;
@@ -313,11 +314,11 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 		vecNextCheck.clear();
 	}
 }
-	void CResolutionGraph::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& allParents) {
+	void CResolutionGraph::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
 		assert(CRef_Undef != uid);
 		RRef rRef = m_UidToData[uid].m_ResolRef;
 		assert(CRef_Undef != rRef);
-		m_RA.updateAllocated(rRef, icParents, allParents);
+		m_RA.updateAllocated(rRef, icParents, remParents, allParents);
 	}
 
 }
