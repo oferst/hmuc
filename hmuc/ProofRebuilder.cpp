@@ -294,10 +294,9 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 
 
 	for (ClauseData& parentData : reconRes.rebuiltParentsCandidates) {
-
-		
-		bool isRightParentIc = (Allocated == parentData.status);
-		LitSet& lits = (isRightParentIc ?  ctx->getClauseLits(parentData.clauseUid) : *parentData.clauseContent);
+		bool isAlloc = Allocated == parentData.status;
+		bool isRightParentIc = (Allocated == parentData.status) ?  sh->getResol(parentData.clauseUid).header.ic : false;
+		LitSet& lits = (isAlloc ?  ctx->getClauseLits(parentData.clauseUid) : *parentData.clauseContent);
 		ParentUsed pu = findParentsUsed(*currClause, lits, parentData.origPiv, BL);
 
 
@@ -348,9 +347,15 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 			resolveWithOverwrite(newClause, lits);
 		}
 	}
-	if (!reconRes.isIc) {
-		printf("NONIC clause was built\n");
+	if (&newClause != currClause) {
+		newClause.clear();
+		for (auto& l : *currClause) {
+			newClause.insert(l);
+		}
 	}
+	//if (!reconRes.isIc) {
+	//	printf("NONIC clause was built\n");
+	//}
 	
 }
 
@@ -445,19 +450,29 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 	}
 }
 
+
+//Finding the dependencies on the pivots for each parent.
+//Each parent contributes a pivot literal l (the parent was the reason that the l was assigned an l_true value in the conflict analysis, i.e., l was asserted).
+//l must appear after any appearances of its negated literal.
+//l must appear exactly once, and only in the parent which contributed it.
+//This is the reason that
+//1) once l was used in the hyper-resolution that created the Resol node (i.e. by a conflict analysis step), l or ~l cannot appear in any subsequent parents, and
+//2) all parents containing ~l must appear in the hyper resolution before l.
+//This allows us to map for each pivot l all the parents that contain ~l as dependent on it, with implementation via a DAG.
+//Later on a topological sort can be used on the graph to find a correct ordering of parents to output a  valid hyper-resolution step.
 template<class T>
-void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies) {
-	int i = 0;
+void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies) {
 	assert(parents.size() == pivots.size());
+	int i = 0;
 	std::unordered_map<Var, uint32_t> pivVar2Idx;
 	std::unordered_map<Uid, uint32_t> parent2Idx;
 	vec<Uid> idx2Parent;
 	vec<Var> idx2PivVar;
 	for (auto& p : parents) {
-		idx2Parent.push(p);
-		parent2Idx[p ] = i;
+		idx2Parent.push(p);//idx is i
+		parent2Idx[p] = i;
 		Var pivVar = var(pivots[i]);
-		idx2PivVar.push(pivVar);
+		idx2PivVar.push(pivVar);//idx is i
 		pivVar2Idx[pivVar] = i;
 		++i;
 	}
@@ -469,13 +484,22 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 	for (auto& p : parents) {
 		assert(i == parent2Idx[p]);
 		assert(ctx->isClauseSeen(p));
-		for (auto& l : ctx->getClauseLits(p)) {
-			int literal = todimacsLit(l);
-			assert(var(l) == var(~l));
+		vec<Lit> constLits;
+		LitSet& currentParent = ctx->getClauseLits(p);
+		for (auto& l : currentParent) {
+
+			//if the literal appears in the target clause, it must not have been removed by resolution
 			if (member(l, resultClause)) {
 				assert(!member(var(l), pivVar2Idx));
 				continue;
 			}
+			if (!member(var(l), pivVar2Idx)) {
+				assert(sh->level(var(l) == 0));
+				constLits.push(l);
+				printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
+				continue;
+			}
+			//the index of the current pivot literal, 
 			uint32_t pivIdx = pivVar2Idx[var(l)];
 			if (pivIdx == i) {
 				continue;
@@ -489,10 +513,23 @@ void ProofRebuilder::findParentDependencies(const T& parents, const vec<Lit>& pi
 			//the pivot index is also the index of the (single) parent containing it
 			//i.e., this is a parent we are dependent on because of the literal l.
 			assert(pivIdx < idx2Parent.size());
-			assert(member(~l, ctx->getClauseLits(idx2Parent[pivIdx])));
+			LitSet& currPivotParent = ctx->getClauseLits(idx2Parent[pivIdx]);
+			
+			
+			if (!member(~l, currPivotParent)) {
+				assert(sh->level(var(l) == 0));
+				constLits.push(l);
+				printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
+				continue;
+			}
+			//assert(member(~l, ctx->getClauseLits(idx2Parent[pivIdx])));
 			dependencies[i].push(pivIdx);//the current parent is dependent on the pivot's location
 		}
 		i++;
+
+		for (auto& l : constLits) {
+			currentParent.erase(l);
+		}
 	}
 }
 
@@ -556,6 +593,11 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//first pivot is always a dummy literal, which allows us to 
 	//assume that the size of the parents vector is the size of 
 	//the pivots vector.
+	if (currPivots.size() != parents.size()) {
+		printClause(currPivots, "pivots");
+
+		printf("currPivots.size() %d != %d parents.size()", currPivots.size(), parents.size());
+	}
 	assert(currPivots.size() == parents.size());
 
 
@@ -577,7 +619,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		}
 		assert(CRef_Undef != currUid);
 		std::unordered_map<uint32_t, vec<uint32_t>> dependenciesByIdx;
-		findParentDependencies(currParents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
+		findParentDependencies(currUid, currParents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
 		Graph<uint32_t> g(currParents.size());
 		for (auto& idxPair : dependenciesByIdx) {
 			uint32_t idx1 = idxPair.first;
@@ -639,37 +681,28 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		Proof Reconstruction.
 	******************************/
 
-
 	calculateClause(currUid,BL, currPivots, reconRes);
-	
+
 	/*********************************
 		Allocate clause, if needed.
 	**********************************/
 	Uid newUid;
 	if (reconRes.isIc) {
-
-
-		newUid = allocReconstructedICClause(currUid, reconRes, BL);
-		
-
+		if (reconRes.parentsUsed.size() > 1)
+			newUid = allocReconstructedICClause(currUid, reconRes, BL);
+		else
+			newUid = (*reconRes.parentsUsed.begin())->clauseUid;
 		assert(ctx->isClauseSeen(newUid));
-
-		//printf("added rebuild %d\n", newUid);
 		ctx->setClausesUpdate(currUid, newUid);
 		result.setAllocatedClauseData(newUid);
-
-
+		assert(ctx->getClauseLits(newUid).find(BL) != ctx->getClauseLits(newUid).end());
 	}
 	else {
 		newUid = CRef_Undef;
 		result.setDeferredClauseData(reconRes.newClause);
 		assert(result.clauseContent->find(BL) != result.clauseContent->end());
 	}
-	ofstream  out;
-	out.open("C:/temp/reconstructionPairs.txt", ios::app);
-	out << currUid << " -> " << newUid << std::endl;
-	out.close();
-	assert(ctx->getClauseLits(newUid).find(BL) != ctx->getClauseLits(newUid).end());
+	
 	return newUid;
 }
 
@@ -678,6 +711,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 //'uid' to the re-builder data structure, and also records the ic 
 //label of the clause
 LitSet& ProofRebuilder::recordClause(Uid uid) {
+
 	if (ctx->isClauseSeen(uid)) {
 		return ctx->getClauseLits(uid);
 	}
@@ -685,34 +719,35 @@ LitSet& ProofRebuilder::recordClause(Uid uid) {
 
 	ctx->isIc(uid) = sh->getResol(uid).header.ic;
 	copyClauseLits(uid, clauseLits);
+
 	return clauseLits;
 }
 
 //Reads the literals in from to the set to. The clause will be 
 //pulled from the sat solver through the use of the solver handler.
 void ProofRebuilder::copyClauseLits(Uid from, LitSet& to) {
-	if (CRef_Undef != sh->UidToCRef(from))
+	if (CRef_Undef != sh->UidToCRef(from)) 
 		insertAll(sh->getClause(from), to);
-	else
+	else 
 		insertAll(sh->getDelayedRemoval(from), to);
 }
 
 template<class T>
 void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidation& validation) {
 	if (!ctx->arePivotsKnown(uid)) {
-		LitSet clause;
-		vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
-		assert(pivots.size() == 0);
-		pivots.push(ctx->dummy);
-		std::unordered_map<Var, uint32_t> piv2Idx;
-		for (auto& p : sh->getResol(uid)) {
-			LitSet& rightClause = recordClause(p);
-			Lit piv = resolveWithOverwrite(clause, rightClause,validation);
-			if (piv != ctx->dummy) {
-				pivots.push(piv);
-				validation.pivotVars.insert(var(piv));
-			}
+	LitSet clause;
+	vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
+	pivots.push(ctx->dummy);
+	std::unordered_map<Var, uint32_t> piv2Idx;
+	int i = 0;
+	for (auto& p : sh->getResol(uid)) {
+		LitSet& rightClause = recordClause(p);
+		Lit piv = resolveWithOverwrite(clause, rightClause,validation);
+		if (piv != ctx->dummy) {
+			pivots.push(piv);
+			validation.pivotVars.insert(var(piv));
 		}
+	}
 	}
 }
 
@@ -743,9 +778,11 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits) {
 template<class T, class S>
 Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidation& validation) {
 	Lit piv = ctx->dummy;
-	for (auto l : rightLits) {
-		if (leftLits.find(~l) == leftLits.end())
+	int initialSize = leftLits.size();
+	for (auto& l : rightLits) {
+		if (leftLits.find(~l) == leftLits.end()) {
 			leftLits.insert(l);
+		}
 		else {
 			leftLits.erase(~l);
 			if (piv != ctx->dummy) {
@@ -753,16 +790,23 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidat
 				throw ResolutionException("First pivot assign should be to a dummy lit"); //should only be assigned once.
 			}
 			piv = l;
-			if (piv == ctx->dummy) {
-				throw ResolutionException("Pivot assigned cannot be a dummy literal");//and it should be assigned a different value than the dummy Lit.
-			}
 		}
 
+
 		if (validation.valid) {
-			if (!member(l, validation.targetClause) && member(var(l), validation.pivotVars)) {
-				validation.valid = false;
+			if (!member(l, validation.targetClause) ){
+				//if (sh->level(var(l)) == 0) {
+				//	leftLits.erase(l);
+				//}
+				//else 
+					if(member(var(l), validation.pivotVars)) {
+					validation.valid = false;
+				}
 			}
 		}
+	}
+	if (initialSize > 0 && piv == ctx->dummy) {
+		throw ResolutionException("Pivot assigned cannot be a dummy literal");
 	}
 	return piv;
 }

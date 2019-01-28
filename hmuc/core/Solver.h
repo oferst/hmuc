@@ -66,7 +66,7 @@ class Solver {
 public:
 	static int debug_flag;
 	void GeticUnits(vec<int>&);
-	void GetUnsatCore(vec<Uid>& icCore, Set<Uid>& icAncestors, Set<Uid>& nonIcAncestors, bool debug = false, ostream& out = std::cout);
+	void GetUnsatCore(vec<Uid>& icCore, Set<Uid>& icAncestors, Set<Uid>& nonIcAncestors, bool debug = false, int maxCoreUid = -1, ostream& out = std::cout);
     void RemoveEverythingNotInRhombusOrMuc(Set<uint32_t>& cone, Set<uint32_t>& muc);
 	void RemoveClauses_withoutICparents(vec<uint32_t>& cone);
     void RemoveClauses(vec<uint32_t>& cone);

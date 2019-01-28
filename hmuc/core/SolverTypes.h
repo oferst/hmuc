@@ -191,7 +191,11 @@ class Clause {
 		}
 
         if (ic || hasUid) {
-            data[header.size + (int)header.has_extra].uid = nextUid++;
+			Uid uid = nextUid++;
+			if (uid == 13456) {
+				printf("Creating probl. clause\n");
+			}
+            data[header.size + (int)header.has_extra].uid = uid;
         }
 
     }

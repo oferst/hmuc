@@ -137,28 +137,31 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 	
 }
 
-void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalClauses, Set<Uid>& rhombus,bool debug,ostream& out,std::string msg_prefix)
+void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalClauses, Set<Uid>& rhombus,bool debug,int maxCoreUid, ostream& out,std::string msg_prefix)
 {
-	if (nUid > GetNextAvailableUid())
-		throw ResolutionException(("uid " + std::to_string(nUid) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());
+	//if (nUid > GetNextAvailableUid())
+	//	throw ResolutionException(("uid " + std::to_string(nUid) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());
 
     Resol& resol = m_RA[m_UidToData[nUid].m_ResolRef];
 	assert(resol.header.ic);
     int icParentsSize = resol.icParentsSize();
 
     if (icParentsSize == 0) {//assuming a clause is ic, having no parents means it is an original clause (a root), and we add it as such and stop.
-        allIcOriginalClauses.push(nUid);
+		if (nUid > maxCoreUid) {
+			printf("Trying to add non original ic uid %d\n", nUid);
+		}
+		allIcOriginalClauses.push(nUid);
 
         return;
     }
     uint32_t* icParents = resol.IcParents();
     for (int i = 0; i < icParentsSize; ++i) {
 		assert(GetResol(GetResolRef(icParents[i])).header.ic);
-		if (icParents[i] > GetNextAvailableUid())
-			throw ResolutionException(("icParents[i] " + std::to_string(icParents[i]) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());
+		//if (icParents[i] > GetNextAvailableUid())
+		//	throw ResolutionException(("icParents[i] " + std::to_string(icParents[i]) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());
 
         if (rhombus.insert(icParents[i])){
-			GetOriginalParentsUids(icParents[i], allIcOriginalClauses, rhombus, debug,out,msg_prefix);
+			GetOriginalParentsUids(icParents[i], allIcOriginalClauses, rhombus, debug, maxCoreUid,out,msg_prefix);
 		}
      }
  }

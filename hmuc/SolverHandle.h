@@ -28,6 +28,7 @@ namespace Minisat {
 		virtual void analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents);
 		virtual bool inRhombus(Uid uid);
 		virtual int level(Var v);
+		virtual lbool value(const Lit& l);
 
 		virtual void updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 		

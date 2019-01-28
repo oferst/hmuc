@@ -44,6 +44,24 @@ struct ClauseData {
 		}
 
 	}
+
+	ClauseData& operator=(const ClauseData& other) {
+		status = other.status;
+		origPiv = other.origPiv;
+		switch (status) {
+		case Allocated:
+		case Uninitialized:
+			clauseUid = other.clauseUid;
+			break;
+		case Deferred:
+			clauseContent = new LitSet();
+			replaceContent(*clauseContent, *other.clauseContent);
+			break;
+		default:
+			clauseUid = CRef_Undef;
+		}
+		return *this;
+	}
 	void setAllocatedClauseData(Uid uid) {
 		assert(Uninitialized == status);
 		status = Allocated;
@@ -55,7 +73,7 @@ struct ClauseData {
 		assert(Uninitialized == status);
 		status = Deferred;
 		clauseContent = new LitSet();
-		for (auto l : lits)
+		for (auto& l : lits)
 			clauseContent->insert(l);
 	}
 	~ClauseData() {
@@ -163,7 +181,7 @@ public:
 	Lit	resolveWithOverwrite(S& set, C& clause, ResolValidation& validation);
 	
 	template<class T>
-	void findParentDependencies(const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
+	void findParentDependencies(Uid uid, const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
 	
 	
 	

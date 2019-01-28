@@ -91,4 +91,7 @@ bool SolverHandle::inRhombus(Uid uid) {
 int SolverHandle::level(Var v) {
 	return s->level(v);
 }
+lbool SolverHandle::value(const Lit& l) {
+	return s->value(l);
+}
 }

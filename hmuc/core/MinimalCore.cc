@@ -437,7 +437,7 @@ namespace Minisat {
 					rhombus.clear();
 					currIcCore.clear();
 					nonIcRhombus.clear();
-					m_Solver.GetUnsatCore(currIcCore, rhombus, nonIcRhombus);
+					m_Solver.GetUnsatCore(currIcCore, rhombus, nonIcRhombus,false, m_nICSize);
 
 					//For each clause in ic core check whether it's not already 
 					//in the MUC, and if not then mark it as an unknown ic the be 
@@ -445,6 +445,10 @@ namespace Minisat {
 					
 					assert(vecNextUnknown.size() == 0); // !! if not then check why it is not necessarily empty before we fill it with the core. 
 					for (auto& uid : currIcCore) { // go over clauses in icCore											
+						if (uid > m_nICSize) {
+							printf("Uid not in original ics: %d\n", uid);
+							
+						}
 						assert(uid <= m_nICSize);
 						if (!setMuc.has(uid)) {
 							assert(m_Solver.resolGraph.GetResol(m_Solver.resolGraph.GetResolRef(uid)).header.ic);

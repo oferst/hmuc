@@ -17,11 +17,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:\Users\ofer.guthmann\Documents\hmuc_benchmarks\SAT02\industrial\biere\cmpadd\ca064.shuffled.cnf </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:/Users/ofer.guthmann/Downloads/muc_tests/oferg-bench/c8idw_s.cnf</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-blm-rebuild-proof -muc-progress C:\Users\ofer.guthmann\Documents\hmuc_benchmarks\SAT02\industrial\biere\cmpadd\ca064.shuffled.cnf </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

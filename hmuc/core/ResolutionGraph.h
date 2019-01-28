@@ -83,7 +83,7 @@ public:
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
     Resol(const vec<Uid>& icParents,const vec<Uid>& remParents, const vec<Uid>& allParents,bool ic){
-		assert(icParents.size() + remParents.size() == allParents.size());
+		//assert(icParents.size() + remParents.size() == allParents.size());
 		header.ic = (int)ic;
 		header.m_nRefCount = 1;
 
@@ -389,7 +389,7 @@ public:
 		m_UidToData[nUid].m_ClauseRef = CRef_Undef;
     }
 
-    void GetOriginalParentsUids(Uid nUid, vec<Uid>& parents, Set<Uid>& checked,bool debug=false,ostream& out = std::cout,std::string msg_prefix = "");
+    void GetOriginalParentsUids(Uid nUid, vec<Uid>& parents, Set<Uid>& checked,bool debug=false,int maxCoreUid = -1,ostream& out = std::cout,std::string msg_prefix = "");
 
     void GetClausesCones(vec<uint32_t>& cone);
 	void GetClausesCones(vec<uint32_t>& cone,std::unordered_set<Uid>& coneSet);

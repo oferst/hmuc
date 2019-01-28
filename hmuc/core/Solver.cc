@@ -1843,14 +1843,14 @@ void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
 	we find and recored all the resolution graph roots which are also ic clauses.
 	If opt_blm_rebuild_proof is used, we will also record all parents of ic clauses which are 
 	by themselves not ic clauses. */
-void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus, Set<Uid>& nonIcRhombus,bool debug, ostream& out){
+void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus, Set<Uid>& nonIcRhombus,bool debug, int maxCoreUid, ostream& out){
 	assert(icCore.size() == 0);
 	assert(rhombus.elems() == 0);
 	assert(nonIcRhombus.elems() == 0);
 	for (auto uid : icPoEC) {
 		assert(resolGraph.GetResol(resolGraph.GetResolRef(uid)).header.ic); // may fail if we do not filter out non-ic parents-of-e.c.
 		if (rhombus.insert(uid)) { // if uid wasn't encountered previously
-			resolGraph.GetOriginalParentsUids(uid, icCore, rhombus, debug, out);
+			resolGraph.GetOriginalParentsUids(uid, icCore, rhombus, debug, maxCoreUid,out);
 		}
 	}
 }
