@@ -359,7 +359,26 @@ namespace Minisat {
 			printf("passed test...\n");
 		}
 	}
+	bool CMinimalCore::test(std::unordered_set<Uid>& core, char* msg) {
+		Solver testsolver;
+		testsolver.test_mode = true;
+		vec<Lit> lits;
+		for (int i = 0; i < m_Solver.nVars(); ++i)
+			testsolver.newVar();
+		vec<unsigned int> tmpvec;
+		for (Uid uid : core) tmpvec.push(uid);
 
+		for (int i = 0; i < tmpvec.size(); ++i) {
+			CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
+			if (ref == CRef_Undef) continue;
+			Clause& cls = m_Solver.GetClause(ref);
+			lits.clear();
+			cls.copyTo(lits);
+			testsolver.addClause(lits);
+		}
+		printf("test for sat now\n");
+		return testsolver.solve();
+	}
 
 	
 	lbool CMinimalCore::Solve(bool pre)
@@ -774,7 +793,32 @@ end:	PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "last",true);
 		printf("### nettime %g\n", cpuTime() -  time_after_initial_run);
 		printf("### longestcall %g\n", longestcall);		
 
-		if (m_Solver.test_result ) test(vecNextUnknown, setMuc, "final");
+		if (m_Solver.test_result) {
+			test(vecNextUnknown, setMuc, "final");
+			std::unordered_set<Uid> unsatCore;
+			std::unordered_set<Uid> partialCore;
+			
+
+
+			//setMuc.copyTo(currentPartialCore);
+			for (int i = 0; i < setMuc.bucket_count(); ++i) 
+				for (int j = 0; j < setMuc.bucket(i).size(); ++j) 
+					unsatCore.insert(setMuc.bucket(i)[j]);	
+			int i = 0;
+			for (Uid uid : unsatCore) {
+				partialCore.clear();
+				partialCore.insert(unsatCore.begin(), unsatCore.end());
+				partialCore.erase(uid);//should now be SAT
+				bool isSat = test(partialCore, "isSat?");
+				if (!isSat) {
+					printf("Core is not minimal! test number %d\n",i);
+					//exit(1);
+				}
+				++i;
+			}
+			printf("Core is minimal!\n");
+
+		}
 
 
 		if (opt_print_sol)

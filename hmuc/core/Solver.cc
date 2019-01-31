@@ -399,7 +399,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, vec<uin
 
 		if (c.ic())  icParents.push(c.uid());
 		if (isRebuildingProof()) {
-			dAlloc.addJob(c, confl);
+			dAlloc.addJob(&ca, confl);
 		}
 
         for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
@@ -599,7 +599,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels,vec<Uid>& icParents, D
 		if (c.ic())
 			icParents.push(c.uid());
 		if (isRebuildingProof()) {
-			delayedAllocator.addJob(c, cref);
+			delayedAllocator.addJob(&ca, cref);
 		}
 		
 		//if (opt_blm_rebuild_proof) {
@@ -700,7 +700,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
 						out_icParents.push(uid);
 					}
 					if(isRebuildingProof()){ // nonIc clause that might need to appear in the resl graph
-						delayedAllocator.addJob(c, cref);
+						delayedAllocator.addJob(&ca, cref);
 					}
 				}
 				for (int j = 1; j < c.size(); j++) {
@@ -1782,7 +1782,7 @@ void Solver::findConflictICReasons(CRef origConfl) {
 			resolGraph.m_icPoEC.insert(c.uid()); // duplicate to ic_parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
         }
 		if (isRebuildingProof()) {
-			delayedAllocator.addJob(c, confl);
+			delayedAllocator.addJob(&ca, confl);
 		}
 
         for (int j = (v == var_Undef) ? 0 : 1 ; j < c.size(); j++) {

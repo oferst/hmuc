@@ -13,6 +13,7 @@ public:
     CMinimalCore(SimpSolver& solver);
 
 	void test(vec<uint32_t>&, Set<uint32_t>&, char * msg = "" ); 
+	bool test(std::unordered_set<Uid>& core, char * msg = "");
     lbool Solve(bool pre);
 
 

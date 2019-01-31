@@ -4,10 +4,11 @@
 
 using namespace Minisat;
 DelayedResolGraphAlloc::DelayedResolGraphAlloc(CResolutionGraph* _g, std::unordered_map<CRef, Uid>& _uidDefferedAlloc) : g(_g),uidDeferredAlloc(_uidDefferedAlloc),firstIc(-1){}
-void DelayedResolGraphAlloc::addJob(Clause& c, CRef cref) {
+void DelayedResolGraphAlloc::addJob(ClauseAllocator * _caPtr, CRef cref) {
+	const Clause& c = (*_caPtr)[cref];
 	if (firstIc == -1 && c.ic())
 		firstIc = jobs.size();
-	jobs.push(allocJob(&c,cref,c.ic(),c.hasUid()));
+	jobs.push(allocJob(_caPtr,cref,c.ic(),c.hasUid()));
 }
 void DelayedResolGraphAlloc::shrink(int numToCancel) {
 	jobs.shrink(numToCancel);
@@ -27,8 +28,8 @@ void DelayedResolGraphAlloc::executeJobs(vec<Uid>& nonIcParents, vec<Uid>& allPa
 	assert(firstIc >= 0);
 	Uid nextUid = Clause::GetNextUid();
 	for (auto& job : jobs) {
-		Clause& c = *job.c;
 		CRef cref = job.cref;
+		const Clause& c = (*job.caPtr)[cref];
 
 		Uid uid = CRef_Undef;
 

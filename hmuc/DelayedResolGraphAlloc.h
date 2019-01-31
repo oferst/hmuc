@@ -9,12 +9,13 @@ namespace Minisat {
 
 	public:
 		struct allocJob {
-			Clause* c;
+			ClauseAllocator* caPtr;
+			//Clause* c;
 			CRef cref;
 			bool isIc;
 			bool hasUid;
-			allocJob(Clause* _c, CRef _cref, bool _isIc, bool _hasUid) :
-				c(_c), cref(_cref), isIc(_isIc), hasUid(_hasUid) {}
+			allocJob(ClauseAllocator* _caPtr, CRef _cref, bool _isIc, bool _hasUid) :
+				caPtr(_caPtr), cref(_cref), isIc(_isIc), hasUid(_hasUid) {}
 			
 		};
 		CResolutionGraph* g;
@@ -23,7 +24,7 @@ namespace Minisat {
 		std::unordered_map<CRef, Uid>& uidDeferredAlloc;
 
 		DelayedResolGraphAlloc(CResolutionGraph* _g, std::unordered_map<CRef, Uid>& uidDefferedAlloc);
-		void addJob(Clause& c, CRef cref);
+		void addJob(ClauseAllocator* caPtr, CRef cref);
 		void shrink(int numToCancel);
 		int size();
 		void clear();
