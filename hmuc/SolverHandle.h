@@ -43,6 +43,9 @@ namespace Minisat {
 		void getClauseByUid(Uid uid, LitSet& outClause) {
 			s->getClauseByUid(uid, outClause);
 		}
+
+		bool hasDelayedRemoval(Uid uid);
+
 	};
 
 

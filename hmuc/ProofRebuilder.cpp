@@ -3,6 +3,7 @@
 #include "core/SolverTypes.h"
 #include "Printer.h"
 #include "Graph.h"
+#include <sstream>
 namespace Minisat {
 bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 	if (u == CRef_Undef)
@@ -49,12 +50,23 @@ bool ProofRebuilder::validateResolution(Uid uid, T& parents,vec<Lit>& pivots) {
 	int i = 0;
 	for (auto& p : parents) {
 		Lit piv;
-		if (ctx->isClauseSeen(p))
-			piv = resolveWithOverwrite(actualClause, ctx->getClauseLits(p), v);
-		else {
-			LitSet parentClause;
-			sh->getClauseByUid(p, parentClause);
-			piv = resolveWithOverwrite(actualClause, parentClause, v);
+		try {
+			if (ctx->isClauseSeen(p))
+				piv = resolveWithOverwrite(actualClause, ctx->getClauseLits(p), v);
+			else {
+				LitSet parentClause;
+				sh->getClauseByUid(p, parentClause);
+				piv = resolveWithOverwrite(actualClause, parentClause, v);
+			}
+		}
+		catch (ResolutionException& e) {
+			printf(e.what());
+			printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
+			sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+			for (Uid p : parents) {
+				sh->printClauseByUid(p, "parent " + std::to_string(p));
+			}
+			throw e;
 		}
 		pivotsMatch = pivotsMatch && (piv == pivots[i++]);
 	}
@@ -152,7 +164,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 			proveBackboneLiteral - The main work is done here
 		*********************************************************/
 		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
-		result.isIc = result.isIc || Allocated == newUnitParent.status;
+		result.isIc = result.isIc || (Allocated == newUnitParent.status && sh->getResol(newUnitParent.clauseUid).header.ic);
 	}
 
 
@@ -295,7 +307,7 @@ void ProofRebuilder::calculateClause(const Uid currUid, const Lit& BL,
 
 	for (ClauseData& parentData : reconRes.rebuiltParentsCandidates) {
 		bool isAlloc = Allocated == parentData.status;
-		bool isRightParentIc = (Allocated == parentData.status) ?  sh->getResol(parentData.clauseUid).header.ic : false;
+		bool isRightParentIc = isAlloc && sh->getResol(parentData.clauseUid).header.ic;
 		LitSet& lits = (isAlloc ?  ctx->getClauseLits(parentData.clauseUid) : *parentData.clauseContent);
 		ParentUsed pu = findParentsUsed(*currClause, lits, parentData.origPiv, BL);
 
@@ -518,8 +530,8 @@ void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec
 			
 			if (!member(~l, currPivotParent)) {
 				assert(sh->level(var(l) == 0));
-				constLits.push(l);
-				printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
+				//constLits.push(l);
+				//printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
 				continue;
 			}
 			//assert(member(~l, ctx->getClauseLits(idx2Parent[pivIdx])));
@@ -527,9 +539,9 @@ void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec
 		}
 		i++;
 
-		for (auto& l : constLits) {
-			currentParent.erase(l);
-		}
+		//for (auto& l : constLits) {
+		//	currentParent.erase(l);
+		//}
 	}
 }
 
@@ -568,7 +580,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	if (!sh->inRhombus(currUid)) {
 		assert(CRef_Undef != currUid);
 		ctx->setClausesUpdate(currUid,currUid);
-		recordClause(currUid);
+		LitSet& lits = recordClause(currUid);
 		//now the clause will return 'true'
 		//on future ctx->isClauseSeen(pUid) calls
 		result.setAllocatedClauseData(currUid);
@@ -726,28 +738,39 @@ LitSet& ProofRebuilder::recordClause(Uid uid) {
 //Reads the literals in from to the set to. The clause will be 
 //pulled from the sat solver through the use of the solver handler.
 void ProofRebuilder::copyClauseLits(Uid from, LitSet& to) {
-	if (CRef_Undef != sh->UidToCRef(from)) 
-		insertAll(sh->getClause(from), to);
-	else 
+	if(sh->hasDelayedRemoval(from))
 		insertAll(sh->getDelayedRemoval(from), to);
+	else 
+		insertAll(sh->getClause(from), to);
 }
 
 template<class T>
 void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidation& validation) {
 	if (!ctx->arePivotsKnown(uid)) {
-	LitSet clause;
-	vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
-	pivots.push(ctx->dummy);
-	std::unordered_map<Var, uint32_t> piv2Idx;
-	int i = 0;
-	for (auto& p : sh->getResol(uid)) {
-		LitSet& rightClause = recordClause(p);
-		Lit piv = resolveWithOverwrite(clause, rightClause,validation);
-		if (piv != ctx->dummy) {
-			pivots.push(piv);
-			validation.pivotVars.insert(var(piv));
+		LitSet clause;
+		vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
+		pivots.push(ctx->dummy);
+		std::unordered_map<Var, uint32_t> piv2Idx;
+		int i = 0;
+		for (auto& p : sh->getResol(uid)) {
+			LitSet& rightClause = recordClause(p);
+			try {
+				Lit piv = resolveWithOverwrite(clause, rightClause, validation);
+				if (piv != ctx->dummy) {
+					pivots.push(piv);
+					validation.pivotVars.insert(var(piv));
+				}
+			}
+			catch (ResolutionException& e) {
+				printf(e.what());
+				printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
+				sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+				for (Uid p : parents) {
+					sh->printClauseByUid(p, "parent " + std::to_string(p));
+				}
+				throw e;
+			}
 		}
-	}
 	}
 }
 
@@ -806,7 +829,11 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidat
 		}
 	}
 	if (initialSize > 0 && piv == ctx->dummy) {
-		throw ResolutionException("Pivot assigned cannot be a dummy literal");
+		ostringstream oss;
+		printClause(leftLits, "leftLits", oss);
+		oss << std::endl;
+		printClause(rightLits, "rightLits", oss);
+		throw ResolutionException(("Pivot assigned cannot be a dummy literal.\n" + oss.str()).c_str());
 	}
 	return piv;
 }

@@ -352,8 +352,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     {
         Clause& c = operator[](cid);
 		//bool has_uid = c.ic();
-		//bool has_uid = c.ic() || c.isParentToIc();
-		bool has_uid = true;
+		bool has_uid = c.ic() || c.hasUid();
+		//bool has_uid = true;
         RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra(), has_uid));
     }
 

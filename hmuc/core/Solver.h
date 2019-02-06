@@ -310,6 +310,8 @@ protected:
     void findConflictICReasons(CRef ref);
     
     vec<CRef> icUnitClauses;
+	//this vector is similar in function to the 'icLearnedUnitClauses' vector, but instead of finding the unit during search() (and having parents that resolved it), units in this vector are found via a simplification of an existing clause (a strengthening at d.l. 0), s.t. it isn't immediately apparent what are the parents of the new unit. Due to this, we don't add the new unit to the resolution graph, and we keep the weaker clause in the graph (although we do remove the weaker clause from the clause DB) 
+	vec<CRef> icNonLearnedUnitClauses;
 	
     vec<Map<Lit, CRef>::Pair> icImpl;
     Set<uint32_t> setGood; // setGood = clauses that all their parents are not IC

@@ -53,11 +53,11 @@ namespace Minisat {
 			boolean queries for the 
 				context database
 		***********************************/
-		//If answers 'true' then clause's literals were already recorded
+		//If 'true' then clause's literals were already recorded
 		virtual bool			isClauseSeen(Uid uid);
-		//If answers 'true' then clause's then we finished finding an update to this clause during the reconstruction of this BL proof
+		//If 'true' then the clause was visited (and therefore updated) during the reconstruction of this BL proof
 		virtual bool			isClauseUpdated(Uid oldUid);
-		//If answers 'true' then we visited this clause in this or previous proof iteration, at which point we already extracted the pivots necessary for the current (and future) reconstructions.
+		//If 'true' then the clause was visited (and therefore updated) during the reconstruction of this BL proof, at which point we already recorded the pivots necessary for the current (and future) reconstructions.
 		virtual bool			arePivotsKnown(Uid uid);
 	};
 

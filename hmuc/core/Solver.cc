@@ -286,7 +286,6 @@ void Solver::removeClause(CRef cr) {
 	}
 
 	c.mark(1);
-	ca.free(cr);
 	if (isRebuildingProof() && hasUid(cr,uid)) {
 		if(!c.ic() && !c.hasUid())
 			nonIcUidDeferredAlloc.erase(cr);
@@ -302,6 +301,7 @@ void Solver::removeClause(CRef cr) {
 				icDelayed[uid] = litVec;
 			}
 		}
+	ca.free(cr);
 	}
 
 

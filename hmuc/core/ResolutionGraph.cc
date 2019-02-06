@@ -31,9 +31,7 @@ void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& nonIcParents, const vec<Uid>& allParents){
 	m_UidToData.growTo(nNewClauseUid + 1);
 	RRef refResol = m_RA.alloc(icParents, nonIcParents, allParents, true);
-	//if (nNewClauseUid == 5715) {
-	//	printf("5715 added to graph (ic)\n");
-	//}
+
     // increase reference count for all the icparents
 	if (nonIcParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
