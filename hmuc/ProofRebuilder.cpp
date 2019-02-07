@@ -138,7 +138,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		ctx->isIc(uid) = true;
 		result.isIc = true; // a parent is ic, and therefore the resulting node is also ic.
 	}
-	printClause(negConflAssumptions, "negConflAssumptions");
+	//printClause(negConflAssumptions, "negConflAssumptions");
 	//PART 2
 	/********************************************************************
 	Now we build separate proofs for the clauses (-p0), (-p1), ..., (-pn)

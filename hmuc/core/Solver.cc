@@ -719,7 +719,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
 		assert(out_icParents.size() + out_remParents.size() == out_allParents.size());
 	}
 	//allocDeferredNonIcResNodes(nonIcResolGraphDeferredAlloc, out_remParents, out_allParents);
-	printClause(out_conflict, "LITS to Prove");
+	//printClause(out_conflict, "LITS to Prove");
     seen[var(p)] = 0;
 }
 
@@ -891,7 +891,7 @@ struct reduceDB_lt {
 void Solver::reduceDB(){
 	int     i, j;
 	double  extra_lim = cla_inc / learnts.size();    // Remove any clause below this activity
-	printf("ReduceDC\n");
+	//printf("ReduceDC\n");
 	std::nth_element(learnts.begin(), learnts.begin() + (learnts.size() / 2), learnts.end(), reduceDB_lt(ca)); // ceil(learnts.size() / 2)
 	// We do not delete binary or locked clauses. From the rest, we delete clauses from the first half
 	// and clauses with activity smaller than 'extra_lim'.
@@ -1364,8 +1364,9 @@ lbool Solver::search(int nof_conflicts)
 							}
 							out << std::endl;
 							out.close();
-
+							double before_time = cpuTime();
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
+							time_for_pr += (cpuTime() - before_time);
 							updatePoEC(allPoEC, new_allPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
 							replaceVecContent(icPoEC, new_icPoEC);
@@ -1409,7 +1410,10 @@ void Solver::allocIcResNode(Clause& cl, CRef cr) {
 		delayedAllocator.executeJobs(remParents, allParents);
 		assert(icParents.size() + remParents.size() == allParents.size());
 	}
-	resolGraph.AddNewResolution(uidToUpdate, cr, icParents,remParents,allParents);
+	if(isRebuildingProof())
+		resolGraph.AddNewResolution(uidToUpdate, cr, icParents,remParents,allParents);
+	else
+		resolGraph.AddNewResolution(uidToUpdate, cr, icParents);
 }
 double Solver::progressEstimate() const
 {
@@ -1649,7 +1653,7 @@ void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
 void Solver::relocAll(ClauseAllocator& to)
 {
 	//if (verbosity == -1)
-		printf("relocAll\n");
+		//printf("relocAll\n");
 
 	//All non-ic parents to ic clauses that have external uid
 	//printf("------realloc nonIcUidDeferredAlloc-------\n");
@@ -2747,8 +2751,9 @@ void Solver::LPF_get_assumptions(
 
 CRef Solver::allocClause(vec<Lit>& lits,bool learnt, bool isIc=false, bool hasUid=false) {
 	
-	if (lits.size() == 1 && !isIc)
+	if (lits.size() == 1 && !isIc) {
 		return CRef_Undef;// this is a non ic unit clause, it need not be allocated in th clause DB
+	}
 	
 
 	CRef cr = ca.alloc(lits, true, isIc, hasUid);

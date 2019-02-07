@@ -188,6 +188,7 @@ int main(int argc, char** argv)
 		lbool ret = coreManager.Solve(pre);
 		printf("### decisions %d\n", solver->decisions);
 		printf("### pf_time %g\n", solver->time_for_pf);
+		printf("### pr_time %g\n", solver->time_for_pr);
         if (S.verbosity > 0){
             printStats(S);
             printf("\n"); }

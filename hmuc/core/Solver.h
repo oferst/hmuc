@@ -105,6 +105,8 @@ public:
     }
 
 	double time_for_pf;	
+	//time for proof reconstruction
+	double time_for_pr;
 	bool test_now;
 	uint32_t nICtoRemove;   // the IC that is currently removed.
 	

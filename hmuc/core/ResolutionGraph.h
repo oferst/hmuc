@@ -89,7 +89,7 @@ public:
 
         m_Parents[0].icSize = icParents.size();
 		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
-		if (allParents.size() == icParents.size()) {
+		if (allParents.size() == 0  || allParents.size() == icParents.size()) {
 			header.hasNonIcParents = 0;
 			for (int i = 0; i < icParents.size(); ++i) {
 				ics[i] = icParents[i];

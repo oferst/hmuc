@@ -399,7 +399,8 @@ namespace Minisat {
 		double longestcall = 0;
 		int lpf_boost_found_trivial_UNSAT = 0;
 				
-		m_Solver.time_for_pf = 0.0;		
+		m_Solver.time_for_pf = 0.0;	
+		m_Solver.time_for_pr = 0.0;
 		m_Solver.nICtoRemove = 0; 
 		m_Solver.pf_Literals = 0;
 		m_Solver.nUnsatByPF = 0;
