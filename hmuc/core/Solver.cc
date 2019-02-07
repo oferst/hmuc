@@ -65,7 +65,7 @@ static IntOption     opt_pf_delay          (_cat, "pf-delay", "delay activation 
 static IntOption     opt_pf_mode		   (_cat, "pf-mode", "{0-none, 1 - ic clause only, 2 - path-falsification (pf), 3-literal-based pf (lpf), 4 - lpf inprocess};", 4, IntRange(0,4));
 static BoolOption    opt_test			   (_cat, "test", "test that the core is indeed unsat", false);
 static BoolOption    opt_reverse_pf		   (_cat, "reverse-pf", "reverse order of lpf literals\n", false);
-static BoolOption    opt_always_prove      (_cat, "always_prove", "prevent early termination due to assumptions; instead run proof to completion", true);
+static BoolOption    opt_always_prove      (_cat, "always_prove", "prevent early termination due to assumptions; instead run proof to completion", false);
 static IntOption     opt_pf_z_budget	   (_cat, "pf_z_budget", "# of restarts we budget for building a proof in case we already know it is unsat", 40, IntRange(-1,4000));
 static BoolOption    opt_pf_reset_z_budget (_cat, "pf_reset_z_budget", "upon detection of unsat by assumptions, resets zombie-budget", false); 
 

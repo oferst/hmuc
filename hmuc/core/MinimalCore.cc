@@ -41,17 +41,23 @@ namespace Minisat
 		m_nICSize = nIcNum;
 	}
 
-	void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, bool last)
+	void CMinimalCore::PrintData(int unknownSize, int mucSize, int iter, bool last,lbool result)
 	{
+		std::string res("undef");
+		if (l_False == result)
+			res = "unsat";
+		else if(l_True == result)
+			res = "sat";
+
 		if (opt_muc_print)
 		{
-			printf("c %siter %d time %g not-muc %d unknown %d muc %d\n", 
+			printf("c %siter %d time %g not-muc %d unknown %d muc %d %s\n", 
 				last ? "final " : "", 
-				iter + 1, 
+				iter, 
 				cpuTime(),
 				m_nICSize - mucSize - unknownSize, 
 				unknownSize, 
-				mucSize);
+				mucSize, res.c_str());
 		}
 		if (last) {
 			printf("### time %g\n", cpuTime());		
@@ -442,7 +448,7 @@ namespace Minisat
 					
 					vecNextUnknown.removeDuplicated_(); // see why we need it sorted and without duplicates below. 
 
-					PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration);
+					PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration,false, result);
 
 
 					//if (m_Solver.test_result) test(vecNextUnknown, setMuc, "normal unsat");
@@ -497,7 +503,7 @@ namespace Minisat
 				m_Solver.test_now = false;
 
 
-				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration);
+				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, false,result);
 				}
 			}
 #pragma endregion
@@ -589,7 +595,7 @@ namespace Minisat
 				}
 #pragma endregion
 				vecCurrentUnknown.swap(vecNextUnknown);
-				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration);			
+				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration,false, result);
 			}			
 #pragma endregion
 
