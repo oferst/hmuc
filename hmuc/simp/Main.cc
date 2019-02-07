@@ -187,11 +187,13 @@ int main(int argc, char** argv)
 		
 		lbool ret = coreManager.Solve(pre);
 		printf("### decisions %d\n", solver->decisions);
+		printf("### conflicts %d\n", solver->conflicts);
 		printf("### pf_time %g\n", solver->time_for_pf);
 		printf("### pr_time %g\n", solver->time_for_pr);
         if (S.verbosity > 0){
             printStats(S);
-            printf("\n"); }
+            printf("\n"); 
+		}
         printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s UNKNOWN\n");
 		freopen("CON", "w", stdout);
 #ifdef NDEBUG

@@ -155,7 +155,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& all
 		Lit negBL = negConflAssumptions[i];
 		//the backbone literal itself, what we aim to prove, ~l.
 		Lit BL = ~negBL;
-		printf("CURRENT BL: %d\n", todimacsLit(BL));
+		//printf("CURRENT BL: %d\n", todimacsLit(BL));
 		ctx->clearUpdates();
 		allParents.push_back(ClauseData(BL));
 		ClauseData& newUnitParent = allParents.back();

@@ -1364,6 +1364,8 @@ lbool Solver::search(int nof_conflicts)
 							}
 							out << std::endl;
 							out.close();
+							
+							printf("pr\n");
 							double before_time = cpuTime();
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
 							time_for_pr += (cpuTime() - before_time);
