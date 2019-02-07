@@ -27,3 +27,7 @@ run.bat
 hmuc/tmp/
 hmuc/minisat2.2.vcxproj.user
 *.cnf
+ipch/
+hmuc/.vs/
+.vs/
+hmuc.VC.opendb
