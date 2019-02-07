@@ -25,3 +25,5 @@ results.xlsx
 run.bat
 *.db
 hmuc/tmp/
+hmuc/minisat2.2.vcxproj.user
+*.cnf
