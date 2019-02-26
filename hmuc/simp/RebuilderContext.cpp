@@ -1,4 +1,4 @@
-#include "RebuilderContext.h"
+#include "simp/RebuilderContext.h"
 
 namespace Minisat {
 
@@ -44,5 +44,4 @@ namespace Minisat {
 	bool RebuilderContext::isClauseUpdated(Uid oldUid) {
 		return clausesUpdates.find(oldUid) != clausesUpdates.end();
 	}
-
 }

@@ -1,6 +1,6 @@
-#include "DelayedResolGraphAlloc.h"
+#include "simp/DelayedResolGraphAlloc.h"
 
-#include "Printer.h"
+#include "utils/Printer.h"
 
 using namespace Minisat;
 DelayedResolGraphAlloc::DelayedResolGraphAlloc(CResolutionGraph* _g, std::unordered_map<CRef, Uid>& _uidDefferedAlloc) : g(_g),uidDeferredAlloc(_uidDefferedAlloc),firstIc(-1){}
@@ -8,10 +8,10 @@ void DelayedResolGraphAlloc::addJob(ClauseAllocator * _caPtr, CRef cref) {
 	const Clause& c = (*_caPtr)[cref];
 	if (firstIc == -1 && c.ic())
 		firstIc = jobs.size();
-	jobs.push(allocJob(_caPtr,cref,c.ic(),c.hasUid()));
+	jobs.push_front(allocJob(_caPtr,cref,c.ic(),c.hasUid()));
 }
 void DelayedResolGraphAlloc::shrink(int numToCancel) {
-	jobs.shrink(numToCancel);
+	for (int i = 0; i < numToCancel; ++i) jobs.pop_front();
 	if (jobs.size() <= firstIc)
 		firstIc = -1;
 	

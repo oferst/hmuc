@@ -34,13 +34,13 @@ namespace Minisat {
 		
 		virtual void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 
-		void printClauseByUid(Uid uid, const std::string& msg,ostream& out=std::cout) { 
-			s->printClauseByUid(uid, msg, out);
-		}
-		void getClauseByUid(Uid uid, vec<Lit>& outClause) {
+		//void printClauseByUid(Uid uid, const std::string& msg,ostream& out=std::cout) { 
+		//	s->printClauseByUid(uid, msg, out);
+		//}
+		void getClauseByUid(const Uid uid, vec<Lit>& outClause) {
 			s->getClauseByUid(uid, outClause);
 		}
-		void getClauseByUid(Uid uid, LitSet& outClause) {
+		void getClauseByUid(const Uid uid, LitSet& outClause) {
 			s->getClauseByUid(uid, outClause);
 		}
 

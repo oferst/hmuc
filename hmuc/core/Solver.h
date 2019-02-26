@@ -27,7 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Alg.h"
 #include "utils/Options.h"
 #include "core/SolverTypes.h"
-#include "DelayedResolGraphAlloc.h"
+#include "simp/DelayedResolGraphAlloc.h"
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
 #include <vector>
@@ -88,8 +88,8 @@ public:
     {
         return ca[ind];
     }
-	void getClauseByUid(Uid uid, vec<Lit>& outClause);
-	void getClauseByUid(Uid uid, LitSet& outClause);
+	void getClauseByUid(const Uid uid, vec<Lit>& outClause);
+	void getClauseByUid(const Uid uid, LitSet& outClause);
 
     ClauseAllocator& GetAlloc()
     {
@@ -295,7 +295,7 @@ public:
 	
 	void printLearntsDB();
 	void printTrail();
-	void printClauseByUid(uint32_t uid, std::string text,ostream& out = std::cout);
+	//void printClauseByUid(uint32_t uid, std::string text,ostream& out = std::cout);
  //   void printClause(FILE* f, Clause& c);
 	//	
 	//void printClause(FILE * f, vec<Lit>& v, std::string text="");	

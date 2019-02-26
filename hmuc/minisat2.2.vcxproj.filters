@@ -78,17 +78,26 @@
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ProofRebuilder.h">
-      <Filter>Header Files\ProofRebuilder</Filter>
-    </ClInclude>
-    <ClInclude Include="SolverHandle.h">
-      <Filter>Header Files\ProofRebuilder</Filter>
-    </ClInclude>
-    <ClInclude Include="RebuilderContext.h">
+    <ClInclude Include="mtl\Graph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DelayedResolGraphAlloc.h">
+    <ClInclude Include="utils\Printer.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mtl\Stack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="simp\DelayedResolGraphAlloc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="simp\ProofRebuilder.h">
+      <Filter>Header Files\ProofRebuilder</Filter>
+    </ClInclude>
+    <ClInclude Include="simp\RebuilderContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="simp\SolverHandle.h">
+      <Filter>Header Files\ProofRebuilder</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -113,16 +122,16 @@
     <ClCompile Include="simp\SimpSolver.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SolverHandle.cpp">
+    <ClCompile Include="simp\DelayedResolGraphAlloc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ProofRebuilder.cpp">
+    <ClCompile Include="simp\ProofRebuilder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RebuilderContext.cpp">
+    <ClCompile Include="simp\RebuilderContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DelayedResolGraphAlloc.cpp">
+    <ClCompile Include="simp\SolverHandle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

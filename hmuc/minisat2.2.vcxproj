@@ -229,7 +229,8 @@
     <ClInclude Include="core\ResolutionGraph.h" />
     <ClInclude Include="core\Solver.h" />
     <ClInclude Include="core\SolverTypes.h" />
-    <ClInclude Include="DelayedResolGraphAlloc.h" />
+    <ClInclude Include="simp\DelayedResolGraphAlloc.h" />
+    <ClInclude Include="mtl\Graph.h" />
     <ClInclude Include="mtl\Alg.h" />
     <ClInclude Include="mtl\Alloc.h" />
     <ClInclude Include="mtl\Heap.h" />
@@ -238,27 +239,29 @@
     <ClInclude Include="mtl\Queue.h" />
     <ClInclude Include="mtl\Set.h" />
     <ClInclude Include="mtl\Sort.h" />
+    <ClInclude Include="mtl\Stack.h" />
     <ClInclude Include="mtl\Vec.h" />
     <ClInclude Include="mtl\XAlloc.h" />
-    <ClInclude Include="ProofRebuilder.h" />
-    <ClInclude Include="RebuilderContext.h" />
+    <ClInclude Include="simp\ProofRebuilder.h" />
+    <ClInclude Include="simp\RebuilderContext.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="simp\SimpSolver.h" />
-    <ClInclude Include="SolverHandle.h" />
+    <ClInclude Include="simp\SolverHandle.h" />
     <ClInclude Include="utils\Options.h" />
     <ClInclude Include="utils\ParseUtils.h" />
+    <ClInclude Include="utils\Printer.h" />
     <ClInclude Include="utils\System.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core\MinimalCore.cc" />
     <ClCompile Include="core\ResolutionGraph.cc" />
     <ClCompile Include="core\Solver.cc" />
-    <ClCompile Include="DelayedResolGraphAlloc.cpp" />
-    <ClCompile Include="ProofRebuilder.cpp" />
-    <ClCompile Include="RebuilderContext.cpp" />
+    <ClCompile Include="simp\DelayedResolGraphAlloc.cpp" />
+    <ClCompile Include="simp\ProofRebuilder.cpp" />
+    <ClCompile Include="simp\RebuilderContext.cpp" />
     <ClCompile Include="simp\Main.cc" />
     <ClCompile Include="simp\SimpSolver.cc" />
-    <ClCompile Include="SolverHandle.cpp" />
+    <ClCompile Include="simp\SolverHandle.cpp" />
     <ClCompile Include="utils\Options.cc" />
     <ClCompile Include="utils\System.cc" />
   </ItemGroup>

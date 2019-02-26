@@ -1,8 +1,8 @@
 #pragma once
-#include "ProofRebuilder.h"
+#include "simp/ProofRebuilder.h"
 #include "core/SolverTypes.h"
-#include "Printer.h"
-#include "Graph.h"
+#include "utils/Printer.h"
+#include "mtl/Graph.h"
 #include <sstream>
 namespace Minisat {
 bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
@@ -764,10 +764,10 @@ void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidati
 			catch (ResolutionException& e) {
 				printf(e.what());
 				printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
-				sh->printClauseByUid(uid, "clause " + std::to_string(uid));
-				for (Uid p : parents) {
-					sh->printClauseByUid(p, "parent " + std::to_string(p));
-				}
+				//sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+				//for (Uid p : parents) {
+				//	sh->printClauseByUid(p, "parent " + std::to_string(p));
+				//}
 				throw e;
 			}
 		}
@@ -880,7 +880,7 @@ bool ProofRebuilder::verifyResolutionProof(const vec<Uid>& PoEC) {
 	Set<Uid> oldClauses, newClauses;
 	int nValidated = 0;
 	for (auto& p : PoEC) {
-		sh->printClauseByUid(p, "new PoEC " + std::to_string(p) + " ic: " + std::to_string(ctx->isIc(p)));
+		//sh->printClauseByUid(p, "new PoEC " + std::to_string(p) + " ic: " + std::to_string(ctx->isIc(p)));
 		assert(!sh->inRhombus(p));//a clause not in the original rhombus (it is independent of the clause to remove c).
 		assert(!seen.has(p));//all the PoEC were built during this call,  and they should be independent of each other.
 		assert(!oldClauses.has(p));

@@ -1,7 +1,7 @@
 #pragma once
-#include "SolverHandle.h"
-#include "RebuilderContext.h"
-#include "Printer.h"
+#include "simp/SolverHandle.h"
+#include "simp/RebuilderContext.h"
+#include "utils/Printer.h"
 
 namespace Minisat {
 
@@ -122,17 +122,17 @@ public:
 
 	static int depth_debug;
 	int verbose = 0;
-	void printClauseData(const ClauseData& cd, const std::string& text) {
-		switch(cd.status){
-		case Allocated:
-			sh->printClauseByUid(cd.clauseUid, text + " (A)"); break;
-		case Deferred:
-			printClause(*cd.clauseContent, text + " (D)"); break;
-		case Uninitialized:
-			printf((text + " (U)\n").c_str()); break;
-		default: assert(0);
-		}
-	}
+	//void printClauseData(const ClauseData& cd, const std::string& text) {
+	//	switch(cd.status){
+	//	case Allocated:
+	//		sh->printClauseByUid(cd.clauseUid, text + " (A)"); break;
+	//	case Deferred:
+	//		printClause(*cd.clauseContent, text + " (D)"); break;
+	//	case Uninitialized:
+	//		printf((text + " (U)\n").c_str()); break;
+	//	default: assert(0);
+	//	}
+	//}
 
 
 
@@ -185,9 +185,9 @@ public:
 	
 	
 	
-	class ResolutionException : public std::exception {
+	class ResolutionException : public std::logic_error {
 	public:
-		ResolutionException(const char* msg) : std::exception(msg) {}
+		ResolutionException(const char* msg) : std::logic_error(msg) {}
 	};
 
 };

@@ -565,9 +565,9 @@ inline void Clause::strengthen(Lit p)
 }
 
 //=================================================================================================
-class ResolutionException : public std::exception {
+class ResolutionException : public std::logic_error {
 public:
-	ResolutionException(const char* msg) : std::exception(msg) {}
+	ResolutionException(const char* msg) : std::logic_error(msg) {}
 };
 }
 

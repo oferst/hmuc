@@ -24,4 +24,7 @@
     <LocalDebuggerCommandArguments>-muc-progress  C:\Users\ofer.guthmann\Documents\hmuc_benchmarks\SAT02\industrial\biere\cmpadd\ca064.shuffled.cnf &gt; c:\temp\no_blm_ca064.shuffled.cnf.out</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup>
+    <ShowAllFiles>true</ShowAllFiles>
+  </PropertyGroup>
 </Project>

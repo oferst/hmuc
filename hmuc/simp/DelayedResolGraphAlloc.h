@@ -1,6 +1,6 @@
 #pragma once
 #include "mtl/Vec.h"
-
+#include <list>
 #include "core/SolverTypes.h"
 #include "core/ResolutionGraph.h"
 
@@ -19,7 +19,7 @@ namespace Minisat {
 			
 		};
 		CResolutionGraph* g;
-		vec<allocJob> jobs;
+		std::list<allocJob> jobs;
 		int firstIc;
 		std::unordered_map<CRef, Uid>& uidDeferredAlloc;
 

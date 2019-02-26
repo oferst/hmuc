@@ -1,5 +1,5 @@
 #pragma once
-#include "SolverHandle.h"
+#include "simp/SolverHandle.h"
 namespace Minisat {
 	class RebuilderContext
 	{
@@ -24,7 +24,7 @@ namespace Minisat {
 		const Lit dummy = mkLit(var_Undef);
 
 		RebuilderContext() {}
-		virtual ~RebuilderContext() {}
+		inline virtual ~RebuilderContext() {}
 
 		/**********************************
 			Mutators (set + get) methods 

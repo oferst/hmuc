@@ -1,4 +1,4 @@
-#include "SolverHandle.h"
+#include "simp/SolverHandle.h"
 namespace Minisat {
 
 	SolverHandle::SolverHandle(Solver* _s = NULL) : s(_s)

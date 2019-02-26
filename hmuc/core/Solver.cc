@@ -31,9 +31,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <algorithm> 
 #include<iostream>
 #include<string>
-#include "SolverHandle.h"
-#include "ProofRebuilder.h"
-#include "Printer.h"
+#include "simp/SolverHandle.h"
+#include "simp/ProofRebuilder.h"
+#include "utils/Printer.h"
 using namespace Minisat;
 
 
@@ -71,7 +71,7 @@ static IntOption     opt_pf_delay          (_cat, "pf-delay", "delay activation 
 static IntOption     opt_pf_mode		   (_cat, "pf-mode", "{0-none, 1 - ic clause only, 2 - path-falsification (pf), 3-literal-based pf (lpf), 4 - lpf inprocess};", 4, IntRange(0,4));
 static BoolOption    opt_test			   (_cat, "test", "test that the core is indeed unsat", false);
 static BoolOption    opt_reverse_pf		   (_cat, "reverse-pf", "reverse order of lpf literals\n", false);
-static BoolOption    opt_always_prove      (_cat, "always_prove", "prevent early termination due to assumptions; instead run proof to completion", true);
+static BoolOption    opt_always_prove      (_cat, "always_prove", "prevent early termination due to assumptions; instead run proof to completion", false);
 static IntOption     opt_pf_z_budget	   (_cat, "pf_z_budget", "# of restarts we budget for building a proof in case we already know it is unsat", 40, IntRange(-1,4000));
 static BoolOption    opt_pf_reset_z_budget (_cat, "pf_reset_z_budget", "upon detection of unsat by assumptions, resets zombie-budget", false); 
 //Multi Module Options
@@ -2160,7 +2160,7 @@ void  Solver::getClauseByUid(Uid uid, vec<Lit>& outClause) {
 		for (Lit l : ca[cref])
 			outClause.push(l);
 	}
-	else if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end(uid)) {
+	else if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end()) {
 		for (Lit l : *resolGraph.icDelayedRemoval[uid])
 			outClause.push(l);
 	}
@@ -2173,27 +2173,27 @@ void  Solver::getClauseByUid(Uid uid, LitSet& outClause) {
 		for (Lit l : ca[cref])
 			outClause.insert(l);
 	}
-	else if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end(uid)) {
+	else if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end()) {
 		for (Lit l : *resolGraph.icDelayedRemoval[uid])
 			outClause.insert(l);
 	}
 }
-void Solver::printClauseByUid(uint32_t uid, std::string text,ostream& out) {
-	if (uid == CRef_Undef) {
-		out << "CRef_Undef" << std::endl;
-		return;
-	}
-	CRef cref = GetClauseIndFromUid(uid);
-	if (cref == CRef_Undef) {
-		if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end(uid)) {
-			printClause(*resolGraph.icDelayedRemoval[uid], text, out);
-		}
-		else
-			out << "clause deleted" << std::endl;
-	}
-	else
-		printClause(ca[cref], text,out);
-}
+//void Solver::printClauseByUid(const uint32_t uid, std::string text,ostream& out) {
+//	if (uid == CRef_Undef) {
+//		out << "CRef_Undef" << std::endl;
+//		return;
+//	}
+//	CRef cref = GetClauseIndFromUid(uid);
+//	if (cref == CRef_Undef) {
+//		if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.cend(uid)) {
+//			printClause(*resolGraph.icDelayedRemoval[uid], text, out);
+//		}
+//		else
+//			out << "clause deleted" << std::endl;
+//	}
+//	else
+//		printClause(ca[cref], text,out);
+//}
 
 void Solver::CreateResolVertex(uint32_t uid)
 {
