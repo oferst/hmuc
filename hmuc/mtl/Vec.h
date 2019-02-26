@@ -23,6 +23,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <assert.h>
 #include <new>
+#include <list>
 #include <stdio.h>
 
 #include "mtl/IntTypes.h"
@@ -233,7 +234,7 @@ public:
 		int i;
 		const vec<T>& v;
 	public:
-		vecIter() : v(vec<Lit>()), i(0) {}
+		vecIter() : v(vec<T>()), i(0) {}
 
 		vecIter(const vec<T>& _v, int _i = 0) : v(_v), i(_i) {}
 		vecIter(const vecIter& o) : v(o.v), i(o.i) {}

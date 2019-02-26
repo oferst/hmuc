@@ -122,16 +122,16 @@
     <ClCompile Include="simp\SimpSolver.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="simp\DelayedResolGraphAlloc.cpp">
+    <ClCompile Include="simp\ProofRebuilder.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="simp\ProofRebuilder.cpp">
+    <ClCompile Include="simp\RebuilderContext.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="simp\RebuilderContext.cpp">
+    <ClCompile Include="simp\SolverHandle.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="simp\SolverHandle.cpp">
+    <ClCompile Include="simp\DelayedResolGraphAlloc.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

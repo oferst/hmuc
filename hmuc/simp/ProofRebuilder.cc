@@ -1,7 +1,7 @@
 #pragma once
 #include "simp/ProofRebuilder.h"
 #include "core/SolverTypes.h"
-#include "utils/Printer.h"
+//#include "utils/Printer.h"
 #include "mtl/Graph.h"
 #include <sstream>
 namespace Minisat {
@@ -62,10 +62,10 @@ bool ProofRebuilder::validateResolution(Uid uid, T& parents,vec<Lit>& pivots) {
 		catch (ResolutionException& e) {
 			printf(e.what());
 			printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
-			sh->printClauseByUid(uid, "clause " + std::to_string(uid));
-			for (Uid p : parents) {
-				sh->printClauseByUid(p, "parent " + std::to_string(p));
-			}
+			//sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+			//for (Uid p : parents) {
+			//	sh->printClauseByUid(p, "parent " + std::to_string(p));
+			//}
 			throw e;
 		}
 		pivotsMatch = pivotsMatch && (piv == pivots[i++]);
@@ -508,7 +508,7 @@ void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec
 			if (!member(var(l), pivVar2Idx)) {
 				assert(sh->level(var(l) == 0));
 				constLits.push(l);
-				printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
+				//printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
 				continue;
 			}
 			//the index of the current pivot literal, 
@@ -606,7 +606,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//assume that the size of the parents vector is the size of 
 	//the pivots vector.
 	if (currPivots.size() != parents.size()) {
-		printClause(currPivots, "pivots");
+		//printClause(currPivots, "pivots");
 
 		printf("currPivots.size() %d != %d parents.size()", currPivots.size(), parents.size());
 	}
@@ -829,11 +829,11 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidat
 		}
 	}
 	if (initialSize > 0 && piv == ctx->dummy) {
-		ostringstream oss;
-		printClause(leftLits, "leftLits", oss);
-		oss << std::endl;
-		printClause(rightLits, "rightLits", oss);
-		throw ResolutionException(("Pivot assigned cannot be a dummy literal.\n" + oss.str()).c_str());
+		//ostringstream oss;
+		//printClause(leftLits, "leftLits", oss);
+		//oss << std::endl;
+		//printClause(rightLits, "rightLits", oss);
+		throw ResolutionException("Pivot assigned cannot be a dummy literal.\n");
 	}
 	return piv;
 }

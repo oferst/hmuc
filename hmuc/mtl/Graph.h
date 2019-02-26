@@ -2,7 +2,7 @@
 #include <inttypes.h>
 #include <list>
 #include <stack>
-#
+
 using namespace std;
 namespace Minisat {
 
@@ -18,7 +18,7 @@ class Graph{
 		visited[v] = true;
 
 		// Recur for all the vertices adjacent to this vertex
-		list<V>::iterator i;
+		//list<V>::iterator i;
 		for(V& v : adj[v])
 		//for (i = adj[v].begin(); i != adj[v].end(); ++i)
 			if (!visited[v])
@@ -35,7 +35,7 @@ public:
 	}
 	// The function to do Topological Sort. It uses recursive 
 	// topologicalSortUtil()
-	void Graph::topologicalSort(vec<V>& result){
+	void topologicalSort(vec<V>& result){
 		stack<V> Stack;
 
 		// Mark all the vertices as not visited

@@ -1,6 +1,6 @@
 #include "simp/DelayedResolGraphAlloc.h"
 
-#include "utils/Printer.h"
+//#include "utils/Printer.h"
 
 using namespace Minisat;
 DelayedResolGraphAlloc::DelayedResolGraphAlloc(CResolutionGraph* _g, std::unordered_map<CRef, Uid>& _uidDefferedAlloc) : g(_g),uidDeferredAlloc(_uidDefferedAlloc),firstIc(-1){}

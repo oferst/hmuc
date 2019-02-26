@@ -33,7 +33,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include<string>
 #include "simp/SolverHandle.h"
 #include "simp/ProofRebuilder.h"
-#include "utils/Printer.h"
+//#include "utils/Printer.h"
 using namespace Minisat;
 
 
@@ -2272,7 +2272,7 @@ int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of l
         }
     }
 	
-	if (verbosity == 1) printClause(LiteralsFromPathFalsification,"literals from pf");
+	//if (verbosity == 1) printClause(LiteralsFromPathFalsification,"literals from pf");
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
 }
@@ -2344,202 +2344,202 @@ bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) {
 
 void Solver::printResGraph(uint32_t uid, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions) // uidClauseToUpdate is either cr itself, or the clause at the bottom of a chain
 {
-int currUid,m;
-	std::queue<uint32_t> q; // compute number of allParentsCRef in the cone of cr
-	q.push(uid);	
-    Map<uint32_t,uint32_t> mapRealParents;
-	mapRealParents.insert(uid,0);	
-	
-	while (!q.empty()) 
-	{
-		currUid = q.front();
-		bool parent_of_empty; 
-		parent_of_empty = false;
-		if (parents_of_empty_clause.binary_search(currUid)) {
-			printf("*"); 
-			parent_of_empty =true;
-		}
-		else printf(" ");
-	
-		printf("id = %d (", currUid);
-		CRef c = resolGraph.GetClauseRef(currUid); // the clause reference of cr
-		if (c == CRef_Undef) {
-			printf("(deleted clause)");	
-		}
-		else {
-			const Clause& cls = ca[c]; // the actual clause			
-			for (int i=0 ; i < cls.size() ; i++){  // initially parent = cr
-				printf("%d ", cls[i]); 				
-			}			
-		}		
-		q.pop();
-		
-		CRef curr_ref = resolGraph.GetResolRef(currUid);
-		const Resol& r = resolGraph.GetResol(curr_ref);
-		if(r.m_Children.size()==0){  // no more children
-			printf(")\n");
-			continue;
-		}
-		printf(") children = ");
-		for (m=0 ; m < r.m_Children.size() ; m++)
-		{
-			if (!resolGraph.ValidUid(r.m_Children[m])) continue;
-			printf("%d, ", r.m_Children[m]);		
-			if(!mapRealParents.has(r.m_Children[m]))
-			{				
-				mapRealParents.insert(r.m_Children[m],0);
-				q.push(r.m_Children[m]);
-			}
-		}
-		printf("\n");
-	}	
+//int currUid,m;
+//	std::queue<uint32_t> q; // compute number of allParentsCRef in the cone of cr
+//	q.push(uid);	
+//    Map<uint32_t,uint32_t> mapRealParents;
+//	mapRealParents.insert(uid,0);	
+//	
+//	while (!q.empty()) 
+//	{
+//		currUid = q.front();
+//		bool parent_of_empty; 
+//		parent_of_empty = false;
+//		if (parents_of_empty_clause.binary_search(currUid)) {
+//			printf("*"); 
+//			parent_of_empty =true;
+//		}
+//		else printf(" ");
+//	
+//		printf("id = %d (", currUid);
+//		CRef c = resolGraph.GetClauseRef(currUid); // the clause reference of cr
+//		if (c == CRef_Undef) {
+//			printf("(deleted clause)");	
+//		}
+//		else {
+//			const Clause& cls = ca[c]; // the actual clause			
+//			for (int i=0 ; i < cls.size() ; i++){  // initially parent = cr
+//				printf("%d ", cls[i]); 				
+//			}			
+//		}		
+//		q.pop();
+//		
+//		CRef curr_ref = resolGraph.GetResolRef(currUid);
+//		const Resol& r = resolGraph.GetResol(curr_ref);
+//		if(r.m_Children.size()==0){  // no more children
+//			printf(")\n");
+//			continue;
+//		}
+//		printf(") children = ");
+//		for (m=0 ; m < r.m_Children.size() ; m++)
+//		{
+//			if (!resolGraph.ValidUid(r.m_Children[m])) continue;
+//			printf("%d, ", r.m_Children[m]);		
+//			if(!mapRealParents.has(r.m_Children[m]))
+//			{				
+//				mapRealParents.insert(r.m_Children[m],0);
+//				q.push(r.m_Children[m]);
+//			}
+//		}
+//		printf("\n");
+//	}	
 }
 
 
 void Solver::ResGraph2dotty(vec<uint32_t>& roots, vec<uint32_t>& parents_of_empty_clause, vec<Lit>& assumptions,const char* filename) {
-
-	int currUid,m;
-	vec<uint32_t> sorted_roots;
-	vec<uint32_t> sorted_parents;
-	vec<Lit> sorted_assumptions;
-
-	std::unordered_set<uint32_t> seenDecsendents;
-	std::set<uint32_t> additionalParents;
-	std::set<std::pair<uint32_t,uint32_t>> setEdges;
-
-	parents_of_empty_clause.copyTo(sorted_parents);
-	roots.copyTo(sorted_roots);
-	assumptions.copyTo(sorted_assumptions);
-	sort(sorted_parents);
-	sort(sorted_roots);
-	sort(sorted_assumptions);
-
-	std::queue<uint32_t> q; 
-	// compute number of allParentsCRef in the cone of cr
-	for (int i = 0; i < sorted_roots.size(); ++i) {
-		uint32_t uid = roots[i];
-		q.push(uid);
-		seenDecsendents.insert(uid);
-	}
-	FILE *dot;
-	std::stringstream edges;
-	edges << " ";
-
-		dot = fopen(filename, "w");
-		fprintf(dot, "digraph tclause {\n");
-
-	while (!q.empty()) {
-		currUid = q.front();
-
-		//print node data
-		fprintf(dot, "node[");
-
-		if (sorted_parents.binary_search(currUid)) 
-			fprintf(dot,"color=green,");
-		else if(sorted_roots.binary_search(currUid))
-			fprintf(dot, "color=blue,");
-		else fprintf(dot,"color=black,");
-
-		CRef cr = resolGraph.GetClauseRef(currUid); // the clause reference of currUid
-		if (cr == CRef_Undef) {
-			if (resolGraph.icDelayedRemoval.find(currUid) == resolGraph.icDelayedRemoval.end()) {
-				fprintf(dot, "label=%\" %d: D\"", currUid);
-
-			}
-			else {
-				fprintf(dot, "label=\"UD ");
-				vec<Lit>& vecLit = *resolGraph.icDelayedRemoval[currUid];
-				sort(vecLit);
-				for (int i = 0; i < vecLit.size(); i++) {  // initially parent = cr							
-					if (sorted_assumptions.size() > 0 && sorted_assumptions.binary_search(vecLit[i]))
-						fprintf(dot, "*");
-					fprintf(dot, "%d ", todimacsLit(vecLit[i]));
-				}
-				fprintf(dot, "\"");
-			}
-
-
-		}
-		else {
-			const Clause& c = ca[cr]; // the actual clause
-			fprintf(dot,"label=\"");
-			for (int i=0 ; i < c.size() ; i++){  // initially parent = cr							
-				if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(c[i]))
-					fprintf(dot,"*");
-				fprintf(dot,"%d ", todimacsLit(c[i]));
-			}
-			fprintf(dot,"\"");
-
-
-		}
-		fprintf(dot,"]; n%d;\n",currUid);
-
-
-		q.pop();
-
-		CRef curr_ref = resolGraph.GetResolRef(currUid);
-		const Resol& r = resolGraph.GetResol(curr_ref);
-
-		for (m=0 ; m < r.m_Children.size() ; m++) {
-			if (!resolGraph.ValidUid(r.m_Children[m])) 
-				continue;
-
-			setEdges.insert(std::pair<uint32_t, uint32_t>(currUid, r.m_Children[m]));
-			if (seenDecsendents.insert(r.m_Children[m]).second) {
-				q.push(r.m_Children[m]);
-			}
-		}
-		for (uint32_t  pUid : r) {
-			if (seenDecsendents.find(pUid) == seenDecsendents.end()) {
-				additionalParents.insert(pUid);
-
-			}
-			setEdges.insert(std::pair<uint32_t, uint32_t>(pUid, currUid));
-		}
-
-
-	}
-
-
-	for (auto pUid : additionalParents) {
-		if (seenDecsendents.find(pUid) == seenDecsendents.end()) {
-			fprintf(dot, "node[");
-			fprintf(dot, "color=red,");
-			CRef cr = resolGraph.GetClauseRef(pUid); // the clause reference of pUid
-			if (cr == CRef_Undef) {
-				if (resolGraph.icDelayedRemoval.find(pUid) == resolGraph.icDelayedRemoval.end()) {
-					fprintf(dot, "label=%\" %d: D\"", pUid);
-				}
-				else {
-					fprintf(dot, "label=\"UD ");
-					vec<Lit>& vecLit = *resolGraph.icDelayedRemoval[pUid];
-					sort(vecLit);
-					for (int i = 0; i < vecLit.size(); i++) {  // initially parent = cr							
-						if (sorted_assumptions.size() > 0 && sorted_assumptions.binary_search(vecLit[i]))
-							fprintf(dot, "*");
-						fprintf(dot, "%d ", todimacsLit(vecLit[i]));
-					}
-					fprintf(dot, "\"");
-				}
-			}
-			else {
-				const Clause& c = ca[cr]; // the actual clause
-				fprintf(dot, "label=\"");
-				for (int i = 0; i < c.size(); i++) {  // initially parent = cr							
-					if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(c[i]))
-						fprintf(dot, "*");
-					fprintf(dot, "%d ", todimacsLit(c[i]));
-				}
-				fprintf(dot, "\"");
-			}
-			fprintf(dot, "]; n%d;\n", pUid);
-		}
-	}
-	for (auto pair : setEdges) 
-		edges << "n" << pair.first << " -> n" << pair.second << ";" << std::endl;
-	fprintf(dot,"%s};\n", edges.str().c_str());
-	edges.clear();		
-	fclose(dot);
+//
+//	int currUid,m;
+//	vec<uint32_t> sorted_roots;
+//	vec<uint32_t> sorted_parents;
+//	vec<Lit> sorted_assumptions;
+//
+//	std::unordered_set<uint32_t> seenDecsendents;
+//	std::set<uint32_t> additionalParents;
+//	std::set<std::pair<uint32_t,uint32_t>> setEdges;
+//
+//	parents_of_empty_clause.copyTo(sorted_parents);
+//	roots.copyTo(sorted_roots);
+//	assumptions.copyTo(sorted_assumptions);
+//	sort(sorted_parents);
+//	sort(sorted_roots);
+//	sort(sorted_assumptions);
+//
+//	std::queue<uint32_t> q; 
+//	// compute number of allParentsCRef in the cone of cr
+//	for (int i = 0; i < sorted_roots.size(); ++i) {
+//		uint32_t uid = roots[i];
+//		q.push(uid);
+//		seenDecsendents.insert(uid);
+//	}
+//	FILE *dot;
+//	std::stringstream edges;
+//	edges << " ";
+//
+//		dot = fopen(filename, "w");
+//		fprintf(dot, "digraph tclause {\n");
+//
+//	while (!q.empty()) {
+//		currUid = q.front();
+//
+//		//print node data
+//		fprintf(dot, "node[");
+//
+//		if (sorted_parents.binary_search(currUid)) 
+//			fprintf(dot,"color=green,");
+//		else if(sorted_roots.binary_search(currUid))
+//			fprintf(dot, "color=blue,");
+//		else fprintf(dot,"color=black,");
+//
+//		CRef cr = resolGraph.GetClauseRef(currUid); // the clause reference of currUid
+//		if (cr == CRef_Undef) {
+//			if (resolGraph.icDelayedRemoval.find(currUid) == resolGraph.icDelayedRemoval.end()) {
+//				fprintf(dot, "label=%\" %d: D\"", currUid);
+//
+//			}
+//			else {
+//				fprintf(dot, "label=\"UD ");
+//				vec<Lit>& vecLit = *resolGraph.icDelayedRemoval[currUid];
+//				sort(vecLit);
+//				for (int i = 0; i < vecLit.size(); i++) {  // initially parent = cr							
+//					if (sorted_assumptions.size() > 0 && sorted_assumptions.binary_search(vecLit[i]))
+//						fprintf(dot, "*");
+//					fprintf(dot, "%d ", todimacsLit(vecLit[i]));
+//				}
+//				fprintf(dot, "\"");
+//			}
+//
+//
+//		}
+//		else {
+//			const Clause& c = ca[cr]; // the actual clause
+//			fprintf(dot,"label=\"");
+//			for (int i=0 ; i < c.size() ; i++){  // initially parent = cr							
+//				if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(c[i]))
+//					fprintf(dot,"*");
+//				fprintf(dot,"%d ", todimacsLit(c[i]));
+//			}
+//			fprintf(dot,"\"");
+//
+//
+//		}
+//		fprintf(dot,"]; n%d;\n",currUid);
+//
+//
+//		q.pop();
+//
+//		CRef curr_ref = resolGraph.GetResolRef(currUid);
+//		const Resol& r = resolGraph.GetResol(curr_ref);
+//
+//		for (m=0 ; m < r.m_Children.size() ; m++) {
+//			if (!resolGraph.ValidUid(r.m_Children[m])) 
+//				continue;
+//
+//			setEdges.insert(std::pair<uint32_t, uint32_t>(currUid, r.m_Children[m]));
+//			if (seenDecsendents.insert(r.m_Children[m]).second) {
+//				q.push(r.m_Children[m]);
+//			}
+//		}
+//		for (uint32_t  pUid : r) {
+//			if (seenDecsendents.find(pUid) == seenDecsendents.end()) {
+//				additionalParents.insert(pUid);
+//
+//			}
+//			setEdges.insert(std::pair<uint32_t, uint32_t>(pUid, currUid));
+//		}
+//
+//
+//	}
+//
+//
+//	for (auto pUid : additionalParents) {
+//		if (seenDecsendents.find(pUid) == seenDecsendents.end()) {
+//			fprintf(dot, "node[");
+//			fprintf(dot, "color=red,");
+//			CRef cr = resolGraph.GetClauseRef(pUid); // the clause reference of pUid
+//			if (cr == CRef_Undef) {
+//				if (resolGraph.icDelayedRemoval.find(pUid) == resolGraph.icDelayedRemoval.end()) {
+//					fprintf(dot, "label=%\" %d: D\"", pUid);
+//				}
+//				else {
+//					fprintf(dot, "label=\"UD ");
+//					vec<Lit>& vecLit = *resolGraph.icDelayedRemoval[pUid];
+//					sort(vecLit);
+//					for (int i = 0; i < vecLit.size(); i++) {  // initially parent = cr							
+//						if (sorted_assumptions.size() > 0 && sorted_assumptions.binary_search(vecLit[i]))
+//							fprintf(dot, "*");
+//						fprintf(dot, "%d ", todimacsLit(vecLit[i]));
+//					}
+//					fprintf(dot, "\"");
+//				}
+//			}
+//			else {
+//				const Clause& c = ca[cr]; // the actual clause
+//				fprintf(dot, "label=\"");
+//				for (int i = 0; i < c.size(); i++) {  // initially parent = cr							
+//					if (sorted_assumptions.size()>0 && sorted_assumptions.binary_search(c[i]))
+//						fprintf(dot, "*");
+//					fprintf(dot, "%d ", todimacsLit(c[i]));
+//				}
+//				fprintf(dot, "\"");
+//			}
+//			fprintf(dot, "]; n%d;\n", pUid);
+//		}
+//	}
+//	for (auto pair : setEdges) 
+//		edges << "n" << pair.first << " -> n" << pair.second << ";" << std::endl;
+//	fprintf(dot,"%s};\n", edges.str().c_str());
+//	edges.clear();		
+//	fclose(dot);
 }
 
 

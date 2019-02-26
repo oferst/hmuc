@@ -4,7 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
-#include "utils/Printer.h"
+//#include "utils/Printer.h"
 namespace Minisat
 {
 

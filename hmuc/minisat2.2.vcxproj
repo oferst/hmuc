@@ -256,12 +256,12 @@
     <ClCompile Include="core\MinimalCore.cc" />
     <ClCompile Include="core\ResolutionGraph.cc" />
     <ClCompile Include="core\Solver.cc" />
-    <ClCompile Include="simp\DelayedResolGraphAlloc.cpp" />
-    <ClCompile Include="simp\ProofRebuilder.cpp" />
-    <ClCompile Include="simp\RebuilderContext.cpp" />
+    <ClCompile Include="simp\DelayedResolGraphAlloc.cc" />
+    <ClCompile Include="simp\ProofRebuilder.cc" />
+    <ClCompile Include="simp\RebuilderContext.cc" />
     <ClCompile Include="simp\Main.cc" />
     <ClCompile Include="simp\SimpSolver.cc" />
-    <ClCompile Include="simp\SolverHandle.cpp" />
+    <ClCompile Include="simp\SolverHandle.cc" />
     <ClCompile Include="utils\Options.cc" />
     <ClCompile Include="utils\System.cc" />
   </ItemGroup>
