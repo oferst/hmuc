@@ -27,7 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Alg.h"
 #include "utils/Options.h"
 #include "core/SolverTypes.h"
-#include "simp/DelayedResolGraphAlloc.h"
+#include "reprover/DelayedResolGraphAlloc.h"
 #include "core/ResolutionGraph.h"
 #include <stdint.h>
 #include <vector>

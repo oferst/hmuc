@@ -1,5 +1,5 @@
 #pragma once
-#include "simp/ProofRebuilder.h"
+#include "reprover/ProofRebuilder.h"
 #include "core/SolverTypes.h"
 //#include "utils/Printer.h"
 #include "mtl/Graph.h"

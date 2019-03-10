@@ -34,8 +34,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "utils/Options.h"
 #include "core/Dimacs.h"
 #include "simp/SimpSolver.h"
-#include "SolverHandle.h"
-#include "ProofRebuilder.h"
+#include "reprover/SolverHandle.h"
+#include "reprover/ProofRebuilder.h"
 //#include "reprover/MockSolverhandle.h"
 //#include "boost/lambda/lambda.hpp"
 #include <iostream>

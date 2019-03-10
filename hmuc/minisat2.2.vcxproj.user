@@ -21,7 +21,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>-muc-progress  C:\Users\ofer.guthmann\Documents\hmuc_benchmarks\SAT02\industrial\biere\cmpadd\ca064.shuffled.cnf &gt; c:\temp\no_blm_ca064.shuffled.cnf.out</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-muc-progress  -blm-rebuild-proof C:\Users\ofer.guthmann\Documents\hmuc_benchmarks\SAT02\industrial\biere\cmpadd\ca064.shuffled.cnf</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup>

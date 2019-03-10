@@ -1,6 +1,6 @@
 #pragma once
-#include "simp/SolverHandle.h"
-#include "simp/RebuilderContext.h"
+#include "reprover/SolverHandle.h"
+#include "reprover/RebuilderContext.h"
 #include "utils/Printer.h"
 
 namespace Minisat {

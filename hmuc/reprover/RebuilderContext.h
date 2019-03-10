@@ -1,5 +1,5 @@
 #pragma once
-#include "simp/SolverHandle.h"
+#include "reprover/SolverHandle.h"
 namespace Minisat {
 	class RebuilderContext
 	{

@@ -10,16 +10,15 @@ namespace Minisat {
 	public:
 		struct allocJob {
 			ClauseAllocator* caPtr;
-			//Clause* c;
 			CRef cref;
 			bool isIc;
 			bool hasUid;
 			allocJob(ClauseAllocator* _caPtr, CRef _cref, bool _isIc, bool _hasUid) :
 				caPtr(_caPtr), cref(_cref), isIc(_isIc), hasUid(_hasUid) {}
-			
+			allocJob() :allocJob(NULL,CRef_Undef,false,false){}
 		};
 		CResolutionGraph* g;
-		std::list<allocJob> jobs;
+		vec<allocJob> jobs;
 		int firstIc;
 		std::unordered_map<CRef, Uid>& uidDeferredAlloc;
 

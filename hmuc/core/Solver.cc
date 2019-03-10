@@ -31,8 +31,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <algorithm> 
 #include<iostream>
 #include<string>
-#include "simp/SolverHandle.h"
-#include "simp/ProofRebuilder.h"
+#include "reprover/SolverHandle.h"
+#include "reprover/ProofRebuilder.h"
 //#include "utils/Printer.h"
 using namespace Minisat;
 
@@ -1355,17 +1355,7 @@ lbool Solver::search(int nof_conflicts)
 							ProofRebuilder pr = ProofRebuilder(&sh,&ctx);
 							vec<Uid> new_allPoEC, new_icPoEC;
 							assert(unbondedCone.find(nICtoRemove) != unbondedCone.end());
-							
-							ofstream  out;
-							out.open("C:/temp/reconstructionPairs.txt", ios::out);
-							out << "PoEC: ";
-							for (auto& pUid : allPoEC) {
-								out << pUid << " ";
-							}
-							out << std::endl;
-							out.close();
-							
-							printf("pr\n");
+
 							double before_time = cpuTime();
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
 							time_for_pr += (cpuTime() - before_time);

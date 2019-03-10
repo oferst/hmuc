@@ -1,4 +1,4 @@
-#include "simp/DelayedResolGraphAlloc.h"
+#include "reprover/DelayedResolGraphAlloc.h"
 
 //#include "utils/Printer.h"
 
@@ -8,10 +8,11 @@ void DelayedResolGraphAlloc::addJob(ClauseAllocator * _caPtr, CRef cref) {
 	const Clause& c = (*_caPtr)[cref];
 	if (firstIc == -1 && c.ic())
 		firstIc = jobs.size();
-	jobs.push_front(allocJob(_caPtr,cref,c.ic(),c.hasUid()));
+	jobs.push(allocJob(_caPtr,cref,c.ic(),c.hasUid()));
 }
 void DelayedResolGraphAlloc::shrink(int numToCancel) {
-	for (int i = 0; i < numToCancel; ++i) jobs.pop_front();
+	//for (int i = 0; i < numToCancel; ++i) jobs.pop_front();
+	jobs.shrink(numToCancel);
 	if (jobs.size() <= firstIc)
 		firstIc = -1;
 	
