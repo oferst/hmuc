@@ -9,8 +9,9 @@ bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 	if (u == CRef_Undef)
 		return false;
 	if (sh->UidToCRef(u) != CRef_Undef) {
-		for (auto& l1 : sh->getClause(u))
-			if (l == l1)
+		Clause& c = sh->getClause(u);
+		for (uint32_t i = 0; i< c.size(); ++i)
+			if (l == c[i])
 				return true;
 	}
 	else {

@@ -178,9 +178,8 @@ class Clause {
         header.reloced   = 0;
         header.size      = ps.size();
 
-		int i = 0;
-		for (Lit l : ps) {
-			data[i++].lit = l;
+		for (uint32_t i = 0; i < ps.size(); ++i) {
+			data[i].lit = ps[i];
 		}
 
         if (header.has_extra){
@@ -192,9 +191,6 @@ class Clause {
 
         if (ic || hasUid) {
 			Uid uid = nextUid++;
-			if (uid == 13456) {
-				printf("Creating probl. clause\n");
-			}
             data[header.size + (int)header.has_extra].uid = uid;
         }
 
@@ -287,24 +283,24 @@ public:
 
     Lit          subsumes    (const Clause& other) const;
     void         strengthen  (Lit p);
-	class ClauseIter {
-		const Clause& c;
-		int i;
-	public:
-		//ClauseIter() : c(Clause(vec<Lit>(),false,false,false)), i(-1){}
-		ClauseIter(const Clause& _c, int _i = 0) : c(_c), i(_i) {}
-		ClauseIter(const ClauseIter& o) : c(o.c), i(o.i) {}
-		bool operator!=(const ClauseIter& o) { return &c != &o.c || i != o.i; }
-		const Lit& operator*() { return (i < 0 || i >= c.size()) ? mkLit(var_Undef) : c[i]; }
-		ClauseIter& operator++() { ++i; return *this; }
-		//ClauseIter operator++(int) { ClauseIter result(*this); ++(*this); return result; }
-		ClauseIter& operator--() { --i; return *this; }
-		//ClauseIter operator--(int) { ClauseIter result(*this); --(*this); return result; }
-	};
+	//class ClauseIter {
+	//	const Clause& c;
+	//	int i;
+	//public:
+	//	//ClauseIter() : c(Clause(vec<Lit>(),false,false,false)), i(-1){}
+	//	ClauseIter(const Clause& _c, int _i = 0) : c(_c), i(_i) {}
+	//	ClauseIter(const ClauseIter& o) : c(o.c), i(o.i) {}
+	//	bool operator!=(const ClauseIter& o) { return &c != &o.c || i != o.i; }
+	//	const Lit& operator*() { return (i < 0 || i >= c.size()) ? mkLit(var_Undef) : c[i]; }
+	//	ClauseIter& operator++() { ++i; return *this; }
+	//	//ClauseIter operator++(int) { ClauseIter result(*this); ++(*this); return result; }
+	//	ClauseIter& operator--() { --i; return *this; }
+	//	//ClauseIter operator--(int) { ClauseIter result(*this); --(*this); return result; }
+	//};
 
 
-	const ClauseIter begin() const { return ClauseIter(*this, 0); }
-	const ClauseIter end() const { return ClauseIter(*this, this->size()); }
+	//const ClauseIter begin() const { return ClauseIter(*this, 0); }
+	//const ClauseIter end() const { return ClauseIter(*this, this->size()); }
 
 };
 

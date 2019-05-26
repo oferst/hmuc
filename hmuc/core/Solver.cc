@@ -2147,8 +2147,8 @@ void  Solver::getClauseByUid(Uid uid, vec<Lit>& outClause) {
 	assert(outClause.size() == 0);
 	CRef cref = GetClauseIndFromUid(uid);
 	if (cref != CRef_Undef) {
-		for (Lit l : ca[cref])
-			outClause.push(l);
+		for (uint32_t i = 0; i< ca[cref].size(); ++i)
+			outClause.push(ca[cref][i]);
 	}
 	else if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end()) {
 		for (Lit l : *resolGraph.icDelayedRemoval[uid])
@@ -2160,8 +2160,8 @@ void  Solver::getClauseByUid(Uid uid, LitSet& outClause) {
 	assert(outClause.size() == 0);
 	CRef cref = GetClauseIndFromUid(uid);
 	if (cref != CRef_Undef) {
-		for (Lit l : ca[cref])
-			outClause.insert(l);
+		for (uint32_t i = 0; i< ca[cref].size(); ++i)
+			outClause.insert(ca[cref][i]);
 	}
 	else if (resolGraph.icDelayedRemoval.find(uid) != resolGraph.icDelayedRemoval.end()) {
 		for (Lit l : *resolGraph.icDelayedRemoval[uid])
