@@ -75,7 +75,7 @@ bool ProofRebuilder::validateResolution(Uid uid, T& parents,vec<Lit>& pivots) {
 
 }
 
-}
+
 bool ProofRebuilder::equateNonConstLits(LitSet& c1, LitSet& c2){
 	for (auto& l : c1) 
 		if (sh->level(var(l)) > 0 && c2.find(l) == c2.end())
