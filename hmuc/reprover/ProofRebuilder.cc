@@ -71,10 +71,20 @@ bool ProofRebuilder::validateResolution(Uid uid, T& parents,vec<Lit>& pivots) {
 		}
 		pivotsMatch = pivotsMatch && (piv == pivots[i++]);
 	}
-	return ((pivots.size() == i) && pivotsMatch && (actualClause == ctx->getClauseLits(uid)) && v.valid);
+	return ((pivots.size() == i) && pivotsMatch && equateNonConstLits(actualClause,ctx->getClauseLits(uid)) && v.valid);
 
 }
 
+}
+bool ProofRebuilder::equateNonConstLits(LitSet& c1, LitSet& c2){
+	for (auto& l : c1) 
+		if (sh->level(var(l)) > 0 && c2.find(l) == c2.end())
+			return false;
+	for (auto& l : c2) 
+		if (sh->level(var(l)) > 0 && c1.find(l) == c1.end())
+			return false;
+	return true;
+}
 
 ProofRebuilder::ProofRebuilder(SolverHandle* _sh, RebuilderContext* _ctx) :
 	sh(_sh), ctx(_ctx) {
@@ -719,7 +729,15 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	return newUid;
 }
 
-
+void ProofRebuilder::printClause(const LitSet& c, std::string text, bool printLitLevel = false)
+{
+	std::cout << text << std::endl;
+	for (auto& l : c) {
+		std::string level = (printLitLevel ? "(" + std::to_string(sh->level(var(l))) + ")" : "");
+		std::cout << (toDimacsLit(l)) << level << " ";
+	}
+	std::cout << "0" << std::endl;
+}
 //If uid wasn't recorded previously, Copies the literals owned by 
 //'uid' to the re-builder data structure, and also records the ic 
 //label of the clause

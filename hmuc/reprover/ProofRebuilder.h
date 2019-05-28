@@ -1,7 +1,7 @@
 #pragma once
 #include "reprover/SolverHandle.h"
 #include "reprover/RebuilderContext.h"
-#include "utils/Printer.h"
+//#include "utils/Printer.h"
 
 namespace Minisat {
 
@@ -184,12 +184,12 @@ public:
 	void findParentDependencies(Uid uid, const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
 	
 	
-	
+	void printClause(const LitSet& c, std::string text, bool printLitLevel);
 	class ResolutionException : public std::logic_error {
 	public:
 		ResolutionException(const char* msg) : std::logic_error(msg) {}
 	};
-
+	bool equateNonConstLits(LitSet& c1, LitSet& c2);
 };
 }
 
