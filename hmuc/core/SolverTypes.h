@@ -101,6 +101,12 @@ const Lit lit_Error = { -1 };  // }
 #define l_True  (lbool((uint8_t)0)) // gcc does not do constant propagation if these are real constants.
 #define l_False (lbool((uint8_t)1))
 #define l_Undef (lbool((uint8_t)2))
+#define l_FalseLevel0 (lbool((uint8_t)3)) // hmuc: found unsat at level 0, hence end of story.
+#define l_FalseNoProof (lbool((uint8_t)4)) // hmuc: found unsat by the fact that the removed clause 
+											// (nictoremove) was deleted at level 0 by simplify. In such 
+											// a case we cannot build a resol. proof, we rather delete 
+											// the current golden proof, and continue hmuc without assumptions
+											// in the next iteration.
 
 class lbool {
     uint8_t value;

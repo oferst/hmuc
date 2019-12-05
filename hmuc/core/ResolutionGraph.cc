@@ -156,8 +156,7 @@ void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalC
     for (int i = 0; i < icParentsSize; ++i) {
 		assert(GetResol(GetResolRef(icParents[i])).header.ic);
 		//if (icParents[i] > GetNextAvailableUid())
-		//	throw ResolutionException(("icParents[i] " + std::to_string(icParents[i]) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());
-
+		//	throw ResolutionException(("icParents[i] " + std::to_string(icParents[i]) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());		
         if (rhombus.insert(icParents[i])){
 			GetOriginalParentsUids(icParents[i], allIcOriginalClauses, rhombus, debug, maxCoreUid,out,msg_prefix);
 		}

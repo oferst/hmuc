@@ -139,7 +139,7 @@ public:
 	ProofRebuilder(SolverHandle* sh, RebuilderContext* ctx);
 
 	void RebuildProof(
-		const Lit& startingConflLiteral, vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC);
+		const Lit& startingConflLiteral, const vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC);
 
 	template<class T>
 	Uid	proveBackboneLiteral(

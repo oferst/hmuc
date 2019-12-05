@@ -102,7 +102,7 @@ are literals that for each two neighboring parents, belong to the
 the negation of the pivot belong to the 'left' parent.
 */
 int ProofRebuilder::depth_debug = 0;
-void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC) {
+void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC) {
 	ProofRebuilder::depth_debug = 0;
 
 	//PART 1
@@ -575,7 +575,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		Check stop conditions.
 	******************************/
 	//Check whether we encountered this parent before (and therefore
-	//have an update for it. If an updated version exists, return 
+	//have an update for it). If an updated version exists, return 
 	//it's uid.
 	if (ctx->isClauseUpdated(currUid)) {
 		result.setAllocatedClauseData(ctx->getClausesUpdate(currUid));

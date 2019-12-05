@@ -28,3 +28,5 @@ hmuc.VC.opendb
 ipch/
 .vs/
 *.cnf
+easy_cnf_instances/
+*.json

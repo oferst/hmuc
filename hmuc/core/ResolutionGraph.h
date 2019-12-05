@@ -82,10 +82,12 @@ public:
 	//This represents the number of 32-bit words needed to record the m_children vec, the header, and the icSize uint32_t.
     static const uint32_t SIZE = (sizeof(vec<uint32_t>) >> 2) + 2;
 
-    Resol(const vec<Uid>& icParents,const vec<Uid>& remParents, const vec<Uid>& allParents,bool ic){
+    Resol(const vec<Uid>& icParents,const vec<Uid>& remParents, const vec<Uid>& allParents,bool ic, bool WriteInPlace = false){
 		//assert(icParents.size() + remParents.size() == allParents.size());
-		header.ic = (int)ic;
-		header.m_nRefCount = 1;
+		if (!WriteInPlace) { // this flag is true only when we reorder the parents in an existing resol node. In such a case there is no need to change the header. 
+			header.ic = (int)ic;
+			header.m_nRefCount = 1;
+		}
 
         m_Parents[0].icSize = icParents.size();
 		uint32_t* ics = &(m_Parents[IC_OFFSET].icParent);
@@ -283,7 +285,7 @@ class ResolAllocator : public RegionAllocator<uint32_t>
 {
 public:
 	void updateAllocated(RRef rRef, const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents) {
-		new (lea(rRef)) Resol(icParents, remParents, allParents, operator[](rRef).header.ic);
+		new (lea(rRef)) Resol(icParents, remParents, allParents, operator[](rRef).header.ic, true);
 	}
     RRef alloc(const vec<uint32_t>& icParents, const vec<uint32_t>& remParents, const vec<uint32_t>& allParents,bool ic)
     {

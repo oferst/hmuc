@@ -86,7 +86,7 @@ namespace Minisat {
 	}
 
 	bool SolverHandle::inRhombus(Uid uid) {
-		return CRef_Undef == uid || (s->unbondedCone.find(uid) != s->unbondedCone.end());
+		return CRef_Undef == uid || (s->unbindedCone.find(uid) != s->unbindedCone.end());
 	}
 	int SolverHandle::level(Var v) {
 		return s->level(v);

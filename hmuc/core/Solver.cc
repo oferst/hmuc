@@ -158,7 +158,7 @@ Solver::~Solver()
 
 
 bool Solver::isRebuildingProof() {
-	return (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && opt_blm_rebuild_proof;
+	return (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof;
 }
 bool Solver::hasUid(CRef cref, Uid& outUid) {
 
@@ -1037,9 +1037,7 @@ bool Solver::simplify()
 
 
 bool Solver::pf_early_unsat_terminate() { // default is true
-	if ((opt_always_prove && (pf_zombie_iter <= opt_pf_z_budget)) 
-		//|| 	(opt_max_fcls_in_arow && (++m_nUnsatPathFalsificationCalls == opt_max_fcls_in_arow))    // false by default anyway
-		) { 
+	if ((opt_always_prove && (pf_zombie_iter <= opt_pf_z_budget))) { 
 		pf_active = false;
 		pf_zombie = true; // from here on we know already that it is unsat because we found a contradiction with the pf_literals, but we continue in order to get a proof.
 		if (opt_pf_reset_z_budget) pf_zombie_iter = 0; 
@@ -1100,15 +1098,16 @@ lbool Solver::search(int nof_conflicts)
 				// if we got here, it means that we found a contradiction regarless of the ICs, 
 				// which means it's over. We clear ic_parents_of_empty_clause because there is 
 				// one more call to getUnsatcore which uses it.
-				icPoEC.clear(); // hack. 
+				//icPoEC.clear(); // hack. 
 
-                return l_False;
-            }
-
+                return l_FalseLevel0;
+            }			
 			if (!test_mode && !pf_zombie && resolGraph.GetClauseRef(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
+				
 				if (verbosity == 1) printf("root removed by simplify. Early unsat\n");
 				if (pf_early_unsat_terminate()) {
-					return l_False;
+					icPoEC.clear(); 
+					return l_FalseNoProof;
 				}
 			}
 
@@ -1154,7 +1153,7 @@ lbool Solver::search(int nof_conflicts)
 		{
 			
 			if (lpf_compute_inprocess() == false) {
-				return l_False; // early termination
+				return l_FalseNoProof; // early termination
 
 			}
 		}
@@ -1354,10 +1353,12 @@ lbool Solver::search(int nof_conflicts)
 							RebuilderContext ctx;
 							ProofRebuilder pr = ProofRebuilder(&sh,&ctx);
 							vec<Uid> new_allPoEC, new_icPoEC;
-							assert(unbondedCone.find(nICtoRemove) != unbondedCone.end());
+							assert(unbindedCone.find(nICtoRemove) != unbindedCone.end());
 
-							double before_time = cpuTime();
+							double before_time = cpuTime();							
+
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
+							
 							time_for_pr += (cpuTime() - before_time);
 							updatePoEC(allPoEC, new_allPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
@@ -1807,9 +1808,8 @@ void Solver::findConflictICReasons(CRef origConfl) {
 		assert(allPoEC.size() == 0);
 		delayedAllocator.executeJobs(dummy, allPoEC); //allocate all nonIc PoEC, and populate the list of all PoEC uids
 		assert(icPoEC.size() + dummy.size() == allPoEC.size());
-
 		updatePoEC(prevAllPoEC, allPoEC);
-	}
+	}	
 }
 
 void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
@@ -1818,7 +1818,7 @@ void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
 		assert(rref != RRef_Undef);
 		Resol& resol = resolGraph.GetResol(rref);
 		assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
-		resol.header.m_nRefCount +=2 ; //we increment the refCount here because we consider the empty clause as a child node for the current clause (even though empty clause has no representation in the graph)
+		resol.header.m_nRefCount +=2 ; //we increment the refCount here because we consider the empty clause as a child node for the current clause (even though empty clause has no representation in the graph)		
 	}
 
 	for (Uid uid : prevPoEC) {
@@ -1843,6 +1843,7 @@ void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus, Set<Uid>& nonIcRh
 	assert(icCore.size() == 0);
 	assert(rhombus.elems() == 0);
 	assert(nonIcRhombus.elems() == 0);
+
 	for (auto uid : icPoEC) {
 		assert(resolGraph.GetResol(resolGraph.GetResolRef(uid)).header.ic); // may fail if we do not filter out non-ic parents-of-e.c.
 		if (rhombus.insert(uid)) { // if uid wasn't encountered previously
@@ -1883,7 +1884,7 @@ void Solver::RemoveClauses(vec<uint32_t>& cone) {
 
 }
 
-void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, Set<uint32_t>& muc) {
+void Solver::RemoveEverythingNotInRhombusOrMuc(Set<Uid>& rhombus, const Set<uint32_t>& muc) {
     uidsVec.clear();
     rhombus.copyTo(uidsVec);
     cancelUntil(0);
@@ -2553,7 +2554,7 @@ void Solver::LPF_get_assumptions(
 
 	)
 {
-	if (isRebuildingProof()) { //we avoided deleting the previous S sets up until now (no eager deletion w. opt_blm_rebuild_proof)
+	if (isRebuildingProof()) { //we avoided deleting the previous S sets up until now (no eager deletion w. blm_rebuild_proof)
 		// delete allocated vectors
 		//printf("LPF_get_assumptions C clause: %d\n", uid_root);;
 		for (auto pair : map_cls_to_Tclause) {

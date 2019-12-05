@@ -67,7 +67,7 @@ public:
 	static int debug_flag;
 	void GeticUnits(vec<int>&);
 	void GetUnsatCore(vec<Uid>& icCore, Set<Uid>& icAncestors, Set<Uid>& nonIcAncestors, bool debug = false, int maxCoreUid = -1, ostream& out = std::cout);
-    void RemoveEverythingNotInRhombusOrMuc(Set<uint32_t>& cone, Set<uint32_t>& muc);
+    void RemoveEverythingNotInRhombusOrMuc(Set<uint32_t>& cone, const Set<uint32_t>& muc);
 	void RemoveClauses_withoutICparents(vec<uint32_t>& cone);
     void RemoveClauses(vec<uint32_t>& cone);
     void BindClauses(vec<uint32_t>& cone, uint32_t initUid);
@@ -113,7 +113,7 @@ public:
 	// PoEC - Parents of Empty Clause
 	vec<uint32_t> icPoEC; //ic parents of empty clause used in lpf_get_assumptions. Stores the ic parents of empty clause from the last unsat.
 	vec<uint32_t> allPoEC; //All parents of empty clause from the last unsat. They are only maintained for using the proof reconstruction algorithm, and are not actually used outside of it.
-	std::unordered_set<Uid> unbondedCone;
+	std::unordered_set<Uid> unbindedCone;
 
 	
 	int pf_Literals;
