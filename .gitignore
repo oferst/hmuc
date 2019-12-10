@@ -30,3 +30,5 @@ ipch/
 *.cnf
 easy_cnf_instances/
 *.json
+hmuc/simp/old/
+hmuc/reprover/old/
