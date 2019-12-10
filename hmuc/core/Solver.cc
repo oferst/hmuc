@@ -119,7 +119,7 @@ Solver::Solver() :
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
-
+  , validProof		   (false)
   , m_bConeRelevant    (false)
   , ok                 (true)
   , cla_inc            (1)
@@ -158,7 +158,7 @@ Solver::~Solver()
 
 
 bool Solver::isRebuildingProof() {
-	return (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof;
+	return (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof && validProof;
 }
 bool Solver::hasUid(CRef cref, Uid& outUid) {
 
@@ -1107,6 +1107,8 @@ lbool Solver::search(int nof_conflicts)
 				if (verbosity == 1) printf("root removed by simplify. Early unsat\n");
 				if (pf_early_unsat_terminate()) {
 					icPoEC.clear(); 
+					allPoEC.clear();
+					validProof = false;
 					return l_FalseNoProof;
 				}
 			}
@@ -1140,6 +1142,7 @@ lbool Solver::search(int nof_conflicts)
 
 
 		if ( 
+				validProof &&
 				pf_active && 	// delay
 				pf_mode == lpf_inprocess &&
 				// nICtoRemove > 0 && !test_mode &&
@@ -1153,6 +1156,9 @@ lbool Solver::search(int nof_conflicts)
 		{
 			
 			if (lpf_compute_inprocess() == false) {
+				icPoEC.clear();
+				allPoEC.clear();
+				validProof = false;
 				return l_FalseNoProof; // early termination
 
 			}
@@ -1179,7 +1185,7 @@ lbool Solver::search(int nof_conflicts)
 
             if (decisionLevel() == 0) // a core without interesting constraints (only remainder clauses, which are those clauses that were already marked as being in the core); in the next step the core will be empty, so the process should terminate.
             {
-                return l_False;  
+                return l_FalseLevel0;
             }
 
             learnt_clause.clear();
@@ -1495,7 +1501,8 @@ lbool Solver::solve_()
     m_bUnsatByPathFalsification = false;
     model.clear();
     conflict.clear();
-    if (!ok) return l_False;
+    if (!ok) 
+		return l_False;
 
     solves++;
     decLevInConfl.growTo(nVars(), 0);
@@ -1746,7 +1753,7 @@ void Solver::garbageCollect(){
 
 void Solver::findConflictICReasons(CRef origConfl) {
     assert (decisionLevel() == 1);	
-	
+	validProof = true;
     m_bConeRelevant = true;
     CRef confl = origConfl;
     int index   = trail.size() - 1;
@@ -1760,8 +1767,6 @@ void Solver::findConflictICReasons(CRef origConfl) {
 			prevAllPoEC.push(uid);
 		}
 	}
-	icPoEC.clear();
-	resolGraph.m_icPoEC.clear();
 
 	vec<Uid> dummy;
 	if (isRebuildingProof()) {
@@ -1769,12 +1774,21 @@ void Solver::findConflictICReasons(CRef origConfl) {
 		allPoEC.clear();
 	}
 
+	icPoEC.clear();
+	resolGraph.m_icPoEC.clear();
+	if (verbosity >= 2) {
+		cout << "---------------------------------------------" <<endl<<"Populating PoEC" << endl;
+		cout << "icPoEC: ";
+	}
     for (;;) {
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
         if (c.ic()) {            
 #ifdef NewParents
 			icPoEC.push(c.uid());
+			if (verbosity >= 2) {
+				cout << c.uid() << ", ";
+			}
 #endif
 			resolGraph.m_icPoEC.insert(c.uid()); // duplicate to ic_parents_of_empty_clause, but as a set, which is more convinient for checking if it contains an element. 
         }
@@ -1809,7 +1823,10 @@ void Solver::findConflictICReasons(CRef origConfl) {
 		delayedAllocator.executeJobs(dummy, allPoEC); //allocate all nonIc PoEC, and populate the list of all PoEC uids
 		assert(icPoEC.size() + dummy.size() == allPoEC.size());
 		updatePoEC(prevAllPoEC, allPoEC);
-	}	
+	}
+	if (verbosity >= 2) {
+		cout << "---------------------------------------------" << endl << "Populating icPoEC:";
+	}
 }
 
 void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
@@ -1850,6 +1867,7 @@ void Solver::GetUnsatCore(vec<Uid>& icCore, Set<Uid>& rhombus, Set<Uid>& nonIcRh
 			resolGraph.GetOriginalParentsUids(uid, icCore, rhombus, debug, maxCoreUid,out);
 		}
 	}
+
 }
 
 // used for removing subsumed IC clauses. We want to remove them and their descendants, but if a 
@@ -2579,7 +2597,13 @@ void Solver::LPF_get_assumptions(
 #pragma region compute_Top_Tclause
     CRef c = resolGraph.GetClauseRef(uid_root);  // the clause reference of cr
     Clause& cc = ca[c];							//  cr itself
-
+	
+	if (verbosity >= 1) {
+		cout << "root clause:" << uid_root << std::endl;
+		for (int i = 0; i < cc.size(); i++)
+			cout << cc[i].x << " ";
+		cout << std::endl;
+	}
 
 	if ((pf_mode == lpf_inprocess) && satisfied(cc)) {
 		if (verbosity == 1) printf("root is satisfied\n");
@@ -2608,6 +2632,12 @@ void Solver::LPF_get_assumptions(
 		}
 	}    
 
+	if (verbosity >= 1) {
+		cout << "top clause:" << std::endl;
+		for (int i = 0; i < cc.size(); i++)
+			cout << (*Top_TClause)[i].x << " ";
+		cout << std::endl;
+	}
 	if (uidvec_prefix.size() > 0) {
         assert(Top_TClause->size() > 0);
 		lpfBottomChainUid = uid_root = uidvec_prefix.last();
@@ -2722,6 +2752,13 @@ void Solver::LPF_get_assumptions(
 		// we are not returning here because we want the memory cleanup in the end; 
 	}
 	else union_vec(res, *Top_TClause, negAssumpLits); // adding the literals from the top chain 
+	if (verbosity >= 1) {
+		cout << "negAssumptions:" << std::endl;
+		for (int i = 0; i < negAssumpLits.size(); i++)
+			cout << negAssumpLits[i].x << " ";
+		cout << std::endl;
+	}
+
 	if (opt_reverse_pf) {
 		int sz = negAssumpLits.size(); // reversing order just to test the effect. 
 		for (int i = 0; i < sz / 2; ++i) {

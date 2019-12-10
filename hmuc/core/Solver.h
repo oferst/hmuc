@@ -119,7 +119,7 @@ public:
 	int pf_Literals;
 
 
-
+    bool validProof; // true when the last unsat proof was either without assumptions or was rebuilt (i.e., it is false only after early termination without proof, until we have a new one). 
 	bool pf_active;
 	bool pf_zombie;  // when true, we know already that it is unsat, but we continue in order to get a proof. 
 	int pf_zombie_iter;  // counts how many iterations we are already in zombie mode. 

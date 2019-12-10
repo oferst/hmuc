@@ -447,8 +447,8 @@ namespace Minisat {
 				goto end;
 			}
 			if (result == l_False || result == l_FalseNoProof) {
-				if (result == l_False && (!m_Solver.m_bUnsatByPathFalsification ||
-					m_Solver.isRebuildingProof())) {
+				if (result == l_False && m_Solver.validProof && 
+					(!m_Solver.m_bUnsatByPathFalsification || m_Solver.isRebuildingProof())) {
 					//The normal case where we have a new proof of UNSAT from 
 					//the solver.
 					if (m_Solver.verbosity == 1) printf("UNSAT \n");
@@ -561,7 +561,12 @@ namespace Minisat {
 						test(vecNextUnknown, setMuc, "unsat by assumptions");
 					m_Solver.test_now = false;
 
-					PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - blm assumption");
+					if (result == l_FalseNoProof) 
+						PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - false-no-proof");
+					else {
+						assert(0); 
+						PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - blm assumption");
+					}
 				}
 			}
 #pragma endregion
@@ -744,7 +749,8 @@ namespace Minisat {
 				// now we mine for backbone literals, via PF_get_assumptions.
 				// We activate it in all modes except lpf_inprocess because of the option to 
 				// delay activation of lpf_inprocess via lpf_block
-				if (m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf) {
+				if (m_Solver.validProof && 
+					(m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)) {
 					double before_time = cpuTime();
 					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
 					if (m_Solver.verbosity == 1) printf("(between iterations) assumption literals = %d\n", addLiterals);
@@ -797,7 +803,8 @@ namespace Minisat {
 			nIteration, vecMuc.size(), 
 			m_nRotationFirstCalls, m_nRotationCalled, m_nRotationClausesAdded, m_nSecondRotationClausesAdded, m_Solver.pf_Literals);
 			*/
-		printf("### muc-size %d", vecMuc.size());
+		printf("### rebuild-time %g\n", m_Solver.time_for_pr);
+		printf("### muc-size %d\n", vecMuc.size());
 		printf("### lpf_literals %d\n", m_Solver.pf_Literals);
 		printf("### UNSAT_by_pf %d\n", m_Solver.nUnsatByPF);
 		printf("### iter %d\n", nIteration);
@@ -856,7 +863,7 @@ namespace Minisat {
 			printf("0\n");
 		}
 #pragma endregion
-
+		if (result == l_FalseLevel0 || result == l_FalseNoProof) result = l_False;
 		return result;
 	}
 
