@@ -32,3 +32,4 @@ easy_cnf_instances/
 *.json
 hmuc/simp/old/
 hmuc/reprover/old/
+releaseWithAssert/

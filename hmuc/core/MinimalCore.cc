@@ -301,6 +301,7 @@ namespace Minisat {
 			//		}
 			//	}
 			//}
+
 			if (unsatClss == 1 && (!bUseSet || !setMuc.has(unsatClsUid)) && moreMucClauses.insert(unsatClsUid)) {
 				Rotate(unsatClsUid, checkVar, moreMucClauses, setMuc, bUseSet);
 			}
@@ -423,11 +424,11 @@ namespace Minisat {
 		int exitIter = max_Iter;
 		for (; true; ++nIteration) {
 
-
+	
 			if (!m_bIcInConfl) {
 				before_time = cpuTime();
-				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call	
-
+				result = ((Solver*)&m_Solver)->solveLimited(assumptions);  // SAT call
+									
 				if (nIteration) {
 					double time = cpuTime() - before_time;
 					if (time > longestcall) longestcall = time;
@@ -564,7 +565,7 @@ namespace Minisat {
 					if (result == l_FalseNoProof) 
 						PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - false-no-proof");
 					else {
-						assert(0); 
+						// we get only if we do not rebuild the proof
 						PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - blm assumption");
 					}
 				}
@@ -637,6 +638,7 @@ namespace Minisat {
 					//	printf("(before) adding moreMucVec.size() %d to setMuc.size() %d\n", moreMucVec.size(), setMuc.elems());
 
 					//}
+			
 					for (int i = 0; i < moreMucVec.size(); ++i)
 					{
 						uint32_t uid = moreMucVec[i];
@@ -730,6 +732,7 @@ namespace Minisat {
 				// the clause we selected is trivially satisfied (i.e., there is a remainder unit clause that subsumes it)				
 				vecUidsToRemove.push(nIcForRemove);
 				remove(vecNextUnknown, nIcForRemove);
+				// cout << "removing " << nIcForRemove << endl;
 				if (vecNextUnknown.size() == 0) { // no unknowns left, end of story. 
 					result = l_False;
 					goto end;
@@ -753,7 +756,8 @@ namespace Minisat {
 					(m_Solver.pf_mode == clause_only || m_Solver.pf_mode == pf || m_Solver.pf_mode == lpf)) {
 					double before_time = cpuTime();
 					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
-					if (m_Solver.verbosity == 1) printf("(between iterations) assumption literals = %d\n", addLiterals);
+					//if (m_Solver.verbosity == 1) 
+					printf("(between iterations) assumption literals = %d\n", addLiterals);
 					m_Solver.pf_Literals += addLiterals;
 					m_Solver.time_for_pf += (cpuTime() - before_time);
 				}
@@ -803,6 +807,7 @@ namespace Minisat {
 			nIteration, vecMuc.size(), 
 			m_nRotationFirstCalls, m_nRotationCalled, m_nRotationClausesAdded, m_nSecondRotationClausesAdded, m_Solver.pf_Literals);
 			*/
+		printf("### rotation_clauses %d\n", m_nRotationClausesAdded);
 		printf("### rebuild-time %g\n", m_Solver.time_for_pr);
 		printf("### muc-size %d\n", vecMuc.size());
 		printf("### lpf_literals %d\n", m_Solver.pf_Literals);

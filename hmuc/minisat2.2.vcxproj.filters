@@ -99,6 +99,9 @@
     <ClInclude Include="reprover\SolverHandle.h">
       <Filter>Header Files\ProofRebuilder</Filter>
     </ClInclude>
+    <ClInclude Include="utils\Assert.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core\Solver.cc">

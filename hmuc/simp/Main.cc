@@ -83,6 +83,7 @@ static void SIGINT_exit(int signum) {
 // Main:
 int main(int argc, char** argv)
 {
+
     try {
         setUsageHelp("USAGE: %s [options] <input-file> <result-output-file>\n\n  where input may be either in plain or gzipped DIMACS.\n");
         

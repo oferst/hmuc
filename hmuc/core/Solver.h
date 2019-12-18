@@ -260,7 +260,8 @@ public:
 	bool pf_early_unsat_terminate(); 
 	void LPF_get_assumptions(uint32_t uid, vec<Lit>& lits);    
 	bool lpf_compute_inprocess();
-	bool isRebuildingProof();
+    
+    bool isRebuildingProof();
 	bool hasUid(CRef cref, Uid& outUid);
 
 	Uid getUid(CRef cref);
@@ -276,12 +277,9 @@ public:
 
 	Uid ProveBackboneLiteral(Uid nodeId, Lit p, UidToLitVec& pivots, UidToUid& clauseUpdates, UidToLitSet& newClauses_lits);
 
-	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
 	vec<Uid> rhombusParentOfEmptyClause;
 	//bool rhombusValid;
-	uint32_t lpfTopChainUid;
-	uint32_t lpfBottomChainUid;
-	vec<Lit> lpfBottomLits;
+		
 
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);
 	void printResGraph(uint32_t, vec<uint32_t>&, vec<Lit>&  );

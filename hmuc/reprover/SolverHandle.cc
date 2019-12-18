@@ -99,4 +99,7 @@ namespace Minisat {
 		return s->resolGraph.icDelayedRemoval.find(uid) != s->resolGraph.icDelayedRemoval.end();
 	}
 	
+	lbool SolverHandle::value(Lit l){
+		return s->value(l);
+	}
 }

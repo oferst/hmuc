@@ -77,6 +77,54 @@ static inline void copy(const vec<T>& from, vec<T>& to, bool append = false)
 }
 
 template<class A, class B, class C>
+static inline void union_vec_lex(A& a, B& b, C& union_) // union of A,B, such that A's elements appear before B. 
+{
+    union_.clear();
+    int b_itr = 0, a_itr = 0, i;
+    B B_additions;
+    while (true)
+    {
+        if (a_itr == a.size())
+        {
+            for (i = b_itr; i < b.size(); i++)
+            {
+                //union_.push(b[i]);
+                B_additions.push(b[i]);
+            }
+            break;
+        }
+        if (b_itr == b.size())
+        {
+            for (i = a_itr; i < a.size(); i++)
+            {
+                union_.push(a[i]);
+            }
+            break;
+        }
+        if (a[a_itr] < b[b_itr])
+        {
+            union_.push(a[a_itr]);
+            a_itr++;
+        }
+        else if (b[b_itr] < a[a_itr])
+        {
+            B_additions.push(b[b_itr]);
+            //union_.push(b[b_itr]);
+            b_itr++;
+        }
+        else
+        {
+            union_.push(a[a_itr]);
+            a_itr++;
+            b_itr++;
+        }
+    }
+    for (auto l : B_additions)
+        union_.push(l);
+    return;
+}
+
+template<class A, class B, class C>
 static inline void union_vec(A& a, B& b, C& union_)
 {
     union_.clear();

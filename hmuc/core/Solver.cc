@@ -158,7 +158,7 @@ Solver::~Solver()
 
 
 bool Solver::isRebuildingProof() {
-	return (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof && validProof;
+	return  (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof&& validProof;
 }
 bool Solver::hasUid(CRef cref, Uid& outUid) {
 
@@ -169,10 +169,13 @@ bool Solver::hasUid(CRef cref, Uid& outUid) {
 	Clause& c = ca[cref];
 	if (c.ic() || c.hasUid()) {
 		outUid = c.uid();
+		assert(outUid != CRef_Undef);
 		return true;
 	}
-	if (nonIcUidDeferredAlloc.find(cref) != nonIcUidDeferredAlloc.end()) {
+	if (isRebuildingProof() && 
+		(nonIcUidDeferredAlloc.find(cref) != nonIcUidDeferredAlloc.end())) {
 		outUid = nonIcUidDeferredAlloc[cref];
+		assert(outUid != CRef_Undef);
 		return true;
 	}
 	outUid = CRef_Undef;
@@ -272,6 +275,7 @@ void Solver::detachClause(CRef cr, bool strict) {
     if (c.learnt()) learnts_literals -= c.size();
     else            clauses_literals -= c.size(); }
 
+
 void Solver::removeClause(CRef cr) {
     Clause& c = ca[cr];
 	if (c.size() > 1 && c.mark() != 1) {
@@ -286,10 +290,11 @@ void Solver::removeClause(CRef cr) {
 	}
 
 	c.mark(1);
+	assert(isRebuildingProof() || nonIcUidDeferredAlloc.size() == 0);
 	if (isRebuildingProof() && hasUid(cr,uid)) {
 		if(!c.ic() && !c.hasUid())
 			nonIcUidDeferredAlloc.erase(cr);
-		if (CRef_Undef != resolGraph.GetResolRef(uid)) { 
+		if (CRef_Undef != resolGraph.GetResolRef(uid)) {
 			//The clause wasn't deleted from the graph in 'deleteClause' above (it's refCount was positive)
 			//we have to keep the clause info - without interfering with the ClauseAllocator
 			auto& icDelayed = resolGraph.icDelayedRemoval;
@@ -301,12 +306,8 @@ void Solver::removeClause(CRef cr) {
 				icDelayed[uid] = litVec;
 			}
 		}
-	ca.free(cr);
 	}
-
-
-
-
+	ca.free(cr);
 }
 
 bool Solver::satisfied(const Clause& c) const {
@@ -1112,6 +1113,28 @@ lbool Solver::search(int nof_conflicts)
 					return l_FalseNoProof;
 				}
 			}
+			// for lpf_inprocess. Note that we check it at level 0 (rather than 1) just because of proof rebuilding 
+			// (for now, it cannot rely on facts in level 1).
+			if (
+				validProof &&
+				pf_active && 	// delay
+				pf_mode == lpf_inprocess &&				
+				confl == CRef_Undef &&
+			//	decisionLevel() == 1 &&
+				(
+				(//m_bConeRelevant && 
+					(trail.size() > pf_prev_trail_size)) ||
+					LiteralsFromPathFalsification.size() == 0  // if !m_bConeRelevant, then we only want to call compute_inprocess once, because the result is not changing. 
+					)
+				)
+			{
+				if (lpf_compute_inprocess() == false) {
+					icPoEC.clear();
+					allPoEC.clear();
+					validProof = false;
+					return l_FalseLevel0; // if we'll go back to doing this at level 1, then this should be: l_FalseNoProof; // early termination
+				}
+			}
 
             newDecisionLevel(conflictC);  // from now we are at decision level 1.
 
@@ -1141,28 +1164,7 @@ lbool Solver::search(int nof_conflicts)
 
 
 
-		if ( 
-				validProof &&
-				pf_active && 	// delay
-				pf_mode == lpf_inprocess &&
-				// nICtoRemove > 0 && !test_mode &&
-				confl == CRef_Undef && 					
-				decisionLevel() == 1 &&
-				(
-					(m_bConeRelevant && (trail.size() > pf_prev_trail_size)) || 
-					LiteralsFromPathFalsification.size() == 0  // if !m_bConeRelevant, then we only want to call compute_inprocess once, because the result is not changing. 
-				)    				
-		   )			 
-		{
-			
-			if (lpf_compute_inprocess() == false) {
-				icPoEC.clear();
-				allPoEC.clear();
-				validProof = false;
-				return l_FalseNoProof; // early termination
-
-			}
-		}
+		
 		
 
 						
@@ -1340,8 +1342,9 @@ lbool Solver::search(int nof_conflicts)
 
 			if (pf_active) {
 				while (decisionLevel() - 1 < LiteralsFromPathFalsification.size()) { // literals in LiteralsFromPathFalsification are made assumptions
+					
 					count_assump++;
-					Lit currBL = ~LiteralsFromPathFalsification[decisionLevel() - 1]; //currBL is the negation of a literal appearing on every path in rhombus(c), meaning currBL is a backbone literal and can be used as an assumption with the current formula \varphi'
+					Lit currBL = ~LiteralsFromPathFalsification[decisionLevel() - 1]; //currBL is the negation of a literal appearing on every path in rhombus(c), meaning currBL is a backbone literal and can be used as an assumption with the current formula \varphi'					
 					if (value(currBL) == l_True)  { // literal already implied by previous literals
 						newDecisionLevel(conflictC);  // ?? why increase decision level if it is a satisfied literal. Seems to be used for the guard of the loop, but artificially increases the dec. level. 
 						count_true_assump++;
@@ -1353,7 +1356,7 @@ lbool Solver::search(int nof_conflicts)
 					//i.e. ~currBL is part of the current assignment, 
 					//and is implied by some other backbones. 
 						if (isRebuildingProof()) {
-							//if (isRebuildingProof() && rhombusValid) {
+							cancelUntil(0); // we need this before rebuilding, because we query level-0 constants. 
 							m_bUnsatByPathFalsification = true;
 							SolverHandle sh = SolverHandle(this);
 							RebuilderContext ctx;
@@ -1369,6 +1372,7 @@ lbool Solver::search(int nof_conflicts)
 							updatePoEC(allPoEC, new_allPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
 							replaceVecContent(icPoEC, new_icPoEC);
+							nUnsatByPF++;
 							return l_False;	
 						}
 						else if (pf_early_unsat_terminate()){ 
@@ -2246,42 +2250,46 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
 int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of literals in the falsified clause. 
 {	
 	LiteralsFromPathFalsification.clear();
-	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant && !lpf_delay) {
+	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (m_bConeRelevant || isRebuildingProof())
+		&& !lpf_delay) {
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification);
+	
 		return LiteralsFromPathFalsification.size();
 	}
 	else {
 		Clause& c = ca[cr];
 		LiteralsFromPathFalsification.growTo(c.size());
+		
 		for (int i = 0; i < c.size(); ++i){
-			LiteralsFromPathFalsification[i] = c[i];
-			if (verbosity == 1) printf("%d ", c[i].x);
+			LiteralsFromPathFalsification[i] = c[i];			
 		}
+		if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess)) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
+		{
+			uidsVec.clear();
+			resolGraph.GetTillMultiChild(uid, uidsVec);
+
+			for (int i = 0; i < uidsVec.size(); ++i)
+			{
+				CRef cr = resolGraph.GetClauseRef(uidsVec[i]);
+				if (cr != CRef_Undef)
+				{
+					Clause& c = ca[cr];
+					for (int i = 0; i < c.size(); ++i)
+					{
+						LiteralsFromPathFalsification.push(c[i]);
+					}
+				}
+			}
+		}
+
+		sort(LiteralsFromPathFalsification); // just so it will be comparable to the result from LPF_get_assumptions		
+
 		if (verbosity == 1) printf("pf = removed ic only.\n");
 	}
 	   
-	
-
-	if ((opt_pf_mode == pf || opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && m_bConeRelevant) // chain (pf). Either in pf mode, or lpf/lpf_inprocess when we are in delay. 
-    {
-        uidsVec.clear();
-        resolGraph.GetTillMultiChild(uid, uidsVec);
-
-        for (int i = 0; i < uidsVec.size(); ++i)
-        {
-            CRef cr = resolGraph.GetClauseRef(uidsVec[i]);
-            if (cr != CRef_Undef)
-            {    
-                Clause& c = ca[cr];
-                for (int i = 0; i < c.size(); ++i)
-                {
-                    LiteralsFromPathFalsification.push(c[i]);
-                }	
-            }
-        }
-    }
-	
-	//if (verbosity == 1) printClause(LiteralsFromPathFalsification,"literals from pf");
+	//for (auto l : LiteralsFromPathFalsification)
+	//	cout << l.x << " ";
+	//cout << endl;
 
     return LiteralsFromPathFalsification.size(); //nAddedClauses;
 }
@@ -2571,21 +2579,8 @@ void Solver::LPF_get_assumptions(
 	vec<Lit>& negAssumpLits /**< to be filled with literals */
 
 	)
-{
-	if (isRebuildingProof()) { //we avoided deleting the previous S sets up until now (no eager deletion w. blm_rebuild_proof)
-		// delete allocated vectors
-		//printf("LPF_get_assumptions C clause: %d\n", uid_root);;
-		for (auto pair : map_cls_to_Tclause) {
-			delete pair.second;
-		}
-		map_cls_to_Tclause.clear();
-		lpfTopChainUid = uid_root;
-		lpfBottomChainUid = CRef_Undef;
-		lpfBottomLits.clear();
-	}
-	//int ind = 0;
-	//printf("LPF get assumptions %d\n", ind++);
-	//std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
+{		
+	std::unordered_map<uint32_t, vec<Lit>* > map_cls_to_Tclause; // from clause index to its Tclause
 	std::queue<uint32_t> queue;		
 	Map<uint32_t,uint32_t> map_cls_parentsCount;  // maps from uidClauseToUpdate of clause, to the number of allParentsCRef on the relevant cone of cr, i.e., allParentsCRef on paths from cr to the empty clause.
 	bool prefix = true; 
@@ -2619,8 +2614,8 @@ void Solver::LPF_get_assumptions(
     // adding clauses in the unit-chain to Top_Tclause. 
 	vec<uint32_t> uidvec_prefix;
 	resolGraph.GetTillMultiChild(uid_root, uidvec_prefix);
-	for (int i = 0; i < uidvec_prefix.size(); ++i) { // for each clause in the prefix, add it's literals to Top_TClause
-		CRef cr = resolGraph.GetClauseRef(uidvec_prefix[i]);
+	for (int i = 0; i < uidvec_prefix.size(); ++i) { // for each clause in the prefix, add its literals to Top_TClause
+		CRef cr = resolGraph.GetClauseRef(uidvec_prefix[i]);		
 		if (CRef_Undef != cr) {
 			Clause& cl = ca[cr];
 			for (int i = 0; i < cl.size(); ++i) {
@@ -2640,12 +2635,9 @@ void Solver::LPF_get_assumptions(
 	}
 	if (uidvec_prefix.size() > 0) {
         assert(Top_TClause->size() > 0);
-		lpfBottomChainUid = uid_root = uidvec_prefix.last();
+		uid_root = uidvec_prefix.last();
 	}   	
-	if (isRebuildingProof()) {
-		Top_TClause->copyTo(lpfBottomLits);
-		sort(lpfBottomLits);
-	}
+	
 #pragma endregion
 
     bool proceed = CountParents(map_cls_parentsCount , uid_root); //counts the allParentsCRef in cr's rhombus
@@ -2680,7 +2672,7 @@ void Solver::LPF_get_assumptions(
 		//peakQueueSize = std::max((int)queue.size(),  peakQueueSize);
 		
 		for(int i = 0; i < children_num; ++i) {				
-			CRef childUid = res.m_Children[i];
+			CRef childUid = res.m_Children[i];			
 			if (!resolGraph.ValidUid(childUid)) 
 				continue;
 			CRef childCRef = resolGraph.GetClauseRef(childUid);
@@ -2751,7 +2743,7 @@ void Solver::LPF_get_assumptions(
 		if (verbosity == 1) printf("no parent-of-empty-clause with a t-clause. should be unsat. \n");		
 		// we are not returning here because we want the memory cleanup in the end; 
 	}
-	else union_vec(res, *Top_TClause, negAssumpLits); // adding the literals from the top chain 
+	else union_vec_lex(*Top_TClause, res, negAssumpLits); // adding the literals from the top chain 
 	if (verbosity >= 1) {
 		cout << "negAssumptions:" << std::endl;
 		for (int i = 0; i < negAssumpLits.size(); i++)
@@ -2767,16 +2759,11 @@ void Solver::LPF_get_assumptions(
 			negAssumpLits[sz-1-i] = t;
 		}
 	}
-	if (!isRebuildingProof()) { // eager delete - won't ever need the S sets later
-		// delete allocated vectors
-		for (auto pair : map_cls_to_Tclause) {
-			delete pair.second;
-		}
-		map_cls_to_Tclause.clear();
+	// delete allocated vectors
+	for (auto pair : map_cls_to_Tclause) {
+		delete pair.second;
 	}
-
-
-
+	map_cls_to_Tclause.clear();
 }
 
 CRef Solver::allocClause(vec<Lit>& lits,bool learnt, bool isIc=false, bool hasUid=false) {

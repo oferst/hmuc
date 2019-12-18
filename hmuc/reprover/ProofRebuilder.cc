@@ -1,6 +1,7 @@
 #pragma once
 #include "reprover/ProofRebuilder.h"
 #include "core/SolverTypes.h"
+#include "utils/Assert.h"
 //#include "utils/Printer.h"
 #include "mtl/Graph.h"
 #include <sstream>
@@ -127,7 +128,7 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid
 	//All parents of the clause (p0 v p1 v ... v pn) that will
 	//be learned due to the conflicting assumptions literals.
 	vec<Uid> confLits_allParents;
-
+	cout << "rebuilding proof..." << endl;
 
 	sh->analyzeConflictingAssumptions(startingConflLiteral, negConflAssumptions, confLits_icParents, confLits_remParents, confLits_allParents);
 	ReconstructionResult result;
@@ -173,8 +174,8 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid
 		
 		/********************************************************
 			proveBackboneLiteral - The main work is done here
-		*********************************************************/
-		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
+		*********************************************************/	
+		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);	
 		result.isIc = result.isIc || (Allocated == newUnitParent.status && sh->getResol(newUnitParent.clauseUid).header.ic);
 	}
 
@@ -564,6 +565,11 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	const Lit& BL,
 	ClauseData& result
 	) {
+
+
+
+
+	
 	assert(BL != ctx->dummy);
 	
 
@@ -619,7 +625,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	if (currPivots.size() != parents.size()) {
 		//printClause(currPivots, "pivots");
 
-		printf("currPivots.size() %d != %d parents.size()", currPivots.size(), parents.size());
+		printf("currPivots.size() %d != %d parents.size()\n", currPivots.size(), parents.size());
 	}
 	assert(currPivots.size() == parents.size());
 
@@ -678,6 +684,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 		sh->updateParentsOrder(currUid, icParents, remParent, allParents);
 		assert(validateResolution(currUid,updatedParents, updatePivots));
 	}
+
 
 
 	//A container used for book-keeping, will contain the result of reconstruction.

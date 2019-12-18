@@ -46,6 +46,8 @@ namespace Minisat {
 
 		bool hasDelayedRemoval(Uid uid);
 
+		lbool value(Lit l);
+
 	};
 
 
