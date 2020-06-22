@@ -17,6 +17,11 @@ namespace Minisat {
 		//will contain a mapping between an old, unreconstructed clause uid, and the uid of it's updated version.
 		UidToUid clausesUpdates;
 
+		//will contain the data needed to reconstruct a deferred clause
+		//K: Uid - is the uid of the original clause pre-reconstruction
+		//V: LitSet - are the literals of the clause which might be allocated in the future
+		std::unordered_map<Uid,LitSet*> deferredClauseData;
+
 		UidLabel areIcs;
 
 
@@ -34,7 +39,7 @@ namespace Minisat {
 		virtual LitSet&			getClauseLits(Uid uid);
 		
 		//Getter for the oldUid's updated uid.
-		virtual Uid			getClausesUpdate(Uid oldUid);
+		virtual Uid			getClausesUpdateUid(Uid oldUid);
 		//Setter for the oldUid's updated uid.
 		virtual void			setClausesUpdate(Uid oldUid,Uid newUid);
 

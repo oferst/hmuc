@@ -24,12 +24,14 @@ struct ClauseData {
 	//of the clause (for the purpose of deferred allocation).
 	ClauseAllocStatus status;
 	Lit origPiv;
+	Uid originalUid;
 	union {
 		Uid clauseUid;
 		LitSet* clauseContent;
+		//struct { LitSet* clauseContent; Uid originalUid; } deferredData;
 	};
-	ClauseData(const Lit& piv= mkLit(Var(var_Undef))) : status(Uninitialized),origPiv(piv){}
-	ClauseData(const ClauseData& other) :status(other.status), origPiv(other.origPiv){
+	ClauseData(const Lit& piv= mkLit(Var(var_Undef))) : status(Uninitialized),origPiv(piv), originalUid(CRef_Undef){}
+	ClauseData(const ClauseData& other) :status(other.status), origPiv(other.origPiv), originalUid(other.originalUid){
 		switch (status) {
 		case Allocated:
 		case Uninitialized:
@@ -42,12 +44,12 @@ struct ClauseData {
 		default:
 			clauseUid = CRef_Undef;
 		}
-
 	}
 
 	ClauseData& operator=(const ClauseData& other) {
 		status = other.status;
 		origPiv = other.origPiv;
+		originalUid = other.originalUid;
 		switch (status) {
 		case Allocated:
 		case Uninitialized:
@@ -62,19 +64,22 @@ struct ClauseData {
 		}
 		return *this;
 	}
-	void setAllocatedClauseData(Uid uid) {
+	void setAllocatedClauseDataUid(Uid uid) {
 		assert(Uninitialized == status);
 		status = Allocated;
 		clauseUid = uid;
 	}
 	
 	template<class T>
-	void setDeferredClauseData(const T& lits)  {
+	void setDeferredClauseData(const T& lits, Uid originalParent)  {
 		assert(Uninitialized == status);
+		//assert(originalParent != CRef_Undef);
 		status = Deferred;
 		clauseContent = new LitSet();
-		for (auto& l : lits)
+		for (auto& l : lits) {
 			clauseContent->insert(l);
+		}
+		originalUid = originalParent;
 	}
 	~ClauseData() {
 		if (status == Deferred) 
@@ -102,7 +107,7 @@ class ProofRebuilder{
 	//A handle for the underlaying solver used to create the resolution graph.
 	SolverHandle* sh;
 	ofstream  out;
-	//recording all the clauses that were build in the reconstruction.
+	//recording all the clauses that were built in the reconstruction.
 	std::unordered_set<Uid> debugRebuiltClauses;
 
 public:
@@ -114,7 +119,7 @@ public:
 	bool validateResolution(Uid resultClause, T& parents,vec<Lit>& pivots);
 	template<class T>
 	bool validateResolution(LitSet& clause, T& parents);
-	bool verifyResolutionProof(const vec<Uid>& PoEC);
+
 
 	void clearCandidateParents(ReconstructionResult& reconRes);
 	void addCandidateParent(Uid uid, bool isIc, ReconstructionResult& reconRes);
@@ -184,12 +189,18 @@ public:
 	void findParentDependencies(Uid uid, const T& parents, const vec<Lit>& pivots, const LitSet& resultClause, std::unordered_map<uint32_t,vec<uint32_t>>& dependencies);
 	
 	
-	void printClause(const LitSet& c, std::string text, bool printLitLevel);
+	void printClause(const LitSet& c, std::string text, bool printLitLevel=false);
+	void printClause(const vec<Lit>& c, std::string text, bool printLitLevel = false);
 	class ResolutionException : public std::logic_error {
 	public:
 		ResolutionException(const char* msg) : std::logic_error(msg) {}
 	};
 	bool equateNonConstLits(LitSet& c1, LitSet& c2);
+
+
+	bool verifyPoEC(const vec<Uid>& PoEC);
+	bool verifyResolNodeContent(Uid uid);
+	bool verifyResolutionProof(const vec<Uid>& PoEC);
 };
 }
 

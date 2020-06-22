@@ -1,14 +1,15 @@
 #include "reprover/SolverHandle.h"
 namespace Minisat {
 
-	SolverHandle::SolverHandle(Solver* _s = NULL) : s(_s)
-	{
+	SolverHandle::SolverHandle(Solver* _s = NULL) : s(_s){
+		//Uid& nextUid = s->nextUid();
 		vec<Uid>& icPoEC = s->icPoEC;
 		vec<Uid>& allPoEC = s->allPoEC;
+		vec<Uid> nonIcPoEC;
+
 		int numOfNonIc = allPoEC.size() - icPoEC.size();
 		int additionalSize = (numOfNonIc == 0) ? 0 : (1 + numOfNonIc + (allPoEC.size() / 32) + (int)((allPoEC.size() % 32) > 0));
 		PoEC = (Resol*)malloc(4 * (Resol::SIZE + icPoEC.size() + additionalSize));
-		vec<Uid> nonIcPoEC;
 		new (PoEC) Resol(icPoEC, nonIcPoEC, allPoEC, true);
 	}
 
@@ -16,9 +17,9 @@ namespace Minisat {
 	{
 		free(PoEC);
 	}
-	void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
-		s->resolGraph.realocExistingResolution(oldUid, icParents, remParents, allParents);
-	}
+	//void SolverHandle::realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+	//	s->resolGraph.realocExistingResolution(oldUid, icParents, remParents, allParents);
+	//}
 
 	void SolverHandle::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
 		s->resolGraph.updateParentsOrder(uid, icParents, remParents, allParents);
@@ -72,6 +73,14 @@ namespace Minisat {
 	}
 	void SolverHandle::allocNonIcResol(CRef cref) {
 		s->resolGraph.AddRemainderResolution(CRefToUid(cref), cref);
+
+	}
+	Uid SolverHandle::allocConstUnitResol(Lit l) {
+		return s->resolGraph.allocConstUnitResol(l);
+
+
+
+		
 
 	}
 	void SolverHandle::analyzeConflictingAssumptions(Lit initConflict, vec<Lit>& out_negConflicts, vec<uint32_t>& out_icParents, vec<uint32_t>& out_remParents, vec<uint32_t>& out_allParents) {

@@ -23,6 +23,7 @@ bool ProofRebuilder::memberOfClause(Uid u, const Lit& l) {
 	return false;
 }
 
+//use only in debug mode, has an inefficient set comparison
 template<class T>
 bool ProofRebuilder::validateResolution(LitSet& clause, T& parents) {
 
@@ -42,7 +43,7 @@ bool ProofRebuilder::validateResolution(LitSet& clause, T& parents) {
 	}
 	return (actualClause == clause && v.valid);
 }
-
+//use only in debug mode, has an inefficient set comparison
 template<class T>
 bool ProofRebuilder::validateResolution(Uid uid, T& parents,vec<Lit>& pivots) {
 
@@ -76,7 +77,7 @@ bool ProofRebuilder::validateResolution(Uid uid, T& parents,vec<Lit>& pivots) {
 
 }
 
-
+//use only in debug mode, inefficient set comparison
 bool ProofRebuilder::equateNonConstLits(LitSet& c1, LitSet& c2){
 	for (auto& l : c1) 
 		if (sh->level(var(l)) > 0 && c2.find(l) == c2.end())
@@ -105,7 +106,9 @@ the negation of the pivot belong to the 'left' parent.
 int ProofRebuilder::depth_debug = 0;
 void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid>& allPoEC, vec<Uid>& new_allPoEC, vec<Uid>& new_icPoEC) {
 	ProofRebuilder::depth_debug = 0;
-
+	cout << "Rebuilding proof" << endl;
+	assert(verifyPoEC(allPoEC));
+	
 	//PART 1
 	/********************************************************************
 	Build the 'easy' half of the new proof here.
@@ -128,9 +131,11 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid
 	//All parents of the clause (p0 v p1 v ... v pn) that will
 	//be learned due to the conflicting assumptions literals.
 	vec<Uid> confLits_allParents;
-	cout << "rebuilding proof..." << endl;
-
+	//cout << "rebuilding proof..." << endl;
+	//cout << "startingConflLiteral: " << toDimacsLit(startingConflLiteral) << endl;
 	sh->analyzeConflictingAssumptions(startingConflLiteral, negConflAssumptions, confLits_icParents, confLits_remParents, confLits_allParents);
+	
+	printClause(negConflAssumptions, "negConflAssumptions");
 	ReconstructionResult result;
 	std::list<ClauseData>& allParents = result.rebuiltParentsCandidates;
 	//after analyzeFinal the vector negConflAssumptions contains all the set of negated BL that are in conflict - they are the reason for the current conflict - we will prove the  assumption (backbones) below.
@@ -138,19 +143,19 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid
 	allParents.push_back(ClauseData());
 	ClauseData& newParent = allParents.back();
 	if (confLits_icParents.size() == 0) {
-		newParent.setDeferredClauseData(negConflAssumptions);
-
-	}
-	else {
+		newParent.setDeferredClauseData(negConflAssumptions,CRef_Undef);//! This clause is reconstructed using analyzeFinal and has no original cluase from which it is reconstructed. is CRef_Undef appropriate here? In RebuildProof the value CRef_Undef usually refers to the empty clause but here it means that there is no original clause. Check whether it breaks something in the reconstrcution of the empty clause itself
+	} else {
 		CRef newCr = sh->allocClause(negConflAssumptions, true, true, true);
 		sh->allocResol(newCr, confLits_allParents, confLits_icParents, confLits_remParents);
 		Uid uid = sh->CRefToUid(newCr);
-		newParent.setAllocatedClauseData(uid);
+		//cout << "Part 1 new uid: " << uid << endl;
+		newParent.setAllocatedClauseDataUid(uid);
 		assert(debugRebuiltClauses.insert(uid).second);
 		ctx->isIc(uid) = true;
+		replaceContent(ctx->getClauseLits(uid), negConflAssumptions);
 		result.isIc = true; // a parent is ic, and therefore the resulting node is also ic.
 	}
-	//printClause(negConflAssumptions, "negConflAssumptions");
+
 	//PART 2
 	/********************************************************************
 	Now we build separate proofs for the clauses (-p0), (-p1), ..., (-pn)
@@ -163,19 +168,26 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid
 	//negBL are those literals 'l' that appear on every path between
 	//the removed clause c and the empty clause - these are the 
 	//literals we want to cut off from the proof graph.
-	for (int i = negConflAssumptions.size()-1; i >=0; --i) {
+	for (int i = (negConflAssumptions.size()-1); i >=0; --i) {
 		Lit negBL = negConflAssumptions[i];
 		//the backbone literal itself, what we aim to prove, ~l.
 		Lit BL = ~negBL;
-		//printf("CURRENT BL: %d\n", todimacsLit(BL));
 		ctx->clearUpdates();
 		allParents.push_back(ClauseData(BL));
 		ClauseData& newUnitParent = allParents.back();
 		
 		/********************************************************
 			proveBackboneLiteral - The main work is done here
-		*********************************************************/	
-		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);	
+		*********************************************************/
+		//cout << "Rebuilding " << CRef_Undef << endl;
+		proveBackboneLiteral(CRef_Undef, allPoEC, BL, newUnitParent);
+		//cout << "Rebuilt " << CRef_Undef << endl;
+		/*
+		if(newUnitParent.status == Allocated)
+			cout << "Resulting unit uid: " << (newUnitParent.clauseUid) << endl;
+		else 
+			cout << "Resulting unit is a constant at lvl 0" << endl;
+			*/
 		result.isIc = result.isIc || (Allocated == newUnitParent.status && sh->getResol(newUnitParent.clauseUid).header.ic);
 	}
 
@@ -183,32 +195,56 @@ void ProofRebuilder::RebuildProof(const Lit& startingConflLiteral, const vec<Uid
 	//Iterate over reconstruction result and find if there exists an ic parent at all.
 	//If there exists an ic parent, allocate remainder resolution for every non ic parent found in the reconstruction
 	if (result.isIc) {
-		Uid unitUid = CRef_Undef;
+		//cout << "Number of PoEC: "<<result.rebuiltParentsCandidates.size() << endl;
+		Uid newUid = CRef_Undef;
 		CRef newCr = CRef_Undef;
 		for (ClauseData& parentData : result.rebuiltParentsCandidates) {
 			switch (parentData.status) {
 			case Deferred:
-				newCr = sh->allocClause(*(parentData.clauseContent), true, false,true);
-				assert(CRef_Undef != newCr);
-				sh->allocNonIcResol(newCr);
-				unitUid = sh->CRefToUid(newCr);
-				ctx->isIc(unitUid) = false;
-				assert(CRef_Undef != unitUid);
+				if ((parentData.clauseContent)->size() == 1) {					
+					//A unit that is inferred only by non-ic clauses, which means it is inferred at dec. level 0 (i.e. a constanst). Becuase it is a parent of an ic clause we need to allocate it in the resol. graph (but not in the clause DB due to minisat's optimization regarding constants)
+					newUid = sh->allocConstUnitResol(*(parentData.clauseContent->begin()));
+				}
+				else {
+					newCr = sh->allocClause(*(parentData.clauseContent), true, false,true);
+					assert(CRef_Undef != newCr);
+					sh->allocNonIcResol(newCr);
+					newUid = sh->CRefToUid(newCr);
+				}
+				assert(CRef_Undef != newUid);
+				replaceContent(ctx->getClauseLits(newUid), *(parentData.clauseContent));
+				ctx->isIc(newUid) = false;
 				break;
 			case Allocated:
-				unitUid = parentData.clauseUid;
-				assert(CRef_Undef != unitUid);
-				new_icPoEC.push(unitUid);
+				newUid = parentData.clauseUid;
+				assert(CRef_Undef != newUid);
+				new_icPoEC.push(newUid);
 
 				break;
 			case Uninitialized:
 				throw(ResolutionException("A clause with 'Unknown' type was build"));
 			}
-			new_allPoEC.push(unitUid);
+			new_allPoEC.push(newUid);
 		}
 
-	}
 
+	}
+#ifdef _DEBUG	
+	else {
+		cout << "Rebuild resulted in no ic roots, can finish muc extraction now." << endl;
+	}
+#endif
+
+		//cout << "New parents of " << CRef_Undef << ": " << endl;
+		//for (auto& p : new_allPoEC) {
+		//	//cout << p << (sh->getResol(p).header.ic ? "(ic)" : "") << ", ";
+		//	LitSet lits;
+		//	copyClauseLits(p, lits);
+		//	printClause(lits, std::to_string(p) + (sh->getResol(p).header.ic ? "(ic)" : ""));
+
+		//}
+		//cout << endl;
+		assert(verifyPoEC(new_allPoEC));
 	//assert(verifyResolutionProof(new_allPoEC));
 
 }
@@ -265,16 +301,19 @@ void ProofRebuilder::backwardsTraversal(
 		//assert(j > 0 || currPiv == ctx->dummy); // if j==0 then currPiv is a dummy pivot.
 		//assert(j == 0 || currPiv != ctx->dummy);// if j>0 then currPiv is a real pivot.
 		if (currPiv == negBL) { // cut off the 'pUid' parent by skipping current parent (it's type is Uninitialized)
+			//cout << "Parent " << pUid << " currPiv: " << (sign(currPiv) ? "-" : "") << var(currPiv) + 1 << " CUTOFF RIGHT" <<endl;
 			continue;
 		}
 		else {
 			rebuiltParentsData.push_front(ClauseData(currPiv));
 			ClauseData& currParent = rebuiltParentsData.front();
+			//cout << "Rebuilding " << pUid << endl;
 			proveBackboneLiteral(pUid, sh->getResol(pUid), BL, currParent);
-
+			//cout << "Rebuilt " << pUid << endl;
 
 		}
 		if (currPiv == BL) {
+			//cout << "Parent " << pUid << " currPiv: " << (sign(currPiv) ? "-" : "") << var(currPiv) + 1 << " CUTOFF LEFT" << endl;
 			break;
 			/*
 			this means that the 'left' parent contains ~BL, which we 
@@ -427,21 +466,25 @@ Uid ProofRebuilder::
 		//TODO: what if the clause already exists in the system and we only 
 		//found a different proof for it? is this case possible? 
 		//Will it affect the search\Rotation\BLM algorithms? 
-
-
 		CRef newCRef = sh->allocClause(reconRes.newClause, true, true, true);
+		
 		sh->allocResol(newCRef, allParents, icParents, nonIcParents);
 
 		newUid = sh->CRefToUid(newCRef);
+		//printClause(reconRes.newClause,"new clause uid: " + std::to_string(newUid),false);
+
 		assert(debugRebuiltClauses.insert(newUid).second);
 		assert(CRef_Undef != newUid);
 		LitSet& c = ctx->getClauseLits(newUid);
 		replaceContent(c, newClause);
-			
+
+		
 		assert(validateResolution(reconRes.newClause, allParents));
 		// }
 	}
+
 	ctx->isIc(newUid) = true;
+	assert(verifyResolNodeContent(newUid));
 	return newUid;
 }
 void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Uid>& allUids, vec<Uid>& icUids,vec<Uid>& nonIcUids) {
@@ -465,6 +508,7 @@ void ProofRebuilder::allocateNonIcParents(ReconstructionResult& reconRes, vec<Ui
 			sh->allocNonIcResol(cr);
 			uid = sh->CRefToUid(cr);
 			assert(CRef_Undef != uid);
+			//ctx->setClausesUpdate(data->originalUid, uid);//!
 			nonIcUids.push(uid);
 			allUids.push(uid);
 			break;
@@ -508,7 +552,7 @@ void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec
 	for (auto& p : parents) {
 		assert(i == parent2Idx[p]);
 		assert(ctx->isClauseSeen(p));
-		vec<Lit> constLits;
+		//vec<Lit> constLits;
 		LitSet& currentParent = ctx->getClauseLits(p);
 		for (auto& l : currentParent) {
 
@@ -518,8 +562,8 @@ void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec
 				continue;
 			}
 			if (!member(var(l), pivVar2Idx)) {
-				assert(sh->level(var(l) == 0));
-				constLits.push(l);
+				assert(sh->level(var(l)) == 0);
+				//constLits.push(l);
 				//printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
 				continue;
 			}
@@ -541,7 +585,7 @@ void ProofRebuilder::findParentDependencies(Uid uid, const T& parents, const vec
 			
 			
 			if (!member(~l, currPivotParent)) {
-				assert(sh->level(var(l) == 0));
+				assert(sh->level(var(l)) == 0);
 				//constLits.push(l);
 				//printf("for parent %d Lit %d is at level(var(l)): %d\n", p, todimacsLit(~l), sh->level(var(l)));
 				continue;
@@ -564,14 +608,13 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	const T& parents,
 	const Lit& BL,
 	ClauseData& result
-	) {
+) {
 
 
 
 
-	
 	assert(BL != ctx->dummy);
-	
+
 
 
 
@@ -584,9 +627,10 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//have an update for it). If an updated version exists, return 
 	//it's uid.
 	if (ctx->isClauseUpdated(currUid)) {
-		result.setAllocatedClauseData(ctx->getClausesUpdate(currUid));
-		assert(CRef_Undef != ctx->getClausesUpdate(currUid));
-		return ctx->getClausesUpdate(currUid);
+		result.setAllocatedClauseDataUid(ctx->getClausesUpdateUid(currUid));
+		assert(CRef_Undef != ctx->getClausesUpdateUid(currUid));
+		//cout << currUid << " visited clause CUTOFF" << endl;
+		return ctx->getClausesUpdateUid(currUid);
 	}
 	//We shouldn't call 'proveBackboneLiteral' on a clause that
 	//contains negBL (and the checks below should guarantees it).
@@ -596,18 +640,26 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//rhombus, it shouldn't be changed at all.
 	if (!sh->inRhombus(currUid)) {
 		assert(CRef_Undef != currUid);
-		ctx->setClausesUpdate(currUid,currUid);
+		ctx->setClausesUpdate(currUid, currUid);
 		LitSet& lits = recordClause(currUid);
 		//now the clause will return 'true'
 		//on future ctx->isClauseSeen(pUid) calls
-		result.setAllocatedClauseData(currUid);
+		result.setAllocatedClauseDataUid(currUid);
+		//cout << currUid << " NOT IN RHOMBUS CUTOFF" << endl;
 		return currUid;
 	}
+
+	//cout << "rebuilding CurrUid: " << currUid << endl;
+	if (currUid == 12903) {
+		cout << "updating clause 12903" << endl;
+	}
+	//cout << "Current BL: " << (sign(BL) ? "-" : "") << var(BL) + 1 << endl;
+
 
 	/*****************************************
 		Calculate pivot literals (if needed).
 	*****************************************/
-	
+
 	ResolValidation validator(ctx->getClauseLits(currUid));
 	if (!ctx->arePivotsKnown(currUid)) {
 		//no pivots found - extract pivots using currUid'
@@ -622,14 +674,8 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//first pivot is always a dummy literal, which allows us to 
 	//assume that the size of the parents vector is the size of 
 	//the pivots vector.
-	if (currPivots.size() != parents.size()) {
-		//printClause(currPivots, "pivots");
 
-		printf("currPivots.size() %d != %d parents.size()\n", currPivots.size(), parents.size());
-	}
 	assert(currPivots.size() == parents.size());
-
-
 
 
 	//due to a simplification during learning of a clause, some parents might be
@@ -640,49 +686,66 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	//according to pivots, and running a topological sorting on the graph.
 	//the resulting ordering must be written into the resolution node before
 	//continuing the proof reconstruction
-	
+
 	if (!validator.valid) {
 		vec<Uid> currParents;
 		for (auto& p : sh->getResol(currUid)) {
 			currParents.push(p);
 		}
-		assert(CRef_Undef != currUid);
-		std::unordered_map<uint32_t, vec<uint32_t>> dependenciesByIdx;
-		findParentDependencies(currUid, currParents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
-		Graph<uint32_t> g(currParents.size());
-		for (auto& idxPair : dependenciesByIdx) {
-			uint32_t idx1 = idxPair.first;
-			for (auto& idx2 : idxPair.second) {
-				g.addEdge(idx1, idx2);
-			}
-		}
-		vec<uint32_t> sortedParentsIdx;
-		g.topologicalSort(sortedParentsIdx);
-		
 
-		vec<Uid> updatedParents;
-		vec<Lit> updatePivots;
-		for (uint32_t idx : sortedParentsIdx) {
-			updatedParents.push(currParents[idx]);
-			updatePivots.push(currPivots[idx]);
-		}
-		replaceVecContent(currPivots, updatePivots);
-		assert(validateResolution(currUid, updatedParents, currPivots));
 
-		vec<Uid> icParents;
-		vec<Uid> remParent;
-		vec<Uid>& allParents = updatedParents;
-		for (auto& p : allParents) {
-			assert(ctx->isClauseSeen(p));
-			if (ctx->isIc(p)) {
-				icParents.push(p);
+		//!uncomment me later
+		//assert(CRef_Undef != currUid);
+		if (CRef_Undef == currUid){
+			cout << "Parents of " << currUid << ": " << endl;
+			for (auto& p : parents) {
+				//cout << p << (sh->getResol(p).header.ic ? "(ic)" : "") << ", ";
+				LitSet lits;
+				copyClauseLits(p, lits);
+				printClause(lits, std::to_string(p) + (sh->getResol(p).header.ic ? "(ic)" : ""));
+
 			}
-			else {
-				remParent.push(p);
-			}
+			cout << endl;
 		}
-		sh->updateParentsOrder(currUid, icParents, remParent, allParents);
-		assert(validateResolution(currUid,updatedParents, updatePivots));
+		else{
+			std::unordered_map<uint32_t, vec<uint32_t>> dependenciesByIdx;
+			findParentDependencies(currUid, currParents, currPivots, ctx->getClauseLits(currUid), dependenciesByIdx);
+			Graph<uint32_t> g(currParents.size());
+			for (auto& idxPair : dependenciesByIdx) {
+				uint32_t idx1 = idxPair.first;
+				for (auto& idx2 : idxPair.second) {
+					g.addEdge(idx1, idx2);
+				}
+			}
+			vec<uint32_t> sortedParentsIdx;
+			g.topologicalSort(sortedParentsIdx);
+
+
+			vec<Uid> updatedParents;
+			vec<Lit> updatePivots;
+			for (uint32_t idx : sortedParentsIdx) {
+				updatedParents.push(currParents[idx]);
+				updatePivots.push(currPivots[idx]);
+			}
+			replaceVecContent(currPivots, updatePivots);
+			assert(validateResolution(currUid, updatedParents, currPivots));
+
+			vec<Uid> icParents;
+			vec<Uid> nonIcParents;
+			vec<Uid>& allParents = updatedParents;
+			for (auto& p : allParents) {
+				assert(ctx->isClauseSeen(p));
+				if (ctx->isIc(p)) {
+					icParents.push(p);
+				}
+				else {
+					nonIcParents.push(p);
+				}
+			}
+			sh->updateParentsOrder(currUid, icParents, nonIcParents, allParents);
+			assert(validateResolution(currUid, updatedParents, updatePivots));
+
+		}
 	}
 
 
@@ -705,6 +768,7 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	/**************************************************
 		BackwardsTraversal (RECURSIVE inner call here).
 	***************************************************/
+	
 	backwardsTraversal(currUid, parents, BL, currPivots, rebuiltParentsCandidates);
 	
 	/******************************
@@ -718,26 +782,31 @@ Uid ProofRebuilder::proveBackboneLiteral(
 	**********************************/
 	Uid newUid;
 	if (reconRes.isIc) {
+		//if (currUid == 37097) {
+		//	cout << "37097 allocation is here" << endl;
+		//}
 		if (reconRes.parentsUsed.size() > 1)
 			newUid = allocReconstructedICClause(currUid, reconRes, BL);
 		else
 			newUid = (*reconRes.parentsUsed.begin())->clauseUid;
 		assert(ctx->isClauseSeen(newUid));
 		ctx->setClausesUpdate(currUid, newUid);
-		result.setAllocatedClauseData(newUid);
+		result.setAllocatedClauseDataUid(newUid);
 		assert(ctx->getClauseLits(newUid).find(BL) != ctx->getClauseLits(newUid).end());
+
 	}
 	else {
 		newUid = CRef_Undef;
-		result.setDeferredClauseData(reconRes.newClause);
-		assert(result.clauseContent->find(BL) != result.clauseContent->end());
+
+		result.setDeferredClauseData(reconRes.newClause, currUid);
+		assert((result.clauseContent)->find(BL) != (result.clauseContent)->end());
 	}
-	
+	if(newUid != CRef_Undef)
+		verifyResolNodeContent(newUid);
 	return newUid;
 }
 
-void ProofRebuilder::printClause(const LitSet& c, std::string text, bool printLitLevel = false)
-{
+void ProofRebuilder::printClause(const LitSet& c, std::string text, bool printLitLevel){
 	std::cout << text << std::endl;
 	for (auto& l : c) {
 		std::string level = (printLitLevel ? "(" + std::to_string(sh->level(var(l))) + ")" : "");
@@ -745,6 +814,15 @@ void ProofRebuilder::printClause(const LitSet& c, std::string text, bool printLi
 	}
 	std::cout << "0" << std::endl;
 }
+void ProofRebuilder::printClause(const vec<Lit>& c, std::string text, bool printLitLevel) {
+	std::cout << text << std::endl;
+	for (auto& l : c) {
+		std::string level = (printLitLevel ? "(" + std::to_string(sh->level(var(l))) + ")" : "");
+		std::cout << (toDimacsLit(l)) << level << " ";
+	}
+	std::cout << "0" << std::endl;
+}
+
 //If uid wasn't recorded previously, Copies the literals owned by 
 //'uid' to the re-builder data structure, and also records the ic 
 //label of the clause
@@ -772,30 +850,29 @@ void ProofRebuilder::copyClauseLits(Uid from, LitSet& to) {
 
 template<class T>
 void ProofRebuilder::recordClausePivots(Uid uid, const T& parents, ResolValidation& validation) {
-	if (!ctx->arePivotsKnown(uid)) {
-		LitSet clause;
-		vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
-		pivots.push(ctx->dummy);
-		std::unordered_map<Var, uint32_t> piv2Idx;
-		int i = 0;
-		for (auto& p : sh->getResol(uid)) {
-			LitSet& rightClause = recordClause(p);
-			try {
-				Lit piv = resolveWithOverwrite(clause, rightClause, validation);
-				if (piv != ctx->dummy) {
-					pivots.push(piv);
-					validation.pivotVars.insert(var(piv));
-				}
+	assert(!ctx->arePivotsKnown(uid));
+	LitSet clause;
+	vec<Lit>& pivots = ctx->getPivots(uid) = vec<Lit>();
+	pivots.push(ctx->dummy);
+	std::unordered_map<Var, uint32_t> piv2Idx;
+	int i = 0;
+	for (auto& p : sh->getResol(uid)) {
+		LitSet& rightClause = recordClause(p);
+		try {
+			Lit piv = resolveWithOverwrite(clause, rightClause, validation);
+			if (piv != ctx->dummy) {
+				pivots.push(piv);
+				validation.pivotVars.insert(var(piv));
 			}
-			catch (ResolutionException& e) {
-				printf(e.what());
-				printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
-				//sh->printClauseByUid(uid, "clause " + std::to_string(uid));
-				//for (Uid p : parents) {
-				//	sh->printClauseByUid(p, "parent " + std::to_string(p));
-				//}
-				throw e;
-			}
+		}
+		catch (ResolutionException& e) {
+			printf(e.what());
+			printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
+			//sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+			//for (Uid p : parents) {
+			//	sh->printClauseByUid(p, "parent " + std::to_string(p));
+			//}
+			throw e;
 		}
 	}
 }
@@ -840,25 +917,15 @@ Lit ProofRebuilder::resolveWithOverwrite(T& leftLits, S& rightLits, ResolValidat
 			}
 			piv = l;
 		}
-
-
 		if (validation.valid) {
 			if (!member(l, validation.targetClause) ){
-				//if (sh->level(var(l)) == 0) {
-				//	leftLits.erase(l);
-				//}
-				//else 
-					if(member(var(l), validation.pivotVars)) {
+				if(member(var(l), validation.pivotVars)) {
 					validation.valid = false;
 				}
 			}
 		}
 	}
 	if (initialSize > 0 && piv == ctx->dummy) {
-		//ostringstream oss;
-		//printClause(leftLits, "leftLits", oss);
-		//oss << std::endl;
-		//printClause(rightLits, "rightLits", oss);
 		throw ResolutionException("Pivot assigned cannot be a dummy literal.\n");
 	}
 	return piv;
@@ -893,6 +960,81 @@ ParentUsed ProofRebuilder::findParentsUsed(const LitSet& leftLits, const LitSet&
 }
 
 
+
+bool ProofRebuilder::verifyPoEC(const vec<Uid>& PoEC) {
+	const LitSet emptyClause;
+	ResolValidation validation = ResolValidation(emptyClause);
+	
+	LitSet clause;
+	vec<Lit> pivots;
+	pivots.push(ctx->dummy);
+	for (auto& p : PoEC) {
+		LitSet rightClause;
+		copyClauseLits(p, rightClause);
+		try {
+			Lit piv = resolveWithOverwrite(clause, rightClause, validation);
+			if (piv != ctx->dummy) {
+				pivots.push(piv);
+				validation.pivotVars.insert(var(piv));
+			}
+		}
+		catch (ResolutionException& e) {
+	//		printf(e.what());
+	//		printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
+	//		//sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+	//		//for (Uid p : parents) {
+	//		//	sh->printClauseByUid(p, "parent " + std::to_string(p));
+	//		//}
+			throw e;
+		}
+	}
+	for (auto l : clause) {
+		if (sh->level(var(l)) > 0) 
+return false;
+	}
+	return validation.valid ;
+}
+
+
+
+bool ProofRebuilder::verifyResolNodeContent(Uid uid) {
+	assert(uid != CRef_Undef);
+	RRef rref = sh->getResolRef(uid);
+	assert(rref != CRef_Undef);
+	Resol& resol = sh->getResol(uid);
+	LitSet currentClause;
+	copyClauseLits(uid, currentClause);
+	
+
+	ResolValidation validation = ResolValidation(currentClause);
+
+	LitSet clause;
+	vec<Lit> pivots;
+	pivots.push(ctx->dummy);
+	for (auto& p : resol) {
+		LitSet rightClause;
+		copyClauseLits(p, rightClause);
+		try {
+			Lit piv = resolveWithOverwrite(clause, rightClause, validation);
+			if (piv != ctx->dummy) {
+				pivots.push(piv);
+				validation.pivotVars.insert(var(piv));
+			}
+		}
+		catch (ResolutionException& e) {
+			//		printf(e.what());
+			//		printf("%s Uid: %d pUid: %d\n", __func__, uid, p);
+			//		//sh->printClauseByUid(uid, "clause " + std::to_string(uid));
+			//		//for (Uid p : parents) {
+			//		//	sh->printClauseByUid(p, "parent " + std::to_string(p));
+			//		//}
+			throw e;
+		}
+	}
+	return validation.valid && (clause.size() == currentClause.size() && clause == currentClause);
+}
+
+
 bool ProofRebuilder::verifyResolutionProof(const vec<Uid>& PoEC) {
 	//DEBUG from here 
 	//sanity check: the resulting resolution graph is independent of the clause removed (c).
@@ -907,7 +1049,7 @@ bool ProofRebuilder::verifyResolutionProof(const vec<Uid>& PoEC) {
 	int nValidated = 0;
 	for (auto& p : PoEC) {
 		//sh->printClauseByUid(p, "new PoEC " + std::to_string(p) + " ic: " + std::to_string(ctx->isIc(p)));
-		assert(!sh->inRhombus(p));//a clause not in the original rhombus (it is independent of the clause to remove c).
+		assert(!sh->inRhombus(p));//a clause not in the original rhombus (it is independent of the removed clause c).
 		assert(!seen.has(p));//all the PoEC were built during this call,  and they should be independent of each other.
 		assert(!oldClauses.has(p));
 		clausesToCheck.push(p);

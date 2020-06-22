@@ -80,6 +80,8 @@ public:
     }
 	CRef allocClause(vec<Lit>& lits,bool learnt, bool isIc, bool hasUid);
 
+	bool verifyProof(const vec<Uid>& PoEC);
+
     Clause& GetClause(CRef ind) 
     {
         return ca[ind];
@@ -237,7 +239,15 @@ public:
 
     int       learntsize_adjust_start_confl;
     double    learntsize_adjust_inc;
-
+    enum { 
+        UnsatNormal, 
+        UnsatLevel0, // hmuc: found unsat at level 0, hence end of story.
+        UnsatNoProof // hmuc: found unsat by the fact that the removed clause 
+					// (nictoremove) was deleted at level 0 by simplify. In such 
+				    // a case we cannot build a resol. proof, we rather delete 
+				    // the current golden proof, and continue hmuc without assumptions
+				    // in the next iteration.
+    }  UnsatStatus;
 	
 
     // Statistics: (read-only member variable)
@@ -277,8 +287,6 @@ public:
 
 	Uid ProveBackboneLiteral(Uid nodeId, Lit p, UidToLitVec& pivots, UidToUid& clauseUpdates, UidToLitSet& newClauses_lits);
 
-	vec<Uid> rhombusParentOfEmptyClause;
-	//bool rhombusValid;
 		
 
 	bool CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid);

@@ -101,12 +101,6 @@ const Lit lit_Error = { -1 };  // }
 #define l_True  (lbool((uint8_t)0)) // gcc does not do constant propagation if these are real constants.
 #define l_False (lbool((uint8_t)1))
 #define l_Undef (lbool((uint8_t)2))
-#define l_FalseLevel0 (lbool((uint8_t)3)) // hmuc: found unsat at level 0, hence end of story.
-#define l_FalseNoProof (lbool((uint8_t)4)) // hmuc: found unsat by the fact that the removed clause 
-											// (nictoremove) was deleted at level 0 by simplify. In such 
-											// a case we cannot build a resol. proof, we rather delete 
-											// the current golden proof, and continue hmuc without assumptions
-											// in the next iteration.
 
 class lbool {
     uint8_t value;
@@ -150,6 +144,7 @@ typedef std::unordered_map<Uid, LitSet> UidToLitSet;
 typedef std::unordered_map<Uid, Uid> UidToUid;
 typedef std::unordered_map<Uid, bool> UidLabel;
 
+
 typedef RegionAllocator<uint32_t>::Ref CRef;
 class Clause {
     struct {
@@ -166,8 +161,10 @@ class Clause {
 		unsigned size      : 25;
 		
 	}                            header;
-    union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
 
+public:
+    union { Lit lit; float act; uint32_t abs; CRef rel; uint32_t uid; } data[0];
+private:
     static Uid nextUid;
 
     friend class ClauseAllocator;
@@ -179,7 +176,7 @@ class Clause {
         header.learnt    = learnt;
         header.ic      = ic;
 		//header.parentToIc = isParentToIc;
-		header.hasUid = ic | hasUid;// initially, a non-ic Clause wouldn't have an uid (internally), even if it's a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
+		header.hasUid = ic | hasUid;// initially, a non-ic Clause wouldn't have an uid (internally), even if it is a parent to an ic clause and appears in the resolution graph. The actual Uid for the current clause can be accessed by the CRef, through deferredUidAlloc
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
@@ -212,15 +209,15 @@ public:
 	//	header.parentToIc = isParent;
 	//	assert(!(header.parentToIc && header.ic));
 	//}
-	void printClause(std::string text) {
-		std::cout << text << std::endl;
+	void printClause(std::string text, std::ostream& f = std::cout) {
+        f << text << std::endl;
 		for (int i = 0; i < this->size(); i++) {
 			Lit l = (*this)[i];
 			int litVal = var((*this)[i]) + 1;
 			litVal = sign(l) ? -litVal : litVal;
-			std::cout << litVal << " ";
+            f << litVal << " ";
 		}
-		std::cout << "0" << std::endl;
+        f << "0" << std::endl;
 	}
 	void* getHeaderAddr() {
 		return &header;

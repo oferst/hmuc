@@ -9,7 +9,7 @@ namespace Minisat {
 	}
 
 
-	Uid RebuilderContext::getClausesUpdate(Uid oldUid) {
+	Uid RebuilderContext::getClausesUpdateUid(Uid oldUid) {
 		return clausesUpdates[oldUid];
 	}
 	void RebuilderContext::setClausesUpdate(Uid oldUid,Uid newUid) {

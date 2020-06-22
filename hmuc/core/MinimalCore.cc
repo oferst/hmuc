@@ -323,43 +323,62 @@ namespace Minisat {
 
 	}
 
-
-	void CMinimalCore::test(vec<uint32_t>& vecUnknown, Set<uint32_t>& setMuc, char* msg) {
-		{
-			printf("Testing...%s\n", msg);
-			Solver testsolver;
-			testsolver.test_mode = true;
-			vec<Lit> lits;
-			for (int i = 0; i < m_Solver.nVars(); ++i)
-				testsolver.newVar();
-			for (int i = 0; i < vecUnknown.size(); ++i) {
-				CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
-				if (ref == CRef_Undef) continue;
-				Clause& cls = m_Solver.GetClause(ref);
-				//m_Solver.printClause(stdout, cls);
-				lits.clear();
-				cls.copyTo(lits);
-				testsolver.addClause(lits);
-			}
-
-			vec<unsigned int> tmpvec;
-			setMuc.copyTo(tmpvec);
-
-			for (int i = 0; i < tmpvec.size(); ++i) {
-				CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
-				if (ref == CRef_Undef) continue;
-				Clause& cls = m_Solver.GetClause(ref);
-				lits.clear();
-				cls.copyTo(lits);
-				testsolver.addClause(lits);
-			}
-			if (testsolver.solve()) {
-				printf("did not pass test.");
-				exit(1);
-			}
-			printf("passed test...\n");
-		}
+	static int counter = 0;
+void CMinimalCore::test(vec<uint32_t>& vecUnknown, Set<uint32_t>& setMuc, char* msg) {
+	printf("Testing...%s\n", msg);
+	Solver testsolver;
+	testsolver.test_now = true;
+	Uid backupUid = Clause::GetNextUid();
+	Clause::SetNextUid(0);
+	testsolver.pf_mode = 0;
+	testsolver.blm_rebuild_proof = false;
+	testsolver.test_mode = true;
+	vec<Lit> lits;
+	for (int i = 0; i < m_Solver.nVars(); ++i)
+		testsolver.newVar();
+	
+	for (int i = 0; i < vecUnknown.size(); ++i) {
+		//myfile << "Test added uid: " << vecUnknown[i] << endl;
+		CRef ref = m_Solver.GetClauseIndFromUid(vecUnknown[i]);
+		if (ref == CRef_Undef) continue;
+		Clause& cls = m_Solver.GetClause(ref);
+		//cls.printClause("Unknown cls uid:  " + std::to_string(vecUnknown[i]));
+		//m_Solver.printClause(stdout, cls);
+		lits.clear();
+		cls.copyTo(lits);
+		//cls.printClause(to_string(vecUnknown[i]), myfile);
+		testsolver.addClause(lits);
 	}
+	vec<unsigned int> tmpvec;
+	setMuc.copyTo(tmpvec);
+	//myfile << "Test adding setMuc" << endl;
+	for (int i = 0; i < tmpvec.size(); ++i) {
+
+		CRef ref = m_Solver.GetClauseIndFromUid(tmpvec[i]);
+		if (ref == CRef_Undef) continue;
+		Clause& cls = m_Solver.GetClause(ref);
+
+		lits.clear();
+		cls.copyTo(lits);
+		//cls.printClause(to_string(tmpvec[i]), myfile);
+		testsolver.addClause(lits);
+		
+	}
+	//myfile.close();
+	if (testsolver.solve()) {
+		printf("did not pass test.");
+		printf("Current model:\n");
+		for (int i = 0; i < testsolver.nVars(); i++)
+			if (testsolver.model[i] != l_Undef)
+				printf("%s%s%d", (i == 0) ? "" : " ", (testsolver.model[i] == l_True) ? "" : "-", i + 1);
+		printf(" 0\n");
+
+		
+		exit(1);
+	}
+	Clause::SetNextUid(backupUid);
+	printf("passed test...\n");
+}
 	bool CMinimalCore::test(std::unordered_set<Uid>& core, char* msg) {
 		Solver testsolver;
 		testsolver.test_mode = true;
@@ -443,12 +462,12 @@ namespace Minisat {
 			}
 
 #pragma region UNSAT_case
-			if (result == l_FalseLevel0) {
+			if (result == l_False && m_Solver.UnsatStatus == m_Solver.UnsatLevel0) {
 				vecNextUnknown.clear();
 				goto end;
 			}
-			if (result == l_False || result == l_FalseNoProof) {
-				if (result == l_False && m_Solver.validProof && 
+			if (result == l_False) {
+				if (m_Solver.UnsatStatus == m_Solver.UnsatNormal && m_Solver.validProof && // TODO: check proofrebuilder maintains validProof.
 					(!m_Solver.m_bUnsatByPathFalsification || m_Solver.isRebuildingProof())) {
 					//The normal case where we have a new proof of UNSAT from 
 					//the solver.
@@ -460,6 +479,7 @@ namespace Minisat {
 					rhombus.clear();
 					currIcCore.clear();
 					nonIcRhombus.clear();
+
 					m_Solver.GetUnsatCore(currIcCore, rhombus, nonIcRhombus, false, m_nICSize);
 
 					//For each clause in ic core check whether it's not already 
@@ -473,6 +493,7 @@ namespace Minisat {
 
 						}
 						assert(uid <= m_nICSize);
+						assert(!setMuc.has(uid));
 						if (!setMuc.has(uid)) {
 							assert(m_Solver.resolGraph.GetResol(m_Solver.resolGraph.GetResolRef(uid)).header.ic);
 							vecNextUnknown.push(uid);
@@ -496,7 +517,11 @@ namespace Minisat {
 					vecNextUnknown.removeDuplicated_(); // see why we need it sorted and without duplicates below. 
 
 					PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat");
+					//test(vecNextUnknown, setMuc, "end UNSAT iter setMuc+vecNextUnknown UNSAT test");
+					
 
+
+					
 					//if (m_Solver.test_result) test(vecNextUnknown, setMuc, "normal unsat");
 
 
@@ -546,7 +571,7 @@ namespace Minisat {
 				}
 				else {  // unsat, but contradiction was discovered when the assumptions were added (and opt_blm_rebuild_proof = false).
 					if (m_Solver.verbosity == 1) {
-						if (result == l_FalseNoProof)
+						if (m_Solver.UnsatStatus == m_Solver.UnsatNoProof)
 							printf("UNSAT without proof, due to simplification.\n");
 						else
 							printf("UNSAT (by assumptions)\n");
@@ -558,16 +583,17 @@ namespace Minisat {
 					vecUidsToRemove.push(nIcForRemove);
 					m_Solver.RemoveClauses(vecUidsToRemove);
 
-					if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
-						test(vecNextUnknown, setMuc, "unsat by assumptions");
+					//if (m_Solver.test_result && m_Solver.test_now) // test_now is used for debugging. Set it near suspicious locations
+					//	test(vecNextUnknown, setMuc, "unsat by assumptions");
 					m_Solver.test_now = false;
 
-					if (result == l_FalseNoProof) 
+					if (m_Solver.UnsatStatus == m_Solver.UnsatNoProof) 
 						PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - false-no-proof");
 					else {
 						// we get only if we do not rebuild the proof
 						PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "unsat - blm assumption");
 					}
+					//test(vecNextUnknown, setMuc, "end iter setMuc+vecNextUnknown UNSAT test");
 				}
 			}
 #pragma endregion
@@ -663,9 +689,10 @@ namespace Minisat {
 				}
 #pragma endregion
 				vecCurrentUnknown.swap(vecNextUnknown);
-
+				
 				PrintData(vecNextUnknown.size(), setMuc.elems(), nIteration, "sat");
-
+				//test(vecNextUnknown, setMuc, "end Rotation iter setMuc+vecNextUnknown UNSAT test");
+				
 			}
 #pragma endregion
 
@@ -757,9 +784,11 @@ namespace Minisat {
 					double before_time = cpuTime();
 					int addLiterals = m_Solver.PF_get_assumptions(nIcForRemove, cr);
 					//if (m_Solver.verbosity == 1) 
-					printf("(between iterations) assumption literals = %d\n", addLiterals);
+					//printf("(between iterations) assumption literals = %d\n", addLiterals);
 					m_Solver.pf_Literals += addLiterals;
 					m_Solver.time_for_pf += (cpuTime() - before_time);
+
+
 				}
 				else m_Solver.LiteralsFromPathFalsification.clear(); // lpf_inprocess needs this, because it might compute this set in a previous iteration. Note that lpf_inprocess is not activated if !m_bConeRelevant		
 			}
@@ -776,9 +805,9 @@ namespace Minisat {
 			// removes cone(nIcForRemove);
 			//After this line, vecUidsToRemove contains all clauses that were unbounded from the formula
 
-			if (m_Solver.isRebuildingProof()) {
-				m_Solver.unbindedCone.clear();
-				m_Solver.UnbindClauses(vecUidsToRemove, m_Solver.unbindedCone);
+			if (m_Solver.validProof && m_Solver.isRebuildingProof()) {
+				m_Solver.unbindedCone.clear();				
+				m_Solver.UnbindClauses(vecUidsToRemove, m_Solver.unbindedCone);				
 			}
 			else {
 				m_Solver.UnbindClauses(vecUidsToRemove);
@@ -786,8 +815,6 @@ namespace Minisat {
 			vecCurrentUnknown.swap(vecNextUnknown);
 			vecNextUnknown.clear();
 			m_Solver.nICtoRemove = nIcForRemove;
-
-
 
 			if (exitIter > 0 && nIteration == exitIter - 1)
 				m_Solver.verbosity = -1;
@@ -836,12 +863,11 @@ namespace Minisat {
 				bool isSat = test(partialCore, "isSat?");
 				if (!isSat) {
 					printf("Core is not minimal! test number %d\n", i);
-					//exit(1);
+					exit(1);
 				}
 				++i;
 			}
 			printf("Core is minimal!\n");
-
 		}
 
 
@@ -867,8 +893,7 @@ namespace Minisat {
 			}
 			printf("0\n");
 		}
-#pragma endregion
-		if (result == l_FalseLevel0 || result == l_FalseNoProof) result = l_False;
+#pragma endregion		
 		return result;
 	}
 

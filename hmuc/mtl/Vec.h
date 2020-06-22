@@ -41,6 +41,8 @@ namespace Minisat {
 
 template<class T>
 class vec {
+	//Todo: delete 'public'
+public:
     T*  data;
     int sz;
     int cap;

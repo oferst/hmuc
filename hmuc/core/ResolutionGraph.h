@@ -369,15 +369,22 @@ public:
     void AddNewResolution(uint32_t nNewClauseId, CRef ref, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
 	void AddRemainderResolution(uint32_t nNewClauseId, CRef ref);
 	void reallocRemainderResolution(Uid nUid);
+	Uid allocConstUnitResol(Lit l);
+
 	//Set<uint32_t> temp_ics;
 	void updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
     void UpdateClauseRef(uint32_t nUid, CRef newRef) {
-	
         assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
         assert(m_UidToData[nUid].m_ClauseRef != CRef_Undef);
 		m_UidToData[nUid].m_ClauseRef = newRef;
     }
-	void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
+	void UpdateResolRef(uint32_t nUid, RRef newRef) {
+
+		assert(m_UidToData[nUid].m_ResolRef != CRef_Undef);
+		assert(newRef != CRef_Undef);
+		m_UidToData[nUid].m_ResolRef = newRef;
+	}
+	//void realocExistingResolution(Uid oldUid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents);
     CRef GetClauseRef(uint32_t nUid) const {// formerly 'GetInd'
 		return m_UidToData[nUid].m_ClauseRef;
     }
@@ -397,8 +404,10 @@ public:
 	void GetClausesCones(vec<uint32_t>& cone,std::unordered_set<Uid>& coneSet);
     void CheckGarbage()
     {
-        if (m_RA.wasted() > m_RA.size() * 0.3)
-            Shrink();
+		//TODO: We need to re-activate shrinkiing. Clauses who were re-allocated to the end of the Resol data arrey (due to requiring more space) could be moved back to their original ordering, in which case they can overwrite some bytes of the following clause.
+   //     if (m_RA.wasted() > m_RA.size() * 0.3)te
+   //        
+			//Shrink();
     }
 
     int GetParentsNumber(uint32_t nUid)
@@ -407,7 +416,7 @@ public:
     }
 
     void AddNewRemainderUidsFromCone(Set<uint32_t>& good, vec<uint32_t>& start);
-
+	
     void GetTillMultiChild(uint32_t nStartUid, vec<uint32_t>& uniquePath);
 
     bool ValidUid(uint32_t uid)
@@ -437,9 +446,11 @@ public:
     };
     // Map that contains mapping between an clause uid to its ind in clause buffer
     vec<Pair> m_UidToData;
+	
 
 private:
     void DecreaseReference(uint32_t nUid);
+
 
     void Shrink();
 

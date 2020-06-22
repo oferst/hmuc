@@ -33,7 +33,16 @@ namespace Minisat {
 template<class K, class H = Hash<K>, class E = Equal<K> >
 class Set {
  public:
-
+     void printContent() {
+         for (int i = 0; i < bucket_count(); ++i)
+             for (int j = 0; j < bucket(i).size(); ++j)
+                 cout << bucket(i)[j] << endl;
+     }
+	 void printContent(std::ofstream& fout) {
+		 for (int i = 0; i < bucket_count(); ++i)
+			 for (int j = 0; j < bucket(i).size(); ++j)
+				 fout << bucket(i)[j] << endl;
+	 }
  private:
     H          hash;
     E          equals;

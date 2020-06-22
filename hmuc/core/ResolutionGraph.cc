@@ -10,29 +10,29 @@ namespace Minisat
 
 int Resol::debug_resol = 0;
 //allocates a new Resol for an existing clause (reprs. by it's uid), without changing it's uid. Deletes the old Resol fro, the system. 
-void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
-	auto& oldPair = m_UidToData[uid];
-	RRef oldRRef = oldPair.m_ResolRef;
-	Resol& oldResol = m_RA[uid];
-	RRef newRRef;
-	if (icParents.size() > 0) {
-		newRRef = m_RA.alloc(icParents, remParents, allParents, true);
-	}
-	else {
-		vec<Uid> dummyParents;
-		newRRef = m_RA.alloc(dummyParents, dummyParents, dummyParents, false);
-	}
-	assert(oldRRef != newRRef);
-	m_RA.free(oldRRef);
-	oldPair.m_ResolRef = newRRef;
-}
+//void CResolutionGraph::realocExistingResolution(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+//	auto& oldPair = m_UidToData[uid];
+//	RRef oldRRef = oldPair.m_ResolRef;
+//	Resol& oldResol = m_RA[uid];
+//	RRef newRRef;
+//	if (icParents.size() > 0) {
+//		newRRef = m_RA.alloc(icParents, remParents, allParents, true);
+//	}
+//	else {
+//		vec<Uid> dummyParents;
+//		newRRef = m_RA.alloc(dummyParents, dummyParents, dummyParents, false);
+//	}
+//	assert(oldRRef != newRRef);
+//	m_RA.free(oldRRef);
+//	oldPair.m_ResolRef = newRRef;
+//}
 
 void CResolutionGraph::AddNewResolution
     (Uid nNewClauseUid, CRef ref, const vec<Uid>& icParents, const vec<Uid>& nonIcParents, const vec<Uid>& allParents){
 	m_UidToData.growTo(nNewClauseUid + 1);
 	RRef refResol = m_RA.alloc(icParents, nonIcParents, allParents, true);
 
-    // increase reference count for all the icparents
+	// increase reference count for all the icparents
 	if (nonIcParents.size() > 0) { //this is true only when allowing for parents to ic who are not themselves ic
 		for (int nInd = 0; nInd < allParents.size(); ++nInd) {
 			Uid pUid = allParents[nInd];
@@ -43,7 +43,6 @@ void CResolutionGraph::AddNewResolution
 			++res.header.m_nRefCount;
 			res.m_Children.push(nNewClauseUid);
 		}
-
 	}
 
 	//the original code for creating a new resol node.
@@ -51,10 +50,12 @@ void CResolutionGraph::AddNewResolution
 	//easy regression testing
 	else {
 		for (int nInd = 0; nInd < icParents.size(); ++nInd) {
-			RRef resRef = GetResolRef(icParents[nInd]);
+			Uid pUid = icParents[nInd];
+			RRef resRef = GetResolRef(pUid);
 			if (resRef == CRef_Undef)
 				continue;
 			Resol& res = GetResol(resRef);
+
 			++res.header.m_nRefCount;
 			res.m_Children.push(nNewClauseUid);
 		}
@@ -111,7 +112,7 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 
 			for (int i = 0; i < res.nonIcParentsSize(); ++i) {
 				Uid pUid = parents[i];
-				
+
 				DecreaseReference(pUid);
 				RRef rref = GetResolRef(pUid);
 
@@ -135,6 +136,18 @@ void CResolutionGraph::DecreaseReference(uint32_t nUid){
 	
 }
 
+Uid CResolutionGraph::allocConstUnitResol(Lit l) {
+	Uid newUid = Clause::GetNextUid();
+	AddRemainderResolution(newUid, CRef_Undef);
+	Clause::SetNextUid(newUid + 1);
+	assert(icDelayedRemoval.find(newUid) == icDelayedRemoval.end());
+	vec<Lit>* litVec = new vec<Lit>();
+	litVec->push(l);
+	icDelayedRemoval[newUid] = litVec;
+	return newUid;
+}
+
+
 void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalClauses, Set<Uid>& rhombus,bool debug,int maxCoreUid, ostream& out,std::string msg_prefix)
 {
 	//if (nUid > GetNextAvailableUid())
@@ -154,10 +167,18 @@ void CResolutionGraph::GetOriginalParentsUids(Uid nUid, vec<Uid>& allIcOriginalC
     }
     uint32_t* icParents = resol.IcParents();
     for (int i = 0; i < icParentsSize; ++i) {
-		assert(GetResol(GetResolRef(icParents[i])).header.ic);
+
+		//In rebuildProof the resolution graph keeps node p that is not ic when it has a child q that is ic
+		//(i.e. there is another parent p1 that is ic). In this case we can still visit p, but we 
+		//cut off the search when we recognize it isn't ic.
+		if(!GetResol(GetResolRef(icParents[i])).header.ic)
+			continue;
+
+		
 		//if (icParents[i] > GetNextAvailableUid())
 		//	throw ResolutionException(("icParents[i] " + std::to_string(icParents[i]) + " larger than MaxUid " + std::to_string(GetNextAvailableUid())).c_str());		
         if (rhombus.insert(icParents[i])){
+			//cout << nUid << "<=" << icParents[i] << endl;
 			GetOriginalParentsUids(icParents[i], allIcOriginalClauses, rhombus, debug, maxCoreUid,out,msg_prefix);
 		}
      }
@@ -223,7 +244,6 @@ void CResolutionGraph::Shrink()
     int nSize = m_UidToData.size();
     m_RA.StartReloc();
 	for (int nUid = 0; nUid < nSize; ++nUid) {
-		
 		uint32_t prevNumOfIcParents, prevNumOfNonIcParents, newNumOfIcParents, newNumOfNonIcParents;
 		if (m_UidToData[nUid].m_ResolRef != RRef_Undef) {
 			prevNumOfIcParents = m_RA[m_UidToData[nUid].m_ResolRef].icParentsSize();
@@ -234,12 +254,12 @@ void CResolutionGraph::Shrink()
 
 			newNumOfIcParents = m_RA[m_UidToData[nUid].m_ResolRef].icParentsSize();
 			newNumOfNonIcParents = m_RA[m_UidToData[nUid].m_ResolRef].nonIcParentsSize();
-			if (prevNumOfIcParents != newNumOfIcParents) {
-				printf("%d num of ic parents changed from %d to %d\n", nUid, prevNumOfIcParents, newNumOfIcParents);
-			}
-			if (prevNumOfNonIcParents != newNumOfNonIcParents) {
-				printf("%d num of nonic parents changed from %d to %d\n", nUid, prevNumOfNonIcParents, newNumOfNonIcParents);
-			}
+			//if (prevNumOfIcParents != newNumOfIcParents) {
+			//	printf("%d num of ic parents changed from %d to %d\n", nUid, prevNumOfIcParents, newNumOfIcParents);
+			//}
+			//if (prevNumOfNonIcParents != newNumOfNonIcParents) {
+			//	printf("%d num of nonic parents changed from %d to %d\n", nUid, prevNumOfNonIcParents, newNumOfNonIcParents);
+			//}
 		}
 
 
@@ -315,10 +335,28 @@ void CResolutionGraph::AddNewRemainderUidsFromCone(Set<uint32_t>& NewRemainders,
 	}
 }
 	void CResolutionGraph::updateParentsOrder(Uid uid, const vec<Uid>& icParents, const vec<Uid>& remParents, const vec<Uid>& allParents) {
+		//if (uid == 5364) {
+		//	cout << "5364 updateParentsOrder" << endl;
+		//}
+		
 		assert(CRef_Undef != uid);
-		RRef rRef = m_UidToData[uid].m_ResolRef;
+		RRef rRef = GetResolRef(uid);
 		assert(CRef_Undef != rRef);
-		m_RA.updateAllocated(rRef, icParents, remParents, allParents);
+		Resol& res = GetResol(rRef);
+
+		if (res.nonIcParentsSize() == 0 && remParents.size() > 0) {
+			int nRefCount = res.header.m_nRefCount;
+
+			RRef refResol = m_RA.alloc(icParents, remParents, allParents, true);
+			assert(refResol != CRef_Undef);
+
+			Resol& newRes = GetResol(refResol);
+			newRes.header.m_nRefCount = nRefCount;
+			UpdateResolRef(uid, refResol);
+		}
+		else {
+			m_RA.updateAllocated(rRef, icParents, remParents, allParents);
+		}
 	}
 
 }

@@ -141,6 +141,7 @@ Solver::Solver() :
 
   , nICtoRemove (0)
   , delayedAllocator(DelayedResolGraphAlloc(&resolGraph,nonIcUidDeferredAlloc))
+	, UnsatStatus(UnsatNormal)
 
 {
 	Solver::debug_flag = 0;
@@ -157,9 +158,10 @@ Solver::~Solver()
 // Minor methods:
 
 
-bool Solver::isRebuildingProof() {
-	return  (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof&& validProof;
+inline bool Solver::isRebuildingProof() {
+	return  (opt_pf_mode == lpf_inprocess || opt_pf_mode == lpf) && blm_rebuild_proof;
 }
+
 bool Solver::hasUid(CRef cref, Uid& outUid) {
 
 	if (CRef_Undef == cref) {
@@ -291,10 +293,11 @@ void Solver::removeClause(CRef cr) {
 
 	c.mark(1);
 	assert(isRebuildingProof() || nonIcUidDeferredAlloc.size() == 0);
-	if (isRebuildingProof() && hasUid(cr,uid)) {
+	if (isRebuildingProof() && uid != CRef_Undef) {
 		if(!c.ic() && !c.hasUid())
 			nonIcUidDeferredAlloc.erase(cr);
-		if (CRef_Undef != resolGraph.GetResolRef(uid)) {
+		RRef rref = resolGraph.GetResolRef(uid);
+		if (CRef_Undef != rref) {
 			//The clause wasn't deleted from the graph in 'deleteClause' above (it's refCount was positive)
 			//we have to keep the clause info - without interfering with the ClauseAllocator
 			auto& icDelayed = resolGraph.icDelayedRemoval;
@@ -681,7 +684,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict, vec<uint32_t>& out_icPa
     if (decisionLevel() == 0)
         return;
     seen[var(p)] = 1;
-	int cutoffLevel = (int)(!isRebuildingProof()); // level 1 if we don't need to rebuild a proof, 0 otherwise (we need the conflict reasons from level 0)
+	const int cutoffLevel = (int)(!isRebuildingProof()); // level 1 if we don't need to rebuild a proof, 0 otherwise (we need the conflict reasons from level 0)
 	Uid nextUid = Clause::GetNextUid();
 	delayedAllocator.clear();
 	for (int i = trail.size()-1; i >= trail_lim[cutoffLevel]; i--) {
@@ -1068,7 +1071,7 @@ bool Solver::pf_early_unsat_terminate() { // default is true
 |________________________________________________________________________________________________@*/
 lbool Solver::search(int nof_conflicts)
 {
-
+	int iter_count = 0;
     assert(ok);
     int         backtrack_level;
     int         conflictC = 0;
@@ -1091,7 +1094,6 @@ lbool Solver::search(int nof_conflicts)
 		}
 
 #pragma region dec_level_0
-
 		
 		if (decisionLevel() == 0) {
             // SimnonIcParentsplify the set of problem clauses:
@@ -1101,7 +1103,8 @@ lbool Solver::search(int nof_conflicts)
 				// one more call to getUnsatcore which uses it.
 				//icPoEC.clear(); // hack. 
 
-                return l_FalseLevel0;
+				UnsatStatus = UnsatLevel0;
+				return l_False;
             }			
 			if (!test_mode && !pf_zombie && resolGraph.GetClauseRef(nICtoRemove) == CRef_Undef) { // this can happen if simplify removes the clause at level 0; 
 				
@@ -1110,7 +1113,8 @@ lbool Solver::search(int nof_conflicts)
 					icPoEC.clear(); 
 					allPoEC.clear();
 					validProof = false;
-					return l_FalseNoProof;
+					UnsatStatus = UnsatNoProof;
+					return l_False;					
 				}
 			}
 			// for lpf_inprocess. Note that we check it at level 0 (rather than 1) just because of proof rebuilding 
@@ -1132,7 +1136,9 @@ lbool Solver::search(int nof_conflicts)
 					icPoEC.clear();
 					allPoEC.clear();
 					validProof = false;
-					return l_FalseLevel0; // if we'll go back to doing this at level 1, then this should be: l_FalseNoProof; // early termination
+					UnsatStatus = UnsatLevel0; // if we'll go back to doing this at level 1, then this should be: l_FalseNoProof; // early termination
+					return l_False;
+					 
 				}
 			}
 
@@ -1182,12 +1188,14 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 1) { // a core based on interesting constraints. 
 				findConflictICReasons(confl);
+				UnsatStatus = UnsatNormal;
                 return l_False;
             }
 
             if (decisionLevel() == 0) // a core without interesting constraints (only remainder clauses, which are those clauses that were already marked as being in the core); in the next step the core will be empty, so the process should terminate.
             {
-                return l_FalseLevel0;
+				UnsatStatus = UnsatLevel0;
+				return l_False;                
             }
 
             learnt_clause.clear();
@@ -1324,6 +1332,7 @@ lbool Solver::search(int nof_conflicts)
 						m_bUnsatByPathFalsification = true;
 						nUnsatByPF++;
 						m_bConeRelevant = false;
+						UnsatStatus = UnsatNormal;
 						return l_False;
 					}
 				}
@@ -1355,8 +1364,8 @@ lbool Solver::search(int nof_conflicts)
 					//to a contradiction by themselves, 
 					//i.e. ~currBL is part of the current assignment, 
 					//and is implied by some other backbones. 
-						if (isRebuildingProof()) {
-							cancelUntil(0); // we need this before rebuilding, because we query level-0 constants. 
+						if (validProof && isRebuildingProof()) {
+							//cancelUntil(0); // we need this before rebuilding, because we query level-0 constants. 
 							m_bUnsatByPathFalsification = true;
 							SolverHandle sh = SolverHandle(this);
 							RebuilderContext ctx;
@@ -1366,16 +1375,30 @@ lbool Solver::search(int nof_conflicts)
 
 							double before_time = cpuTime();							
 
+
+
+
 							pr.RebuildProof(currBL,allPoEC, new_allPoEC, new_icPoEC);
 							
+
 							time_for_pr += (cpuTime() - before_time);
+
+							if (new_icPoEC.size() == 0) {
+								UnsatStatus = UnsatLevel0;
+								return l_False;	 //if rebuilding didn't find any ic parents of the empty clasue, then we found an unsat proof that relies only on clauses that are known to be in the muc, which means that the current muc is final (we can do an early cutoff). 
+							}
+
 							updatePoEC(allPoEC, new_allPoEC);
 							replaceVecContent(allPoEC, new_allPoEC);
 							replaceVecContent(icPoEC, new_icPoEC);
+
+
 							nUnsatByPF++;
+							UnsatStatus = UnsatNormal;
 							return l_False;	
 						}
 						else if (pf_early_unsat_terminate()){ 
+							UnsatStatus = UnsatNormal;
 							return l_False;
 						}
 						else break;
@@ -1476,8 +1499,10 @@ bool Solver::lpf_compute_inprocess() {
 			return false;
 		}
 	}
-	pf_Literals += (addLiterals - old_falsified_literals);								
-	
+	pf_Literals += (addLiterals - old_falsified_literals);
+
+
+
 	return true;
 }
 
@@ -1838,7 +1863,7 @@ void Solver::updatePoEC(vec<Uid>& prevPoEC, vec<Uid>& nextPoEC) {
 		RRef rref = resolGraph.GetResolRef(uid);
 		assert(rref != RRef_Undef);
 		Resol& resol = resolGraph.GetResol(rref);
-		assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
+		//assert(resolGraph.GetClauseRef(uid) != CRef_Undef);
 		resol.header.m_nRefCount +=2 ; //we increment the refCount here because we consider the empty clause as a child node for the current clause (even though empty clause has no representation in the graph)		
 	}
 
@@ -2018,6 +2043,14 @@ void Solver::BindClauses(vec<uint32_t>& cone, uint32_t startUid) {
             c.mark(0);
             if ((opt_bind_as_orig == 1 && resolGraph.GetParentsNumber(uid) == 0) ||
                 (opt_bind_as_orig == 2 && setGood.has(uid))) { // we now remove the clause and then rebuild and add it back as a remainder.
+				if (isRebuildingProof()) {
+					RRef rref = resolGraph.GetResolRef(uid);
+					if (CRef_Undef != rref) {
+						resolGraph.GetResol(rref).header.ic = 0;
+						//cout << "uid " << uid << " now not ic in the graph" << endl;
+					}
+				}
+				
 				if (resolGraph.GetParentsNumber(uid) == 0) {
 					c.mark(2);
 				}
@@ -2089,6 +2122,14 @@ void Solver::GroupBindClauses(vec<uint32_t>& UidsToBind)
             {
                 continue;  // not in setGood, hence it has to stay an IC clause; nothing to do. 
             }
+
+			if(isRebuildingProof()){
+				RRef rref = resolGraph.GetResolRef(uid);
+				if (CRef_Undef != rref) {
+					resolGraph.GetResol(rref).header.ic = 0;
+					//cout << "uid " << uid << " now not ic in the graph" << endl;
+				}
+			}
 			// we remove the clause, and later we will re-add it as a remainder, possibly shrinked. 
             if (resolGraph.GetParentsNumber(uid) == 0) {// original clause
             
@@ -2250,7 +2291,7 @@ int Solver::calculateDecisionLevels(vec<Lit>& cls)
 int Solver::PF_get_assumptions(uint32_t uid, CRef cr) // Returns the number of literals in the falsified clause. 
 {	
 	LiteralsFromPathFalsification.clear();
-	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (m_bConeRelevant || isRebuildingProof())
+	if ((opt_pf_mode == lpf || opt_pf_mode == lpf_inprocess) && (m_bConeRelevant || (validProof && isRebuildingProof()))
 		&& !lpf_delay) {
 		LPF_get_assumptions(uid, LiteralsFromPathFalsification);
 	
@@ -2317,11 +2358,7 @@ bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) {
 	while (!q.empty()) {	
 		if (opt_lpf_cutoff) {	
 			maxQ = std::max((int)q.size(), maxQ);
-			if (maxQ > 500) {
-				rhombusParentOfEmptyClause.clear();
-				rhombusParentOfEmptyClause.push(uid);
-				//printf("maxQ %d\n", maxQ);
-				//rhombusValid = false;
+			if (maxQ > 500) {//TODO: Proof reconstruction should reflect the cutoff here (in the future)
 				return false;  // magic cutoff number
 			}
 		}
@@ -2339,10 +2376,7 @@ bool Solver::CountParents(Map<uint32_t,uint32_t>& mapRealParents,uint32_t uid) {
 			if ((pf_mode == lpf_inprocess) && (childCRef != CRef_Undef) &&  
 				satisfied(ca[childCRef])) 
 				continue;
-			if (first && opt_lpf_cutoff && ++initialSpan > 400) {
-				//printf("first %d opt_lpf_cutoff %d initialSpan %d\n", first, opt_lpf_cutoff, initialSpan);
-				rhombusParentOfEmptyClause.clear();
-				rhombusParentOfEmptyClause.push(uid);
+			if (first && opt_lpf_cutoff && ++initialSpan > 400) {//TODO: Proof reconstruction should reflect the cutoff here (in the future)
 				return false;  // magic cutoff number
 			}
 			if (mapRealParents.has(r.m_Children[m])) 
@@ -2716,17 +2750,10 @@ void Solver::LPF_get_assumptions(
 	// we now intersect the Tclause-s of the allParentsCRef of the empty clause	
 	vec<Lit> tmp, res;
 	bool first = true;
-	rhombusParentOfEmptyClause.clear();
 	for (int i = 0; i < icPoEC.size(); ++i) {
 		uint32_t uid = icPoEC[i];
 		if (map_cls_to_Tclause.find(uid)== map_cls_to_Tclause.end())
 			continue; // only those that have T-clause are actual allParentsCRef of the empty clause in rhombus(cr). 		
-		
-		//int idx = ic_parents_of_empty_clause[i];
-		if (isRebuildingProof()) {
-			//printf("%d rhombus parent of empty\n", uidClauseToUpdate);
-			rhombusParentOfEmptyClause.push(uid);
-		}
 		vec<Lit>&  S = *map_cls_to_Tclause[uid];
 		if (first) {
 			S.swap(res);
@@ -2788,6 +2815,14 @@ CRef Solver::allocClause(vec<Lit>& lits,bool learnt, bool isIc=false, bool hasUi
 	}
 	return cr;
 
+}
+
+bool Solver::verifyProof(const vec<Uid>& PoEC) {
+	//SolverHandle sh = SolverHandle(this);
+	//RebuilderContext ctx;
+	//ProofRebuilder pr = ProofRebuilder(&sh, &ctx);
+	return false;
+	
 }
 
 
